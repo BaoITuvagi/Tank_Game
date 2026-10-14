@@ -1,0 +1,57 @@
+# Normalize source and configuration files across platforms.
+* text=auto eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+*.cs text diff=csharp
+*.java text diff=java
+*.py text
+*.json text
+*.xml text
+*.properties text
+*.sql text
+*.md text
+*.txt text
+*.tsv text
+*.yaml text
+*.yml text
+*.asmdef text
+*.asmref text
+
+# Windows scripts use CRLF in the working tree.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh text eol=lf
+
+# Unity uses Force Text serialization; retain all asset GUID files.
+*.meta text
+*.unity text
+*.prefab text
+*.asset text
+*.mat text
+*.controller text
+*.anim text
+
+# Binary assets must never receive line-ending conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.psd binary
+*.tga binary
+*.dds binary
+*.fbx binary
+*.blend binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.mp4 binary
+*.ttf binary
+*.otf binary
+*.dll binary
+*.exe binary
+*.jar binary
+*.zip binary
+*.7z binary
+*.pdf binary

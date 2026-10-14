@@ -1,0 +1,1 @@
+{"name":"Tank.Tests","references":["Tank.Runtime"],"includePlatforms":["Editor"],"optionalUnityReferences":["TestAssemblies"]}

@@ -1,0 +1,307 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+namespace Tank  {
+    // Presentation only: all positions, HP and obstacle bounds come from the existing world.
+    public sealed class ArenaRenderer  {
+        public const float TankSize = CombatGeometry.TankSize;
+        static readonly Color Ink = new Color(.055f,.085f,.105f), Green = new Color(.24f,.9f,.46f);
+        readonly Dictionary<string,Texture2D> art = new Dictionary<string,Texture2D>();
+        readonly Dictionary<int,float> health = new Dictionary<int,float>();
+        readonly Texture2D[] brick = new Texture2D[5];
+        GUIStyle small, hpText, heading, body, timer, section;
+        float x,y,scale,mapHeight;
+        float VisualSize  {
+            get {
+                return TankSize;
+            }
+        }
+        Texture2D Art(string name)  {
+            Texture2D texture;
+            if(!art.TryGetValue(name,out texture))  {
+                texture=Resources.Load<Texture2D>("ArenaArt/"+name);
+                if(texture==null)Debug.LogError("Missing arena asset: "+name);
+                art[name]=texture;
+            }
+            return texture;
+        }
+        void Styles()  {
+            if(small!=null)return;
+            small=new GUIStyle(GUI.skin.label) {
+                fontSize=11,fontStyle=FontStyle.Bold,alignment=TextAnchor.MiddleCenter
+            };
+            small.normal.textColor=new Color(.82f,.89f,.9f);
+            hpText=new GUIStyle(small) {
+                fontSize=10,padding=new RectOffset(0,0,0,0),margin=new RectOffset(0,0,0,0)
+            };
+            hpText.normal.textColor=Color.white;
+            heading=new GUIStyle(GUI.skin.label) {
+                fontSize=19,fontStyle=FontStyle.Bold
+            };
+            heading.normal.textColor=Color.white;
+            body=new GUIStyle(GUI.skin.label) {
+                fontSize=13,wordWrap=true
+            };
+            body.normal.textColor=new Color(.69f,.77f,.79f);
+            timer=new GUIStyle(heading) {
+                fontSize=34
+            };
+            section=new GUIStyle(small) {
+                alignment=TextAnchor.MiddleLeft
+            };
+        }
+        public static void Fill(Rect r,Color color)  {
+            GUI.color=color;
+            GUI.DrawTexture(r,Texture2D.whiteTexture);
+            GUI.color=Color.white;
+        }
+        static Rect Inset(Rect r,float n) {
+            return new Rect(r.x+n,r.y+n,r.width-2*n,r.height-2*n);
+        }
+        Rect World(float wx,float wy,float w,float h) {
+            return new Rect(x+wx*scale,y+(mapHeight-wy-h)*scale,w*scale,h*scale);
+        }
+        void Image(Rect r,string name,Color tint) {
+            GUI.color=tint;
+            var texture=Art(name);
+            if(texture!=null) {
+                Rect pixels=Rect.MinMaxRect(Mathf.Floor(r.x),Mathf.Floor(r.y),Mathf.Ceil(r.xMax),Mathf.Ceil(r.yMax));
+                GUI.DrawTexture(pixels,texture,ScaleMode.StretchToFill);
+            }
+            GUI.color=Color.white;
+        }
+        void Shadow(Rect r) {
+            Fill(new Rect(r.x+2,r.y+3,r.width,r.height),new Color(0,0,0,.28f));
+        }
+        public void Draw(GameMap map,WorldState rendered,WorldState latest,uint tick,int localSlot,float arenaX,float arenaY,float unitScale)  {
+            Styles();
+            x=arenaX;
+            y=arenaY;
+            scale=unitScale;
+            mapHeight=map.height;
+            var bounds=World(0,0,map.width,map.height);
+            Shadow(new Rect(bounds.x-7,bounds.y-7,bounds.width+14,bounds.height+14));
+            Fill(new Rect(bounds.x-6,bounds.y-6,bounds.width+12,bounds.height+12),new Color(.2f,.27f,.28f));
+            int rows=Mathf.CeilToInt(map.height/4),cols=Mathf.CeilToInt(map.width/4),middle=cols/2;
+            for(int row=0;row<rows;row++)for(int col=0;col<cols;col++)  {
+                bool sand=col>=middle-1&&col<=middle+1;
+                string ground=(sand?"tileSand":"tileGrass")+((row*7+col*3)%5==0?"2":"1");
+                if(col==middle-2)ground="tileGrass_transitionE";
+                if(col==middle+2)ground="tileGrass_transitionW";
+                Image(World(col*4,row*4,4,4),ground,sand?new Color(.88f,.89f,.79f):new Color(.69f,.76f,.62f));
+            }
+            // Decorative perimeter service road; terrain speed still uses map.water only.
+            for(int row=1;row<=rows-2;row++)for(int col=1;col<=cols-2;col++)  {
+                bool horizontal=row==1||row==rows-2,vertical=col==1||col==cols-2;
+                if(!horizontal&&!vertical)continue;
+                string tile=(col>=middle-1&&col<=middle+1?"tileSand":"tileGrass")+"_road";
+                if(horizontal&&vertical)tile+="Corner"+(row==1?"L":"U")+(col==1?"L":"R");
+                else tile+=horizontal?"East":"North";
+                Image(World(col*4,row*4,4,4),tile,new Color(.77f,.83f,.73f));
+            }
+            // Low-contrast ground dressing never introduces obstacles or changes the map.
+            foreach(var spawn in map.spawns)  {
+                Image(World(spawn.x-1.2f,spawn.y-1.2f,2.4f,2.4f),"tracksDouble",new Color(.3f,.36f,.27f,.32f));
+            }
+            foreach(var water in map.water)DrawWater(water);
+            foreach(var wall in map.walls)DrawSteel(wall);
+            foreach(var wall in map.bricks)  {
+                int hp=latest==null?5:latest.Bricks[wall.id];
+                if(hp>0)DrawBrick(wall,hp);
+            }
+            if(rendered!=null)  {
+                foreach(var tank in rendered.Tanks.Values)if(tank.Hp>0)DrawTank(tank,tick,localSlot);
+                foreach(var bullet in rendered.Bullets.Values)DrawBullet(bullet);
+            }
+            // Draw labels last so sprites cannot obscure the health bars.
+            foreach(var wall in map.bricks)  {
+                int hp=latest==null?5:latest.Bricks[wall.id];
+                if(hp<=0) {
+                    health.Remove(100+wall.id);
+                    continue;
+                }
+                Rect r=World(wall.x,wall.y,wall.w,wall.h);
+                float width=Mathf.Max(30,r.width), labelY=wall.id%2==0?r.y-13:r.yMax+2;
+                Health(new Rect(r.center.x-width/2,labelY,width,11),hp,5,100+wall.id);
+            }
+            if(rendered!=null)foreach(var tank in rendered.Tanks.Values)if(tank.Hp>0)  {
+                float size=VisualSize;
+                Rect r=World(tank.X-size/2,tank.Y-size/2,size,size);
+                int hp=tank.Hp;
+                TankState current=null;
+                if(latest!=null&&latest.Tanks.TryGetValue(tank.Slot,out current))hp=current.Hp;
+                if(hp<=0)continue;
+                TankState bars=tank.Slot==localSlot?tank:current??tank;
+                Health(new Rect(r.center.x-26,r.y-24,52,12),hp,bars.MaxHp,tank.Slot);
+                Energy(new Rect(r.center.x-26,r.y-10,52,6),bars.Energy);
+                if(tank.Slot==localSlot)GUI.Label(new Rect(r.center.x-30,r.yMax+1,60,16),"BẠN",small);
+            }
+        }
+        void DrawWater(MapRect water)  {
+            Rect r=World(water.x,water.y,water.w,water.h);
+            Shadow(r);
+            Fill(r,new Color(.11f,.25f,.25f));
+            Fill(Inset(r,2),new Color(.13f,.48f,.62f));
+            Fill(new Rect(r.x+3,r.y+3,r.width-6,2),new Color(.4f,.78f,.8f));
+            GUI.BeginGroup(Inset(r,3));
+            float phase=Mathf.Sin(Time.unscaledTime*1.2f)*2;
+            for(float wy=7;wy<r.height;wy+=13)for(float wx=-5;wx<r.width;wx+=24)  {
+                Fill(new Rect(wx+phase+(int)(wy/13)%2*9,wy,11,1),new Color(.64f,.9f,.91f,.28f));
+                Fill(new Rect(wx+phase+3,wy+3,6,1),new Color(.06f,.31f,.46f,.3f));
+            }
+            GUI.EndGroup();
+        }
+        void DrawSteel(MapRect wall)  {
+            Rect r=World(wall.x,wall.y,wall.w,wall.h);
+            Shadow(r);
+            Fill(r,new Color(.17f,.23f,.25f));
+            float step=2;
+            for(float wy=0;wy<wall.h;wy+=step)for(float wx=0;wx<wall.w;wx+=step)  {
+                Rect tile=World(wall.x+wx,wall.y+wy,Mathf.Min(step,wall.w-wx),Mathf.Min(step,wall.h-wy));
+                Image(Inset(tile,.5f),"crateMetal",new Color(.78f,.86f,.88f));
+            }
+            Fill(new Rect(r.x,r.y,r.width,1),new Color(.7f,.8f,.79f,.75f));
+        }
+        Texture2D BrickTexture(int hp)  {
+            if(brick[hp-1]!=null)return brick[hp-1];
+            var texture=new Texture2D(64,64,TextureFormat.RGBA32,false) {
+                filterMode=FilterMode.Bilinear,wrapMode=TextureWrapMode.Clamp,hideFlags=HideFlags.HideAndDontSave
+            };
+            var pixels=new Color[64*64];
+            for(int py=0;py<64;py++)for(int px=0;px<64;px++)  {
+                int row=py/16,by=py%16,bx=(px+(row%2)*16)%32;
+                float variation=((px*13+py*7)%9)/180f;
+                Color c=new Color(.66f+variation,.33f+variation,.19f+variation);
+                if(by<2||bx<2)c=new Color(.24f,.18f,.14f);
+                else if(by==15||bx==3)c=new Color(.87f,.54f,.32f);
+                else if(by==2||bx==31)c=new Color(.4f,.22f,.14f);
+                // More chips and cracks appear as the authoritative brick HP decreases.
+                if(hp<5&&py>12&&py<53&&Mathf.Abs(px-(29+(py%13)/3))<=1&&py<(5-hp)*11+15)c=new Color(.19f,.14f,.1f);
+                if(hp<3&&px>40&&py<25&&Mathf.Abs(py-(px-40))<2)c=new Color(.19f,.14f,.1f);
+                pixels[py*64+px]=c;
+            }
+            texture.SetPixels(pixels);
+            texture.Apply(false,true);
+            brick[hp-1]=texture;
+            return texture;
+        }
+        void DrawBrick(MapRect wall,int hp)  {
+            Rect r=World(wall.x,wall.y,wall.w,wall.h);
+            Shadow(r);
+            Fill(r,new Color(.2f,.16f,.12f));
+            GUI.DrawTexture(Inset(r,.5f),BrickTexture(hp));
+        }
+        void Rotated(Rect r,string name,float angle,Vector2 pivot,Color tint)  {
+            Matrix4x4 saved=GUI.matrix;
+            GuiTransforms.Rotate(angle,pivot);
+            Image(r,name,tint);
+            GUI.matrix=saved;
+        }
+        void RotatedTexture(Rect r,Texture2D texture,float angle,Vector2 pivot,Color tint) {
+            Matrix4x4 saved=GUI.matrix;
+            GuiTransforms.Rotate(angle,pivot);
+            GUI.color=tint;
+            GUI.DrawTexture(r,texture);
+            GUI.matrix=saved;
+            GUI.color=Color.white;
+        }
+        void DrawTank(TankState tank,uint tick,int localSlot)  {
+            float size=VisualSize,multiplier=size/TankSize;
+            Rect r=World(tank.X-size/2,tank.Y-size/2,size,size);
+            Vector2 center=r.center;
+            bool shield=tick<tank.Shield;
+            var shadow=new Rect(r.x+2,r.y+3,r.width,r.height);
+            RotatedTexture(shadow,TankPalette.Body(tank.Slot),90-tank.Body/100f,shadow.center,new Color(0,0,0,.38f));
+            Color tint=shield?Color.Lerp(Color.white,new Color(.65f,.94f,1),(.5f+.5f*Mathf.Sin(Time.unscaledTime*8))*.4f):Color.white;
+            RotatedTexture(r,TankPalette.Body(tank.Slot),90-tank.Body/100f,center,tint);
+            // Source barrel faces up; its rear end stays at the vehicle center.
+            Rect barrel=new Rect(center.x-.19f*scale*multiplier,center.y-1.05f*scale*multiplier,.38f*scale*multiplier,1.18f*scale*multiplier);
+            RotatedTexture(barrel,TankPalette.Barrel(tank.Slot),90-tank.Turret/100f,center,tint);
+        }
+        void DrawBullet(BulletState bullet)  {
+            Rect r=World(bullet.X-CombatGeometry.BulletHalfWidth,bullet.Y-CombatGeometry.BulletHalfLength,2*CombatGeometry.BulletHalfWidth,2*CombatGeometry.BulletHalfLength);
+            Rotated(r,"bulletSand1_outline",90-bullet.Heading/100f,r.center,Color.white);
+        }
+        void Health(Rect r,int hp,int max,int key)  {
+            float target=Mathf.Clamp01((float)hp/max),shown;
+            if(!health.TryGetValue(key,out shown)||target>shown)shown=target;
+            if(Event.current.type==EventType.Repaint)shown=Mathf.MoveTowards(shown,target,Time.unscaledDeltaTime*2.5f);
+            health[key]=shown;
+            Shadow(r);
+            Fill(r,Ink);
+            Fill(Inset(r,1),new Color(.18f,.25f,.23f));
+            float numberWidth=hp>=10?18:12,fillWidth=r.width-numberWidth-3;
+            Fill(new Rect(r.x+2,r.y+2,fillWidth*shown,r.height-4),new Color(.7f,.84f,.35f));
+            Fill(new Rect(r.x+2,r.y+2,fillWidth*target,r.height-4),Green);
+            Fill(new Rect(r.x+2,r.y+2,fillWidth*target,1),new Color(.66f,1,.72f));
+            GUI.Label(new Rect(r.xMax-numberWidth-1,r.y,numberWidth,r.height),hp.ToString(),hpText);
+        }
+        void Energy(Rect r,int energy) {
+            Shadow(r);
+            Fill(r,Ink);
+            Fill(Inset(r,1),new Color(.09f,.19f,.28f));
+            Fill(new Rect(r.x+1,r.y+1,(r.width-2)*Mathf.Clamp01((float)energy/Movement.MaxEnergy),r.height-2),new Color(.12f,.58f,1f));
+        }
+        Vector2 rankingScroll;
+        public void Panel(ClientCore client,float panelX,float top,float width,float height,bool stale,bool autoFire=false)  {
+            Styles();
+            var r=new Rect(panelX,top,width,height);
+            Fill(r,new Color(.055f,.085f,.105f));
+            Fill(new Rect(panelX,top,3,44),Green);
+            GUI.Label(new Rect(panelX+16,top+12,width-24,25),"ĐẤU TỰ DO",heading);
+            var latest=client.Latest;
+            if(latest==null)return;
+            int seconds=(int)Math.Ceiling(latest.Remaining/30.0);
+            bool urgent=latest.Remaining>0&&latest.Remaining<=300;
+            if(urgent) {
+                float pulse=.5f+.5f*Mathf.Sin(Time.unscaledTime*Mathf.PI*2);
+                Fill(new Rect(panelX+8,top+44,width-16,78),new Color(.38f+.12f*pulse,.07f,.06f));
+                Fill(new Rect(panelX+8,top+44,3,78),new Color(1,.35f,.22f));
+            }
+            GUI.Label(new Rect(panelX+16,top+47,width-24,44),(seconds/60).ToString("00")+":"+(seconds%60).ToString("00"),timer);
+            GUI.Label(new Rect(panelX+16,top+94,width-24,20),"THỜI GIAN CÒN LẠI",body);
+            Fill(new Rect(panelX+16,top+127,width-32,1),new Color(.2f,.28f,.3f));
+            GUI.Label(new Rect(panelX+16,top+142,width-24,24),"XẾP HẠNG HIỆN TẠI",section);
+            var ranked=LiveRanking.Sort(latest.World);
+            float rankHeight=Mathf.Max(40,height-174-120);
+            float stride=Mathf.Clamp(rankHeight/Mathf.Max(1,ranked.Count),28,48);
+            bool compact=stride<42;
+            if(compact)GUI.Label(new Rect(panelX+16,top+158,width-32,16),"Hạ gục / tử trận",section);
+            var nameStyle=new GUIStyle(body) {
+                wordWrap=false,clipping=TextClipping.Clip
+            };
+            rankingScroll=GUI.BeginScrollView(new Rect(panelX+10,top+174,width-20,rankHeight),rankingScroll,new Rect(0,0,width-38,ranked.Count*stride),false,false);
+            float py=0;
+            int rank=0;
+            foreach(var tank in ranked)  {
+                rank++;
+                float rowWidth=width-38;
+                Fill(new Rect(0,py,rowWidth,stride-4),tank.Slot==client.Slot?new Color(.13f,.23f,.22f):new Color(.09f,.13f,.15f));
+                GUI.Label(new Rect(6,py+5,24,24),"#"+rank,section);
+                GUI.DrawTexture(new Rect(32,py+5,compact?18:24,compact?18:24),TankPalette.Body(tank.Slot));
+                string name="P"+(tank.Slot+1);
+                foreach(var player in client.Players)if(player.Slot==tank.Slot)name=player.Name;
+                string label=name+(tank.Slot==client.Slot?" • bạn":"");
+                if(compact) {
+                    GUI.Label(new Rect(56,py+3,rowWidth-114,22),new GUIContent(label,label),nameStyle);
+                    GUI.Label(new Rect(rowWidth-54,py+3,52,22),tank.Kills+" / "+tank.Deaths,nameStyle);
+                }
+                else {
+                    GUI.Label(new Rect(64,py,rowWidth-68,20),new GUIContent(label,label),nameStyle);
+                    GUI.Label(new Rect(64,py+20,rowWidth-68,18),tank.Kills+" hạ gục / "+tank.Deaths+" tử trận",body);
+                }
+                py+=stride;
+            }
+            GUI.EndScrollView();
+            TankState local;
+            float footerY=top+174+rankHeight+5;
+            if(latest.World.Tanks.TryGetValue(client.Slot,out local))GUI.Label(new Rect(panelX+16,footerY,width-32,24),"Shift: tăng tốc · Năng lượng "+Mathf.CeilToInt(local.Energy*100f/Movement.MaxEnergy)+"%",body);
+            GUI.Label(new Rect(panelX+16,r.yMax-90,width-32,22),"Chuột phải: tự bắn "+(autoFire?"BẬT":"TẮT"),body);
+            if(stale)GUI.Label(new Rect(panelX+16,r.yMax-66,width-32,22),"Mạng chậm — chờ trạng thái",body);
+            if(GUI.Button(new Rect(panelX+16,r.yMax-42,width-32,30),"Rời trận"))client.Leave();
+        }
+        public void Dispose() {
+            foreach(var texture in brick)if(texture!=null)UnityEngine.Object.Destroy(texture);
+        }
+    }
+}

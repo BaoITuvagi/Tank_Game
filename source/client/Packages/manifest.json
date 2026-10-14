@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "com.unity.test-framework": "1.6.0",
+    "com.unity.modules.adaptiveperformance": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.vectorgraphics": "1.0.0",
+    "com.unity.modules.screencapture": "1.0.0"
+  }
+}

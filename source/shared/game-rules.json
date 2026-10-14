@@ -1,0 +1,15 @@
+{
+  "TankHalfSize": 0.85,
+  "CollisionEpsilon": 0.00001,
+  "TankSpeed": 9.0,
+  "SprintMultiplier": 1.5,
+  "BulletStep": 0.72,
+  "BulletHalfLength": 0.3,
+  "BulletHalfWidth": 0.16,
+  "MaxEnergy": 150,
+  "EnergyRecoveryDelay": 15,
+  "DefaultHp": 3,
+  "MaxStartHp": 30,
+  "BulletLifetimeTicks": 150,
+  "SpawnShieldTicks": 0
+}
