@@ -19,6 +19,7 @@ namespace Tank  {
             var cache=barrel?barrels:bodies;
             if(cache[slot]!=null)return cache[slot];
             var source=Resources.Load<Texture2D>("ArenaArt/"+(barrel?"tankDark_barrel2_outline":"tankBody_dark_outline"));
+            if(source==null||!source.isReadable)return Texture2D.whiteTexture;
             var pixels=source.GetPixels();
             Color tint=Colors[slot];
             for(int i=0;i<pixels.Length;i++)  {

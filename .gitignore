@@ -3,6 +3,7 @@
 /runtime/
 /tmp/
 /.local-archive/
+/plan/
 **/[Tt]arget/
 **/[Bb]in/
 **/[Oo]bj/

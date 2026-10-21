@@ -9,7 +9,7 @@ class GoldenInteropTest {
   Set<Integer> expected=new HashSet<>(),actual=new HashSet<>();
   for(Field field:Protocol.class.getFields())if(field.getType()==int.class&&Modifier.isStatic(field.getModifiers()))expected.add(field.getInt(null));
   for(byte[] frame:Golden.fixtures().values()){var packet=Protocol.decode(frame,false);actual.add(packet.op());assertArrayEquals(frame,Protocol.frame(packet.op(),packet.sequence(),packet.payload()));}
-  assertEquals(40,expected.size());assertEquals(expected,actual);
+  assertEquals(44,expected.size());assertEquals(expected,actual);
   Golden.write(Path.of("target/interop/golden.tsv"));
  }
 }

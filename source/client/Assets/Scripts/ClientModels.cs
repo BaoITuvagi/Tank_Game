@@ -5,15 +5,18 @@ namespace Tank {
         public string Name;
         public int Players,Capacity;
         public RoomPhase Phase;
+        public RoomMode Mode;
         public bool Locked,CanRejoin;
     }
     public class RoomPlayer  {
         public int Slot;
+        public int Nation=-1;
         public string Name;
         public bool Ready;
     }
     public class Score  {
         public int Slot,Kills,Deaths,Rank;
+        public int Nation=-1;
         public string Name;
         public uint LastKill;
         public bool Disconnected;
@@ -26,6 +29,7 @@ namespace Tank {
         public ulong Match,Started,Ended;
         public int MapId,Reason,OwnSlot;
         public uint? DurationTicks;
+        public string RoomModeName,ContentVersion;
         public long DurationSeconds {
             get {
                 // Simulation time is authoritative, including early-ended matches.

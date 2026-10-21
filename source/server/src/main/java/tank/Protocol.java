@@ -5,6 +5,9 @@ import java.nio.charset.*;
 import java.util.*;
 import java.util.function.Consumer;
 public final class Protocol  {
+    public static final int SELECT_NATION=80,USE_SKILL=84,MATCH_LOADOUT=85,SNAPSHOT_PART=50;
+    public enum RoomMode { NORMAL, ROLEPLAY }
+    public enum PrepStage { LOADING, SYNC_LOADOUT, COUNTDOWN }
     public static final int REGISTER=1, REGISTER_RESULT=2, LOGIN=3, LOGIN_RESULT=4, LOGOUT=5, LOGOUT_RESULT=6, ROOM_LIST=7, ROOM_LIST_RESULT=8, CREATE_ROOM=9, JOIN_ROOM=10, LEAVE_ROOM=11, SET_READY=12, START_MATCH=13, KICK_PLAYER=14, ACTION_RESULT=15, HANDSHAKE=16, HANDSHAKE_ACK=17, PING=18, PONG=19, INPUT=32, ACK=33, RESYNC=34, FULL=48, DELTA=49, ROOM_STATE=64, PREPARE=65, PREPARED=66, START=67, END=68, REMOVED=69, NOTICE=70, HISTORY=71, HISTORY_RESULT=72, HEARTBEAT=73, HEARTBEAT_ACK=74, SET_DISPLAY_NAME=75, DISPLAY_NAME_RESULT=76, ROOM_SETTINGS=77, HISTORY_DETAIL=78, HISTORY_DETAIL_RESULT=79;
     public enum Mode  {
         BASELINE, INPUT_REDUNDANCY, DELTA, COMBINED;
@@ -19,7 +22,7 @@ public final class Protocol  {
         WAITING, PREPARING, RUNNING, RESULTS
     }
     public enum Error  {
-        OK, INVALID_REQUEST, UNAUTHENTICATED, INVALID_CREDENTIALS, USERNAME_EXISTS, ALREADY_LOGGED_IN, ROOM_MISSING, ROOM_FULL, ROOM_BUSY, NOT_HOST, NOT_READY, INVALID_STATE, RATE_LIMITED, DATABASE_UNAVAILABLE, MAP_MISMATCH, ROOM_PASSWORD_REQUIRED, ROOM_PASSWORD_INCORRECT
+        OK, INVALID_REQUEST, UNAUTHENTICATED, INVALID_CREDENTIALS, USERNAME_EXISTS, ALREADY_LOGGED_IN, ROOM_MISSING, ROOM_FULL, ROOM_BUSY, NOT_HOST, NOT_READY, INVALID_STATE, RATE_LIMITED, DATABASE_UNAVAILABLE, MAP_MISMATCH, ROOM_PASSWORD_REQUIRED, ROOM_PASSWORD_INCORRECT, CONTENT_MISMATCH, ASSET_MISSING, NATION_TAKEN, COOLDOWN, STALE_REQUEST, NO_EFFECT
     }
     public record Packet(int op,int sequence,byte[] payload) {
     }
@@ -141,11 +144,11 @@ public final class Protocol  {
     }
     public static byte[] frame(int op,int seq,byte[] p) {
         if(p.length>16384)throw new IllegalArgumentException("payload");
-        return new Writer().u16(0x5442).u8(2).u8(op).u32(seq).u16(p.length).u16(0).bytes(p).done();
+        return new Writer().u16(0x5442).u8(GameRules.ProtocolVersion).u8(op).u32(seq).u16(p.length).u16(0).bytes(p).done();
     }
     static int length(byte[] h) {
         Reader r=new Reader(h);
-        if(r.u16()!=0x5442||r.u8()!=2)throw new IllegalArgumentException("magic/version");
+        if(r.u16()!=0x5442||r.u8()!=GameRules.ProtocolVersion)throw new IllegalArgumentException("magic/version");
         r.u8();
         r.u32();
         int n=r.u16();

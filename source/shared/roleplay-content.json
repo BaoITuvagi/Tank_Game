@@ -1,0 +1,74 @@
+{
+  "version": 6,
+  "story": "Hộp Đen lưu dấu những trận chiến chưa được kể. Tám đội xe tăng bước vào đấu trường để giành quyền mở nó. Người đứng đầu nhận Hộp Đen trong câu chuyện của trận đấu.",
+  "requiredSprites": [
+    "tankBody_dark_outline",
+    "tankDark_barrel2_outline"
+  ],
+  "nations": [
+    {
+      "id": 0,
+      "name": "Mỹ",
+      "skill": "Oanh tạc chiến lược",
+      "description": "Đánh dấu vị trí đối thủ sống. Sau 1,5 giây, bom bán kính 5,1 gây 25 HP một lần mỗi xe và làm chậm còn 50% tốc độ trong 1 giây; xuyên địa hình, phá ngay gạch đỏ trúng vùng.",
+      "cooldownTicks": 900,
+      "durationTicks": 45
+    },
+    {
+      "id": 1,
+      "name": "Liên Xô",
+      "skill": "Bão hỏa tiễn",
+      "description": "Q ngắm vòng bán kính 5,1; Q lần hai chốt hoặc tự chốt sau 5 giây. Chờ 0,8 giây, rải 9 rocket trong 3 giây: bán kính nổ 3,4, 12 HP/vụ, tối đa 36 HP mỗi xe kể cả bản thân; phá ngay gạch đỏ.",
+      "cooldownTicks": 977,
+      "durationTicks": 150
+    },
+    {
+      "id": 2,
+      "name": "Anh",
+      "skill": "Chiến dịch hỗn loạn",
+      "description": "Đảo WASD/mũi tên và khóa góc nòng tất cả đối thủ sống trong 10 giây. Vẫn bắn theo góc đã khóa.",
+      "cooldownTicks": 900,
+      "durationTicks": 300
+    },
+    {
+      "id": 3,
+      "name": "Pháp",
+      "skill": "Màn sương chiến tranh",
+      "description": "Giới hạn tầm nhìn của đối thủ sống ở bán kính 5,1 trong 10 giây. Người dùng không chịu sương mù của mình. Không cản di chuyển hay đạn.",
+      "cooldownTicks": 900,
+      "durationTicks": 300
+    },
+    {
+      "id": 4,
+      "name": "Đức",
+      "skill": "Thiết giáp chớp nhoáng",
+      "description": "Trong 5 giây, mỗi phát bắn tạo ba viên theo hướng nòng và ±12°, mỗi viên 15 HP. Giữ nhịp bắn và nảy đạn.",
+      "cooldownTicks": 900,
+      "durationTicks": 150
+    },
+    {
+      "id": 5,
+      "name": "Ý",
+      "skill": "Siêu pháo tụ lực",
+      "description": "Tụ lực 2 giây rồi bắn tia rộng 0,85 từ nòng tới biên theo hướng khi khai hỏa. Xuyên địa hình, hạ mọi đối thủ trúng tia và phá ngay gạch đỏ giao dải tia.",
+      "cooldownTicks": 1029,
+      "durationTicks": 60
+    },
+    {
+      "id": 6,
+      "name": "Nhật Bản",
+      "skill": "Tấn công cảm tử",
+      "description": "Đếm ngược 5 giây rồi tự nổ bán kính 9,5625, hạ mọi đối thủ trúng vùng bất kể HP và phá ngay gạch đỏ. Chết sớm hủy vụ nổ; vẫn dùng Shift.",
+      "cooldownTicks": 1029,
+      "durationTicks": 150
+    },
+    {
+      "id": 7,
+      "name": "Trung Quốc",
+      "skill": "Du kích phá hoại",
+      "description": "Khóa bắn thường mọi đối thủ sống trong 10 giây và cộng 10 giây vào hồi chiêu Q còn lại của họ một lần; Q đang sẵn sàng phải chờ 10 giây. Không hủy kỹ năng đang diễn ra.",
+      "cooldownTicks": 1029,
+      "durationTicks": 300
+    }
+  ]
+}

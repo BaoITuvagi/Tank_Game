@@ -96,8 +96,10 @@ namespace Tank  {
             catch(ObjectDisposedException) {
                 return;
             }
-            catch(SocketException e) {
-                if(open&&epoch==connectionEpoch)ReportError(e.Message,epoch);
+            catch(SocketException) {
+                // An unreachable UDP peer must not tear down a healthy TCP session.
+                if(!open||epoch!=connectionEpoch)return;
+                await Task.Delay(100).ConfigureAwait(false);
             }
             catch(Exception) {
                 if(open&&epoch==connectionEpoch)Interlocked.Increment(ref Invalid);
@@ -118,6 +120,7 @@ namespace Tank  {
             return op==Op.RegisterResult||op==Op.LoginResult||op==Op.LogoutResult||op==Op.ActionResult|| op==Op.RoomListResult||op==Op.HistoryResult||op==Op.HistoryDetailResult||op==Op.DisplayNameResult||op==Op.HeartbeatAck;
         }
         void ClearAccountState()  {
+            ClearRoleplayMatch();RoomMode=RoomMode.NORMAL;PreparationError="";
             Account=Match=StartUs=0;
             Nickname=AccountName=RoomName="";
             token=null;
@@ -127,8 +130,7 @@ namespace Tank  {
             RoomPhase=RoomPhase.WAITING;
             RoomCapacity=8;
             RoomSeconds=180;
-            RoomStartingHp=3;
-            ResultsUntilUs=0;
+            RoomStartingHp=GameRules.DefaultHp;
             Ended=false;
             EndReason=0;
             AfkWarning=false;
@@ -143,7 +145,7 @@ namespace Tank  {
             Latest=null;
             Predicted=null;
             Snapshots.Clear();
-            cache.Clear();
+            cache.Clear();fragments.Clear();
             cacheOrder.Clear();
             history.Clear();
             predictedHistory.Clear();
@@ -156,6 +158,9 @@ namespace Tank  {
             OffsetUs=0;
             MinRttUs=double.MaxValue;
             PingSamples=0;
+            LastRttUs=LastPongUs=inputRttUs=0;
+            LastArrivalUs=LastStateAgeUs=LastJitterUs=0;
+            LeadTicks=2;
             resyncAt=previousArrival=0;
             AccountRevision++;
         }

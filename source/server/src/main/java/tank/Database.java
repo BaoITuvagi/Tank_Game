@@ -10,12 +10,18 @@ import com.google.gson.Gson;
 public class Database implements AutoCloseable  {
     public record Account(long id,String name) {
     }
-    public record ResultPlayer(long account,String nickname,int slot,int kills,int deaths,int rank,boolean disconnected) {
+    public record ResultPlayer(long account,String nickname,int slot,int kills,int deaths,int rank,boolean disconnected,Integer nationId) {
+        public ResultPlayer(long account,String nickname,int slot,int kills,int deaths,int rank,boolean disconnected) {
+            this(account,nickname,slot,kills,deaths,rank,disconnected,null);
+        }
     }
-    public record Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players,Integer durationTicks) {
+    public record Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players,Integer durationTicks,String roomMode,String contentVersion) {
+        public Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players,Integer durationTicks) {
+            this(id,mapId,mapHash,mode,started,ended,reason,seed,players,durationTicks,null,null);
+        }
         // Older spool records and callers have no simulation duration; preserve their timestamps.
         public Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players) {
-            this(id,mapId,mapHash,mode,started,ended,reason,seed,players,null);
+            this(id,mapId,mapHash,mode,started,ended,reason,seed,players,null,null,null);
         }
     }
     public record History(long match,long ended,int reason,int kills,int deaths,int rank) {
@@ -48,6 +54,9 @@ public class Database implements AutoCloseable  {
             }
         }
         migrateDurationColumn();
+        migrateColumn("matches","room_mode","TEXT");
+        migrateColumn("matches","content_version","TEXT");
+        migrateColumn("match_players","nation_id","INTEGER");
         try(var files=Files.list(spool)) {
             files.filter(p->p.toString().endsWith(".json")).forEach(p-> {
                 try {
@@ -67,6 +76,12 @@ public class Database implements AutoCloseable  {
         try(Statement statement=db.createStatement()) {
             statement.execute("ALTER TABLE matches ADD COLUMN duration_ticks INTEGER");
         }
+    }
+    void migrateColumn(String table,String column,String type) throws SQLException {
+        try(Statement statement=db.createStatement();ResultSet columns=statement.executeQuery("PRAGMA table_info("+table+")")) {
+            while(columns.next())if(column.equals(columns.getString("name")))return;
+        }
+        try(Statement statement=db.createStatement()) {statement.execute("ALTER TABLE "+table+" ADD COLUMN "+column+" "+type);}
     }
     public <T> CompletableFuture<T> submit(Callable<T> action) {
         CompletableFuture<T> f=new CompletableFuture<>();
@@ -190,11 +205,14 @@ public class Database implements AutoCloseable  {
                 try(var ps=db.prepareStatement("SELECT * FROM match_players WHERE match_id=? ORDER BY rank,slot")) {
                     ps.setLong(1,match);
                     try(var rows=ps.executeQuery()) {
-                        while(rows.next())players.add(new ResultPlayer(rows.getLong("account_id"),rows.getString("nickname"),rows.getInt("slot"),rows.getInt("kills"),rows.getInt("deaths"),rows.getInt("rank"),rows.getInt("disconnected")!=0));
+                        while(rows.next()) {
+                            Number nation=(Number)rows.getObject("nation_id");
+                            players.add(new ResultPlayer(rows.getLong("account_id"),rows.getString("nickname"),rows.getInt("slot"),rows.getInt("kills"),rows.getInt("deaths"),rows.getInt("rank"),rows.getInt("disconnected")!=0,nation==null?null:nation.intValue()));
+                        }
                     }
                 }
                 Number ticks=(Number)r.getObject("duration_ticks");
-                return new Result(match,mapId,hash,mode,started,ended,reason,seed,List.copyOf(players),ticks==null?null:ticks.intValue());
+                return new Result(match,mapId,hash,mode,started,ended,reason,seed,List.copyOf(players),ticks==null?null:ticks.intValue(),r.getString("room_mode"),r.getString("content_version"));
             }
         }
     }
@@ -240,7 +258,7 @@ public class Database implements AutoCloseable  {
     void persist(Result r)throws Exception {
         db.setAutoCommit(false);
         try {
-            try(var s=db.prepareStatement("INSERT OR IGNORE INTO matches(id,map_id,map_hash,mode,started,ended,reason,seed,duration_ticks) VALUES(?,?,?,?,?,?,?,?,?)")) {
+            try(var s=db.prepareStatement("INSERT OR IGNORE INTO matches(id,map_id,map_hash,mode,started,ended,reason,seed,duration_ticks,room_mode,content_version) VALUES(?,?,?,?,?,?,?,?,?,?,?)")) {
                 s.setLong(1,r.id);
                 s.setInt(2,r.mapId);
                 s.setString(3,r.mapHash);
@@ -250,9 +268,10 @@ public class Database implements AutoCloseable  {
                 s.setInt(7,r.reason);
                 s.setLong(8,r.seed);
                 if(r.durationTicks==null)s.setNull(9,Types.INTEGER);else s.setInt(9,r.durationTicks);
+                s.setString(10,r.roomMode);s.setString(11,r.contentVersion);
                 s.executeUpdate();
             }
-            try(var s=db.prepareStatement("INSERT OR IGNORE INTO match_players VALUES(?,?,?,?,?,?,?,?)")) {
+            try(var s=db.prepareStatement("INSERT OR IGNORE INTO match_players(match_id,account_id,nickname,slot,kills,deaths,rank,disconnected,nation_id) VALUES(?,?,?,?,?,?,?,?,?)")) {
                 for(var p:r.players) {
                     s.setLong(1,r.id);
                     s.setLong(2,p.account);
@@ -262,6 +281,7 @@ public class Database implements AutoCloseable  {
                     s.setInt(6,p.deaths);
                     s.setInt(7,p.rank);
                     s.setInt(8,p.disconnected?1:0);
+                    if(p.nationId==null)s.setNull(9,Types.INTEGER);else s.setInt(9,p.nationId);
                     s.addBatch();
                 }
                 s.executeBatch();
