@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "id": "loss5_r1_INPUT_REDUNDANCY",
+  "seconds": 30,
+  "profile": {
+    "name": "loss5",
+    "loss": 0.05,
+    "delay": 0,
+    "jitter": 0
+  },
+  "players": 4,
+  "mode": "INPUT_REDUNDANCY",
+  "repeat": 1,
+  "seed": 20261016,
+  "warm_seconds": 5
+}

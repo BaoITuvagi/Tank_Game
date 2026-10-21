@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "id": "delay50_jitter20_loss5_r3_INPUT_REDUNDANCY",
+  "seconds": 30,
+  "profile": {
+    "name": "delay50_jitter20_loss5",
+    "loss": 0.05,
+    "delay": 50,
+    "jitter": 20
+  },
+  "players": 4,
+  "mode": "INPUT_REDUNDANCY",
+  "repeat": 3,
+  "seed": 20261018,
+  "warm_seconds": 5
+}

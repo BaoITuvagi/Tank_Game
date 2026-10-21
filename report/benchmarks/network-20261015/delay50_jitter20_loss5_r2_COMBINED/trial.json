@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "id": "delay50_jitter20_loss5_r2_COMBINED",
+  "seconds": 30,
+  "profile": {
+    "name": "delay50_jitter20_loss5",
+    "loss": 0.05,
+    "delay": 50,
+    "jitter": 20
+  },
+  "players": 4,
+  "mode": "COMBINED",
+  "repeat": 2,
+  "seed": 20261017,
+  "warm_seconds": 5
+}

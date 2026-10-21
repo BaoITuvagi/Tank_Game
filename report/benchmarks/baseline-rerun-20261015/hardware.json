@@ -1,0 +1,10 @@
+﻿{
+    "CPU":  {
+                "Name":  "AMD Ryzen 5 7235HS                             ",
+                "NumberOfCores":  4,
+                "NumberOfLogicalProcessors":  8
+            },
+    "Memory":  {
+                   "TotalPhysicalMemory":  25439199232
+               }
+}

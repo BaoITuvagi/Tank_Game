@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "warm_seconds": 2,
+  "seed": 20261016,
+  "repeat": 1,
+  "mode": "COMBINED",
+  "players": 4,
+  "profile": {
+    "name": "clean",
+    "loss": 0.0,
+    "delay": 0,
+    "jitter": 0
+  },
+  "seconds": 6,
+  "id": "clean_r1_COMBINED"
+}

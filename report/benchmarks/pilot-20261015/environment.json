@@ -1,0 +1,13 @@
+{
+  "arch": "amd64",
+  "server_jvm": [
+    "-Xms128m",
+    "-Xmx512m"
+  ],
+  "os": "Windows 11",
+  "java": "21.0.8",
+  "transport": "IPv4 loopback",
+  "created": "2026-10-15T15:53:12.181111+07:00",
+  "vendor": "Eclipse Adoptium",
+  "logical_processors": 8
+}

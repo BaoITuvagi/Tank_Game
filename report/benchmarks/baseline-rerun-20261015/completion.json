@@ -1,0 +1,10 @@
+{
+  "completed_at": "2026-10-15T16:52:00.000798+07:00",
+  "valid_runs": 9,
+  "groups": 3,
+  "mode": "BASELINE",
+  "repeats_per_group": 3,
+  "server_jar_sha256": "6E646F06F6AB75FF7561F95BA6B0840AC559E672384BC8AAF2BBDC41883D8BE7",
+  "report_table_matches_generated_results": true,
+  "pooled_with_previous_dataset": false
+}

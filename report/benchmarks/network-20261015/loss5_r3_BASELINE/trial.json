@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "id": "loss5_r3_BASELINE",
+  "seconds": 30,
+  "profile": {
+    "name": "loss5",
+    "loss": 0.05,
+    "delay": 0,
+    "jitter": 0
+  },
+  "players": 4,
+  "mode": "BASELINE",
+  "repeat": 3,
+  "seed": 20261018,
+  "warm_seconds": 5
+}
