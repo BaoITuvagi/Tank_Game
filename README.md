@@ -1,5 +1,7 @@
 # Tank Battle Multiplayer
 
+Muốn gửi game một lần và tự cập nhật cho người chơi: xem [hướng dẫn launcher và phát hành client](source/launcher/README.md).
+
 Tank Battle là game xe tăng nhiều người chơi, gồm server Java và client Unity. Người chơi có thể đăng ký tài khoản, tạo hoặc tham gia phòng, đấu với nhau và xem lịch sử trận đấu.
 
 Mỗi phiên chơi sử dụng **một server chung**, lưu tài khoản và lịch sử của tất cả người chơi trong database SQLite. Các máy người chơi chạy client và kết nối đến server qua LAN hoặc VPN/Radmin. Bạn cũng có thể chạy server và client trên cùng máy để thử nghiệm.
