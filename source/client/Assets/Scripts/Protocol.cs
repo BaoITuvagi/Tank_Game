@@ -3,6 +3,8 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 namespace Tank  {
+    public enum RoomMode { NORMAL, ROLEPLAY }
+    public enum PrepStage { LOADING, SYNC_LOADOUT, COUNTDOWN }
     public enum NetworkMode  {
         BASELINE, INPUT_REDUNDANCY, DELTA, COMBINED
     }
@@ -13,9 +15,10 @@ namespace Tank  {
         DISCONNECTED, CONNECTING, AUTHENTICATING, LOBBY, ROOM, PREPARING, PLAYING, RESULTS
     }
     public enum ErrorCode  {
-        OK, INVALID_REQUEST, UNAUTHENTICATED, INVALID_CREDENTIALS, USERNAME_EXISTS, ALREADY_LOGGED_IN, ROOM_MISSING, ROOM_FULL, ROOM_BUSY, NOT_HOST, NOT_READY, INVALID_STATE, RATE_LIMITED, DATABASE_UNAVAILABLE, MAP_MISMATCH, ROOM_PASSWORD_REQUIRED, ROOM_PASSWORD_INCORRECT
+        OK, INVALID_REQUEST, UNAUTHENTICATED, INVALID_CREDENTIALS, USERNAME_EXISTS, ALREADY_LOGGED_IN, ROOM_MISSING, ROOM_FULL, ROOM_BUSY, NOT_HOST, NOT_READY, INVALID_STATE, RATE_LIMITED, DATABASE_UNAVAILABLE, MAP_MISMATCH, ROOM_PASSWORD_REQUIRED, ROOM_PASSWORD_INCORRECT, CONTENT_MISMATCH, ASSET_MISSING, NATION_TAKEN, COOLDOWN, STALE_REQUEST, NO_EFFECT
     }
     public static class Op  {
+        public const byte SelectNation=80,UseSkill=84,MatchLoadout=85,SnapshotPart=50;
         public const byte Register=1,RegisterResult=2,Login=3,LoginResult=4,Logout=5,LogoutResult=6,RoomList=7,RoomListResult=8,Create=9,Join=10,Leave=11,Ready=12,StartMatch=13,Kick=14,ActionResult=15,Handshake=16,HandshakeAck=17,Ping=18,Pong=19,Input=32,Ack=33,Resync=34,Full=48,Delta=49,RoomState=64,Prepare=65,Prepared=66,Start=67,End=68,Removed=69,Notice=70,History=71,HistoryResult=72,Heartbeat=73,HeartbeatAck=74,SetDisplayName=75,DisplayNameResult=76,RoomSettings=77,HistoryDetail=78,HistoryDetailResult=79;
     }
     public class Packet  {
@@ -111,12 +114,12 @@ namespace Tank  {
         }
         public static byte[] Frame(byte op,uint sequence,byte[] p) {
             if(p.Length>16384)throw new InvalidDataException("size");
-            return new WireWriter().U16(0x5442).U8(2).U8(op).U32(sequence).U16(p.Length).U16(0).Bytes(p).Done();
+            return new WireWriter().U16(0x5442).U8(GameRules.ProtocolVersion).U8(op).U32(sequence).U16(p.Length).U16(0).Bytes(p).Done();
         }
         public static Packet Decode(byte[] a,bool udp=false) {
             if(a.Length<12||(udp&&a.Length>1200))throw new InvalidDataException("size");
             var r=new WireReader(a);
-            if(r.U16()!=0x5442||r.U8()!=2)throw new InvalidDataException("magic/version");
+            if(r.U16()!=0x5442||r.U8()!=GameRules.ProtocolVersion)throw new InvalidDataException("magic/version");
             var p=new Packet {
                 Op=(byte)r.U8(),Sequence=r.U32()
             };
@@ -139,7 +142,7 @@ namespace Tank  {
         public static Packet Read(Stream s) {
             byte[] h=Exact(s,12);
             var r=new WireReader(h);
-            if(r.U16()!=0x5442||r.U8()!=2)throw new InvalidDataException("header");
+            if(r.U16()!=0x5442||r.U8()!=GameRules.ProtocolVersion)throw new InvalidDataException("header");
             var p=new Packet {
                 Op=(byte)r.U8(),Sequence=r.U32()
             };
@@ -161,7 +164,7 @@ namespace Tank  {
         public static async Task<Packet> ReadAsync(Stream s) {
             byte[] h=await ExactAsync(s,12).ConfigureAwait(false);
             var r=new WireReader(h);
-            if(r.U16()!=0x5442||r.U8()!=2)throw new InvalidDataException("header");
+            if(r.U16()!=0x5442||r.U8()!=GameRules.ProtocolVersion)throw new InvalidDataException("header");
             var p=new Packet {
                 Op=(byte)r.U8(),Sequence=r.U32()
             };

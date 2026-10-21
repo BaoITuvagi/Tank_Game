@@ -32,7 +32,7 @@ class RoomRefinementTest {
  }
  @Test void duplicateDisplayNamesStillHaveDistinctOwnSlots()throws Exception{
   try(Server s=server()){Room room=new Room(s,1,"Aliases");for(int i=0;i<2;i++){String name="alias"+i;var a=s.db.submit(()->s.db.register(name,"password123")).get();var session=s.new Session(new Socket());session.account=a;session.nickname="Same";session.room=room;room.join(session,1);}
-   for(var member:room.members.values()){Packet latest=member.session.outbound.stream().map(f->decode(f,false)).filter(p->p.op()==ROOM_STATE).reduce((a,b)->b).orElseThrow();assertEquals(member.slot,Byte.toUnsignedInt(latest.payload()[latest.payload().length-2]));}
+   for(var member:room.members.values()){Packet latest=member.session.outbound.stream().map(f->decode(f,false)).filter(p->p.op()==ROOM_STATE).reduce((a,b)->b).orElseThrow();assertEquals(member.slot,Byte.toUnsignedInt(latest.payload()[latest.payload().length-3]));}
   }
  }
 }

@@ -39,14 +39,27 @@ namespace Tank  {
         readonly AutoFireControl autoFire=new AutoFireControl();
         bool inputWasActive;
         int frozenAim,lastAim;
+        SkillSounds skillAudio;
+        int heardSkillPress,heardSkillFeedback;
+        void SkillAudio() {
+            if(heardSkillPress==client.SkillPressRevision&&heardSkillFeedback==client.SkillFeedbackRevision)return;
+            if(skillAudio==null)skillAudio=new SkillSounds();
+            if(heardSkillPress!=client.SkillPressRevision) {heardSkillPress=client.SkillPressRevision;skillAudio.Press();}
+            if(heardSkillFeedback!=client.SkillFeedbackRevision) {heardSkillFeedback=client.SkillFeedbackRevision;skillAudio.Confirm(client.LastSkillSucceeded);}
+        }
         void Update() {
             if(GameWindowFocus.IsForeground&&(Input.GetKeyDown(KeyCode.F11)||(Input.GetKey(KeyCode.LeftAlt)&&Input.GetKeyDown(KeyCode.Return))))ToggleFullscreen();
             if(IsMenuPreview)return;
             if(ArenaPreview.Enabled) {
                 ArenaPreview.Animate(client);
+                if(skillAudio==null)skillAudio=new SkillSounds();
+                arenaRenderer.UpdateEffects(client,Time.unscaledDeltaTime,skillAudio);
                 return;
             }
             client.Poll();
+            SkillAudio();
+            if(skillAudio==null)skillAudio=new SkillSounds();
+            arenaRenderer.UpdateEffects(client,Time.unscaledDeltaTime,skillAudio);
             ResetMenusForAccount();
             client.Smooth(Time.unscaledDeltaTime);
             autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog,client.Phase==ClientPhase.PLAYING&&Input.GetMouseButtonDown(1)&&PointerInArena());
@@ -63,9 +76,13 @@ namespace Tank  {
             }
             int buttons=0,aim=lastAim;
             if(active) {
-                buttons=(Input.GetKey(KeyCode.W)?1:0)|(Input.GetKey(KeyCode.S)?2:0)|(Input.GetKey(KeyCode.A)?4:0)|(Input.GetKey(KeyCode.D)?8:0)|((Input.GetMouseButton(0)&&PointerInArena())||Input.GetKey(KeyCode.Space)?16:0);
+                float mouseX=Input.mousePosition.x/Mathf.Max(.01f,uiScale),mouseY=(Screen.height-Input.mousePosition.y)/Mathf.Max(.01f,uiScale);
+                SkillGeometry.TryAim(mouseX,mouseY,arenaX,arenaY,scale,map.width,map.height,arenaRenderer.Shake.x,arenaRenderer.Shake.y,ref client.SkillAimX,ref client.SkillAimY);
+                if(Input.GetKeyDown(KeyCode.Q))client.UseSkill(0);
+                SkillAudio();
+                buttons=GameplayInput.MovementButtons(Input.GetKey(KeyCode.W),Input.GetKey(KeyCode.S),Input.GetKey(KeyCode.A),Input.GetKey(KeyCode.D),Input.GetKey(KeyCode.UpArrow),Input.GetKey(KeyCode.DownArrow),Input.GetKey(KeyCode.LeftArrow),Input.GetKey(KeyCode.RightArrow))|((Input.GetMouseButton(0)&&PointerInArena())||Input.GetKey(KeyCode.Space)?16:0);
                 if(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift))buttons|=32;
-                if(PointerInArena())aim=GameplayAim.Angle(Input.mousePosition.x,Screen.height-Input.mousePosition.y,uiScale,arenaX,arenaY,scale,map.height,client.Predicted);
+                if(PointerInArena())aim=GameplayAim.Angle(Input.mousePosition.x,Screen.height-Input.mousePosition.y,uiScale,arenaX+arenaRenderer.Shake.x,arenaY+arenaRenderer.Shake.y,scale,map.height,client.Predicted);
                 lastAim=aim;
             }
             buttons=autoFire.Apply(buttons);
@@ -167,6 +184,7 @@ namespace Tank  {
         }
         void Arena() {
             map=client.ActiveMap;
+            arenaRenderer.NetworkStatus(client,230,12,Mathf.Max(0,viewWidth-588));
             float panelWidth=294;
             scale=Mathf.Max(1,Math.Min((viewWidth-panelWidth-70)/map.width,(viewHeight-112)/map.height));
             arenaX=Mathf.Max(16,(viewWidth-map.width*scale-22-panelWidth)/2);
@@ -191,6 +209,16 @@ namespace Tank  {
                         rendered.Tanks[local.Slot]=local;
                     }
                     if(stale)rendered.Bullets.Clear();
+                    rendered.Effects.Clear();rendered.Effects.AddRange(latest.World.Effects);
+                    foreach(var tank in rendered.Tanks.Values) {
+                        TankState current;
+                        if(!latest.World.Tanks.TryGetValue(tank.Slot,out current))continue;
+                        tank.QReadyTick=current.QReadyTick;
+                        tank.QEndTick=current.QEndTick;
+                        tank.SlowEndTick=current.SlowEndTick;tank.ProtectionFlags=current.ProtectionFlags;
+                        tank.QStartTick=current.QStartTick;tank.QStage=current.QStage;tank.AimX=current.AimX;tank.AimY=current.AimY;
+                        tank.ConfusionEndTick=current.ConfusionEndTick;tank.FireLockEndTick=current.FireLockEndTick;tank.FogEndTick=current.FogEndTick;
+                    }
                 }
             }
             arenaRenderer.Draw(map,rendered,latest==null?null:latest.World,latest==null?0:latest.Tick,client.Slot,arenaX,arenaY,scale);
@@ -212,6 +240,7 @@ namespace Tank  {
         void OnDestroy() {
             arenaRenderer.Dispose();
             client?.Dispose();
+            skillAudio?.Dispose();
         }
         public string FocusedControl  {
             get;

@@ -39,9 +39,9 @@ public class GameplayUpgradeTests {
   var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();using(var c=new ClientCore(null,new byte[32]))try{
    var accept=listener.AcceptTcpClientAsync();c.Connect("127.0.0.1",((IPEndPoint)listener.LocalEndpoint).Port,8889);yield return WaitFor(c,()=>c.Phase==ClientPhase.AUTHENTICATING);
    using(var peer=accept.Result){peer.ReceiveTimeout=3000;var stream=peer.GetStream();Drain(stream);
-    c.Create("Health",4,180,"",12);var request=ReadRequest(stream,Op.Create);var r=new WireReader(request.Payload);Assert.AreEqual("Health",r.Str());Assert.AreEqual(4,r.U8());Assert.AreEqual(180,r.U16());Assert.AreEqual("",r.Str());Assert.AreEqual(12,r.U8());r.End();
-    byte[] frame=Protocol.Frame(Op.RoomState,0,new WireWriter().U32(1).Str("Health").U8(0).U8(0).U8(1).U8(0).Str("Tank").U8(0).U8(4).U16(180).U8(0).U8(0).U8(12).Done());stream.Write(frame,0,frame.Length);stream.Flush();yield return WaitFor(c,()=>c.Phase==ClientPhase.ROOM);Assert.AreEqual(12,c.RoomStartingHp);Assert.AreEqual(0,c.Slot);
-    c.ConfigureRoom("Health",4,180,0,"",20);request=ReadRequest(stream,Op.RoomSettings);r=new WireReader(request.Payload);r.Str();r.U8();r.U16();Assert.AreEqual(0,r.U8());Assert.AreEqual(20,r.U8());r.End();
+    c.Create("Health",4,180,"",12);var request=ReadRequest(stream,Op.Create);var r=new WireReader(request.Payload);Assert.AreEqual("Health",r.Str());Assert.AreEqual(4,r.U8());Assert.AreEqual(180,r.U16());Assert.AreEqual("",r.Str());Assert.AreEqual(12,r.U16());r.End();
+    byte[] frame=Protocol.Frame(Op.RoomState,0,new WireWriter().U32(1).Str("Health").U8(0).U8(0).U8(1).U8(0).Str("Tank").U8(0).U8(4).U16(180).U8(0).U8(0).U16(12).Done());stream.Write(frame,0,frame.Length);stream.Flush();yield return WaitFor(c,()=>c.Phase==ClientPhase.ROOM);Assert.AreEqual(12,c.RoomStartingHp);Assert.AreEqual(0,c.Slot);
+    c.ConfigureRoom("Health",4,180,0,"",20);request=ReadRequest(stream,Op.RoomSettings);r=new WireReader(request.Payload);r.Str();r.U8();r.U16();Assert.AreEqual(0,r.U8());Assert.AreEqual(20,r.U16());r.End();
    }
   }finally{listener.Stop();}
  }

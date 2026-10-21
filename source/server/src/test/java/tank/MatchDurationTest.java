@@ -44,7 +44,11 @@ class MatchDurationTest {
     @Test void legacyDatabaseMigratesIdempotentlyWithoutChangingHistory()throws Exception {
         Path path=tmp.resolve("legacy.db"),spool=tmp.resolve("spool");
         try(Connection db=DriverManager.getConnection("jdbc:sqlite:"+path);Statement statement=db.createStatement()) {
-            String schema=Files.readString(Path.of("src/main/resources/schema.sql")).replace(",duration_ticks INTEGER","");
+            String schema="""
+                CREATE TABLE accounts(id INTEGER PRIMARY KEY,username TEXT UNIQUE NOT NULL,salt BLOB NOT NULL,hash BLOB NOT NULL,iterations INTEGER NOT NULL,created INTEGER NOT NULL);
+                CREATE TABLE matches(id INTEGER PRIMARY KEY,map_id INTEGER,map_hash TEXT,mode TEXT,started INTEGER,ended INTEGER,reason INTEGER,seed INTEGER);
+                CREATE TABLE match_players(match_id INTEGER REFERENCES matches(id),account_id INTEGER REFERENCES accounts(id),nickname TEXT,slot INTEGER,kills INTEGER,deaths INTEGER,rank INTEGER,disconnected INTEGER,PRIMARY KEY(match_id,account_id));
+                """;
             for(String sql:schema.split(";"))if(!sql.isBlank())statement.execute(sql);
             statement.execute("INSERT INTO accounts VALUES(1,'legacy',zeroblob(16),zeroblob(32),600000,0)");
             statement.execute("INSERT INTO matches VALUES(7,1,'hash','COMBINED',1000,60976,0,1)");

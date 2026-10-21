@@ -176,7 +176,8 @@ public class Server implements AutoCloseable  {
                     return;
                 }
                 if(account==null)throw new Database.Failure(Error.UNAUTHENTICATED);
-                if(!actions.allow())throw new Database.Failure(Error.RATE_LIMITED);
+                boolean matchAction=p.op()==USE_SKILL;
+                if(!(matchAction&&room!=null&&room.roleplay!=null)&&!actions.allow())throw new Database.Failure(Error.RATE_LIMITED);
                 switch(p.op()) {
                     case LOGOUT-> {
                         r.end();
@@ -208,6 +209,7 @@ public class Server implements AutoCloseable  {
                         }
                         for(Room listedRoom:listed)w.u8(listedRoom.access.locked?1:0);
                         for(Room listedRoom:listed)w.u8(listedRoom.canRejoin(this)?1:0);
+                        for(Room listedRoom:listed)w.u8(listedRoom.roomMode.ordinal());
                         send(ROOM_LIST_RESULT,p.sequence(),w.done());
                     }
                     case CREATE_ROOM-> {
@@ -221,14 +223,16 @@ public class Server implements AutoCloseable  {
                         }
                         String roomPassword=r.b.hasRemaining()?r.str(128):"";
                         RoomAccess.validate(roomPassword);
-                        int hp=r.b.hasRemaining()?r.u8():World.DEFAULT_HP;
+                        int hp=r.b.hasRemaining()?r.u16():World.DEFAULT_HP;
                         if(hp<1||hp>World.MAX_START_HP)throw new IllegalArgumentException("starting HP");
+                        int roomMode=r.b.hasRemaining()?r.u8():0;
+                        if(roomMode>1)throw new IllegalArgumentException("room mode");
                         r.end();
                         if(name.isBlank())throw new IllegalArgumentException("name");
                         synchronized(rooms) {
                             if(room!=null)throw new Database.Failure(Error.INVALID_STATE);
                             if(rooms.size()>=cfg.integer("max.rooms",40))throw new Database.Failure(Error.ROOM_FULL);
-                            Room created=new Room(Server.this,roomId.incrementAndGet(),name,capacity,custom?seconds*30:cfg.integer("match.ticks",5400));
+                            Room created=new Room(Server.this,roomId.incrementAndGet(),name,capacity,custom?seconds*30:cfg.integer("match.ticks",5400),RoomMode.values()[roomMode]);
                             created.startingHp=hp;
                             created.access.set(roomPassword);
                             rooms.put(created.id,created);
@@ -280,7 +284,7 @@ public class Server implements AutoCloseable  {
                         int cap=r.u8(),seconds=r.u16(),mode=r.u8();
                         String password=mode==2?r.str(128):"";
                         RoomAccess.validate(password);
-                        int hp=r.b.hasRemaining()?r.u8():-1;
+                        int hp=r.b.hasRemaining()?r.u16():-1;
                         if(hp!=-1&&(hp<1||hp>World.MAX_START_HP))throw new IllegalArgumentException("starting HP");
                         r.end();
                         Room target=requireRoom();
@@ -312,9 +316,24 @@ public class Server implements AutoCloseable  {
                     }
                     case PREPARED-> {
                         long match=r.u64();
-                        r.end();
                         Room target=requireRoom();
-                        target.enqueue(()->target.prepared(this,match,p.sequence()));
+                        if(target.roleplay==null) {
+                            r.end();target.enqueue(()->target.prepared(this,match,p.sequence()));
+                        }
+                        else {
+                            int stage=r.u8(),revision=r.u32();byte[] hash=r.bytes(32);r.end();
+                            target.enqueue(()->target.roleplay.prepared(this,match,stage,revision,hash,p.sequence()));
+                        }
+                    }
+                    case SELECT_NATION-> {
+                        int nation=r.u8();r.end();Room target=requireRoom();
+                        if(target.roleplay==null)throw new Database.Failure(Error.INVALID_STATE);
+                        target.enqueue(()->target.roleplay.selectNation(this,nation,p.sequence()));
+                    }
+                    case USE_SKILL-> {
+                        long match=r.u64();int requestId=r.u32(),slot=r.u8();float aimX=r.b.hasRemaining()?r.f32():0,aimY=r.b.hasRemaining()?r.f32():0;r.end();
+                        Room target=requireRoom();if(target.roleplay==null)throw new Database.Failure(Error.INVALID_STATE);
+                        target.enqueue(()->target.roleplay.use(this,match,requestId,slot,p.payload(),p.sequence(),aimX,aimY));
                     }
                     case HISTORY_DETAIL-> {
                         long match=r.u64();
@@ -324,7 +343,15 @@ public class Server implements AutoCloseable  {
                             if(e!=null) {
                                 error(HISTORY_DETAIL_RESULT,p.sequence(),e instanceof Database.Failure f?f.code:Error.DATABASE_UNAVAILABLE);return;
                             }
-                            Writer w=new Writer().u16(0).u64(detail.id()).u16(detail.mapId()).u64(detail.started()).u64(detail.ended()).u8(detail.reason()).u8(detail.players().size()); for(var player:detail.players())w.u8(player.slot()).str(player.nickname()).u16(player.kills()).u16(player.deaths()).u8(player.rank()).u8(player.disconnected()?1:0).u8(player.account()==id?1:0); if(detail.durationTicks()!=null)w.u32(detail.durationTicks()); send(HISTORY_DETAIL_RESULT,p.sequence(),w.done());
+                            Writer w=new Writer().u16(0).u64(detail.id()).u16(detail.mapId()).u64(detail.started()).u64(detail.ended()).u8(detail.reason()).u8(detail.players().size());
+                            for(var player:detail.players())w.u8(player.slot()).str(player.nickname()).u16(player.kills()).u16(player.deaths()).u8(player.rank()).u8(player.disconnected()?1:0).u8(player.account()==id?1:0);
+                            boolean metadata=detail.roomMode()!=null||detail.contentVersion()!=null||detail.players().stream().anyMatch(player->player.nationId()!=null);
+                            if(detail.durationTicks()!=null||metadata)w.u32(detail.durationTicks()==null?-1:detail.durationTicks());
+                            if(metadata) {
+                                w.u8(1).str(detail.roomMode()==null?"":detail.roomMode()).str(detail.contentVersion()==null?"":detail.contentVersion()).u8(detail.players().size());
+                                for(var player:detail.players())w.u8(player.slot()).u8(player.nationId()==null?255:player.nationId());
+                            }
+                            send(HISTORY_DETAIL_RESULT,p.sequence(),w.done());
                         });
                     }
                     case HISTORY-> {
@@ -460,8 +487,9 @@ public class Server implements AutoCloseable  {
                     if(count<1||count>(cfg.mode().redundant()?3:1))return;
                     List<World.Input> input=new ArrayList<>();
                     for(int i=0;i<count;i++)input.add(new World.Input(r.u32(),r.u8(),r.u16()));
+                    float aimX=r.b.hasRemaining()?r.f32():0,aimY=r.b.hasRemaining()?r.f32():0;
                     r.end();
-                    room.enqueue(()->room.input(s,ack,input));
+                    room.enqueue(()->room.input(s,ack,input,aimX,aimY));
                 }
                 case ACK-> {
                     int id=r.u32();

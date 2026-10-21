@@ -123,14 +123,25 @@ Các máy cần ở cùng LAN hoặc cùng mạng VPN/Radmin. Máy server cần 
 
 Sau khi kết nối, đăng ký tài khoản, đăng nhập, tạo hoặc tham gia phòng. Trận đấu cần ít nhất hai người và tất cả phải ready để bắt đầu. Client ghi nhớ lựa chọn kết nối trên máy bạn; lựa chọn này không phải database tài khoản.
 
+Khi tạo phòng, chọn **Thường** (mặc định) hoặc **Nhập vai**. Chế độ được giữ cố định cho phòng đó. Phòng Nhập vai yêu cầu mỗi người chọn một quốc gia khác nhau trước khi ready. Sau khi tải và đồng bộ quốc gia/kỹ năng Q, trận đếm ngược 3 giây rồi bắt đầu.
+
+Nhập vai có kỹ năng Q theo quốc gia. Chết xóa hiệu ứng nhưng giữ hồi chiêu. Người đứng hạng nhất giành Hộp Đen trên màn hình kết quả; đây là phần thưởng kể chuyện trong trận. Các thông số kỹ năng vẫn cần được đánh giá qua playtest về công dụng và cân bằng.
+
+### Demo cục bộ với bảy xe mô phỏng
+
+Sau khi build server và client, mở `DemoRoleplay.bat` ở thư mục gốc. Cần JDK 21 trong `JAVA_HOME` hoặc `PATH`. Script mở server loopback TCP 23888/UDP 23889, một cửa sổ game và bảy client mô phỏng. Demo tự tạo tài khoản thử, chọn quốc gia và sẵn sàng; bạn chơi bằng WASD, chuột, Space, Shift, Q. Mỗi trận kéo dài ba phút, HP 3 và dùng map tám người.
+
+Dữ liệu demo nằm riêng trong `runtime/demo/`, cấu hình ở `config/demo.properties`; không dùng `runtime/tank.db` hoặc ghi đè thiết lập kết nối đã lưu của client. Bảy client mô phỏng tự thoát sau trận; đóng cửa sổ server khi xong. Không mở lại launcher khi server demo cũ còn chạy. Đây là đối thủ theo kịch bản phục vụ trình diễn và kiểm thử, chưa phải bằng chứng về cân bằng hoặc cảm giác chơi với người thật.
+
 ## Điều khiển
 
 | Phím/thao tác | Chức năng |
 |---|---|
-| WASD | Di chuyển |
+| WASD hoặc ↑/↓/←/→ | Di chuyển |
 | Chuột | Ngắm |
 | Click trái hoặc Space | Bắn |
 | Shift | Tăng tốc |
+| Q (Nhập vai) | Kỹ năng quốc gia |
 | Chuột phải trong arena | Bật/tắt tự bắn |
 | F11 hoặc Alt+Enter | Đổi fullscreen |
 
@@ -158,11 +169,13 @@ Log được tạo khi chạy để giúp tìm lỗi. Log server/build/test Unit
 | `config` | Thiết lập server và mẫu thiết lập môi trường riêng |
 | `scripts` | Các lệnh build, chạy và kiểm thử |
 
-Client và server cần dùng cùng đợt build. Nếu thay đổi luật gameplay, sửa `source/shared/game-rules.json`, rồi đồng bộ bằng:
+Client và server cần dùng cùng đợt build (giao thức v5, nội dung v5). Phòng mặc định 100 HP, cho phép 1–500 HP; đạn thường gây 20 HP và thanh máu xe chỉ hiển thị độ đầy, không có con số. Mọi trận dùng map lớn 80 × 80 với vị trí xuất phát ngẫu nhiên, phân bố cân đối; có thể sẵn sàng và bắt đầu trận tiếp theo ngay trong cùng phòng. Bộ kỹ năng Q và hồi chiêu được đồng bộ từ `source/shared/roleplay-content.json`; luật nền ở `source/shared/game-rules.json`. Sau khi thay đổi nội dung, đồng bộ Java/C# và content hash bằng:
 
 ```powershell
 python scripts/sync-contracts.py
 ```
+
+Chi tiết contract và kiểm thử packet ở [source/shared/README.md](source/shared/README.md).
 
 Sau đó build lại cả server và client. Build server tự chạy test Java. Muốn chạy test Unity, build server trước để tạo dữ liệu kiểm thử cần thiết, đóng Editor đang mở cùng project rồi chạy:
 

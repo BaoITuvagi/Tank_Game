@@ -3,6 +3,7 @@ using System.IO;
 namespace Tank  {
     public partial class ClientCore  {
         void Handle(Packet p) {
+            if(p.Op==Op.SnapshotPart) {RecordSequence(p.Sequence);p=fragments.Add(p,Match,LastSnapshot,NowUs);if(p==null)return;}
             if(p.Op==255) {
                 Phase=ClientPhase.AUTHENTICATING;
                 Message="Kết nối thành công";
@@ -15,6 +16,7 @@ namespace Tank  {
             if(p.Op>=Op.RegisterResult&&p.Op!=Op.HandshakeAck&&p.Op!=Op.Pong&&p.Op!=Op.Full&&p.Op!=Op.Delta&&p.Sequence!=0&&requests.TryGetValue(p.Sequence,out request))requests.Remove(p.Sequence);
             switch(p.Op) {
                 case Op.RegisterResult:case Op.LoginResult:case Op.LogoutResult:case Op.ActionResult:case Op.RoomListResult:case Op.HistoryResult:case Op.HistoryDetailResult:case Op.DisplayNameResult: {
+                    if(p.Op==Op.ActionResult&&IsRoleplayAction(request)) {RoleplayResult(r,request,p.Sequence);break;}
                     int status=r.U16();
                     if(p.Op==Op.HistoryDetailResult) {
                         if(p.Sequence!=detailRequest||SelectedHistoryMatch==0)return;
@@ -40,7 +42,18 @@ namespace Tank  {
                             if(r.Bool())detail.OwnSlot=score.Slot;
                             detail.Players.Add(score);
                         }
-                        if(r.Remaining>0)detail.DurationTicks=r.U32();
+                        if(r.Remaining>0) {uint duration=r.U32();detail.DurationTicks=duration==uint.MaxValue?(uint?)null:duration;}
+                        if(r.Remaining>0) {
+                            if(r.U8()!=1)throw new InvalidDataException("history metadata version");
+                            detail.RoomModeName=r.Str();detail.ContentVersion=r.Str();int count=r.U8();
+                            if(count!=detail.Players.Count)throw new InvalidDataException("history loadout count");
+                            var seen=new System.Collections.Generic.HashSet<int>();
+                            for(int i=0;i<count;i++) {
+                                int slot=r.U8(),nation=r.U8();var player=detail.Players.Find(score=>score.Slot==slot);
+                                if(player==null||!seen.Add(slot)||nation!=255&&nation>7)throw new InvalidDataException("history loadout");
+                                player.Nation=nation==255?-1:nation;
+                            }
+                        }
                         HistoryDetail=detail;
                     }
                     else if(p.Op==Op.LoginResult) {
@@ -78,9 +91,10 @@ namespace Tank  {
                             Id=r.U32(),Name=r.Str(48),Players=r.U8(),Capacity=r.U8(),Phase=(RoomPhase)r.U8()
                         });
                         if(r.Remaining>0) {
-                            if(r.Remaining!=Rooms.Count&&r.Remaining!=2*Rooms.Count)throw new InvalidDataException("room flags");
+                            if(r.Remaining!=Rooms.Count&&r.Remaining!=2*Rooms.Count&&r.Remaining!=3*Rooms.Count)throw new InvalidDataException("room flags");
                             foreach(var room in Rooms)room.Locked=r.Bool();
                             if(r.Remaining>0)foreach(var room in Rooms)room.CanRejoin=r.Bool();
+                            if(r.Remaining>0)foreach(var room in Rooms) {room.Mode=(RoomMode)r.U8();if((int)room.Mode>1)throw new InvalidDataException("room mode");}
                         }
                     }
                     else if(p.Op==Op.HistoryResult) {
@@ -121,15 +135,22 @@ namespace Tank  {
                         Slot=r.U8();
                         if(!Players.Exists(member=>member.Slot==Slot))throw new InvalidDataException("own slot");
                     }
-                    RoomStartingHp=r.Remaining>0?r.U8():3;
-                    if(RoomStartingHp<1||RoomStartingHp>30)throw new InvalidDataException("starting HP");
+                    RoomStartingHp=r.Remaining>0?r.U16():GameRules.DefaultHp;
+                    if(RoomStartingHp<1||RoomStartingHp>GameRules.MaxStartHp)throw new InvalidDataException("starting HP");
+                    RoomMode=RoomMode.NORMAL;
+                    if(r.Remaining>0) {
+                        RoomMode=(RoomMode)r.U8();PrepareStage=(PrepStage)r.U8();PrepareDeadline=r.U64();ulong preparingMatch=r.U64();r.U32();
+                        if(RoomMode!=RoomMode.ROLEPLAY||(int)PrepareStage>3)throw new InvalidDataException("roleplay room");
+                        foreach(var player in Players) {int nation=r.U8();if(nation!=255&&nation>7)throw new InvalidDataException("nation");player.Nation=nation==255?-1:nation;}
+                        if(Phase==ClientPhase.PREPARING&&Match!=0&&preparingMatch!=Match)throw new InvalidDataException("preparation match");
+                    }
                     r.End();
                     if(entering) {
                         Message="";
                         AfkWarning=false;
                     }
                     if(RoomPhase==RoomPhase.WAITING) {
-                        Phase=ClientPhase.ROOM;
+                        if(Phase!=ClientPhase.RESULTS) {Phase=ClientPhase.ROOM;ClearRoleplayMatch();}
                         StartUs=0;
                         handshake=false;
                     }
@@ -137,6 +158,8 @@ namespace Tank  {
                 }
                 case Op.Prepare: {
                     leavingMatch=false;
+                    PreparationError="";
+                    ClearRoleplayMatch();
                     Match=r.U64();
                     RoomId=r.U32();
                     Slot=r.U8();
@@ -145,11 +168,19 @@ namespace Tank  {
                     Mode=(NetworkMode)r.U8();
                     int rate=r.U8(),port=r.U16();
                     bool rejoining=r.Remaining>0&&r.Bool();
+                    RoomMode=r.Remaining>0?(RoomMode)r.U8():RoomMode.NORMAL;
+                    int contentVersion=0;byte[] content=null;uint requestHighWater=0;
+                    if(RoomMode==RoomMode.ROLEPLAY) {contentVersion=r.U16();content=r.Bytes(32);requestHighWater=r.U32();}
+                    else if(RoomMode!=RoomMode.NORMAL)throw new InvalidDataException("room mode");
                     r.End();
+                    if(RoomMode==RoomMode.ROLEPLAY&&(contentVersion!=RoleplayContent.Version||!Equal(content,ContentHash()))) {
+                        FailPreparation("Phiên bản nội dung không khớp server");return;
+                    }
+                    if(RoomMode==RoomMode.ROLEPLAY&&!roleplayAssetsReady) {FailPreparation("Thiếu hoặc không đọc được sprite: "+roleplayAssetError);return;}
+                    roleplayRequestId=requestHighWater;
                     Tuple<GameMap,byte[]> selected;
                     if(!maps.TryGetValue(mapId,out selected)||rate!=30||!Equal(hash,selected.Item2)) {
-                        Message="Map không khớp server";
-                        Leave();
+                        FailPreparation("Map không khớp server");
                         return;
                     }
                     map=selected.Item1;
@@ -160,11 +191,15 @@ namespace Tank  {
                     Phase=ClientPhase.PREPARING;
                     PingSamples=0;
                     MinRttUs=double.MaxValue;
+                    LastRttUs=LastPongUs=inputRttUs=0;
+                    LastArrivalUs=LastStateAgeUs=LastJitterUs=previousArrival=0;
+                    LeadTicks=2;
                     OffsetUs=0;
                     StartUs=0;
                     handshake=prepared=false;
                     Ended=false;
-                    LastSnapshot=0;
+                    Scores.Clear();
+                    LastSnapshot=0;fragments.Clear();
                     cache.Clear();
                     cacheOrder.Clear();
                     history.Clear();
@@ -192,6 +227,8 @@ namespace Tank  {
                     double now=NowUs,rtt=now-sent-(serverSent-received);
                     if(rtt<0)return;
                     LastRttUs=rtt;
+                    LastPongUs=now;
+                    UpdateInputLead(rtt);
                     double offset=((double)received-sent+(double)serverSent-now)/2;
                     if(rtt<MinRttUs) {
                         MinRttUs=rtt;
@@ -201,7 +238,8 @@ namespace Tank  {
                     PingSamples++;
                     break;
                 }
-                case Op.Start:if(r.U64()!=Match)return;
+                case Op.MatchLoadout:ReceiveLoadout(r);break;
+                case Op.Start:if(r.U64()!=Match||Phase!=ClientPhase.PREPARING||RoomMode==RoomMode.ROLEPLAY&&!LoadoutReady)return;
                 StartUs=r.U64();
                 r.End();
                 break;
@@ -216,9 +254,10 @@ namespace Tank  {
                     for(int i=0;i<n;i++)Scores.Add(new Score {
                         Slot=r.U8(),Name=r.Str(96),Kills=r.U16(),Deaths=r.U16(),LastKill=r.U32(),Rank=r.U8(),Disconnected=r.Bool()
                     });
+                    foreach(var score in Scores) {MatchLoadout loadout;if(Loadouts.TryGetValue(score.Slot,out loadout)) {score.Nation=loadout.Nation;}}
                     r.End();
                     Phase=ClientPhase.RESULTS;
-                    ResultsUntilUs=NowUs+10e6;
+                    Array.Clear(pendingSkills,0,pendingSkills.Length);
                     Ended=true;
                     StartUs=0;
                     break;
@@ -238,9 +277,10 @@ namespace Tank  {
                         Snapshots.Clear();
                         Players.Clear();
                         handshake=false;
+                        ClearRoleplayMatch();
                         StartUs=0;
                         AfkWarning=false;
-                        Message=reason==3?"Bạn đã về sảnh vì không hoạt động trong 15 giây sau cảnh báo AFK.":reason==4?"Chủ phòng đã mời bạn ra.":reason==2?"Bạn đã về sảnh vì kết nối UDP quá hạn. Các người chơi còn lại tiếp tục trận.":"Đã rời phòng.";
+                        Message=!string.IsNullOrEmpty(PreparationError)?PreparationError:reason==3?"Bạn đã về sảnh vì không hoạt động trong 15 giây sau cảnh báo AFK.":reason==4?"Chủ phòng đã mời bạn ra.":reason==2?"Bạn đã về sảnh vì kết nối UDP quá hạn. Các người chơi còn lại tiếp tục trận.":"Đã rời phòng.";
                     }
                     break;
                 }

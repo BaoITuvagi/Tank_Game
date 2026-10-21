@@ -135,7 +135,7 @@ class ReliabilityTest {
   try(Server server=server()) {
    Room room=room(server);var survivor=room.members.get(2).session;
    room.members.get(0).session.lastUdp=room.members.get(1).session.lastUdp=System.nanoTime()-11_000_000_000L;
-   room.tick();assertEquals(RoomState.RESULTS,room.phase);
+   room.tick();assertEquals(RoomState.WAITING,room.phase);
    Packet end=packets(survivor).stream().filter(p->p.op()==END).findFirst().orElseThrow();
    Reader r=new Reader(end.payload());assertEquals(room.match,r.u64());assertEquals(1,r.u8());assertEquals(3,r.u8());
    int disconnected=0;for(int i=0;i<3;i++){r.u8();r.str(24);r.u16();r.u16();r.u32();r.u8();if(r.bool())disconnected++;}
@@ -148,7 +148,7 @@ class ReliabilityTest {
   try(Server server=server()) {
    Room room=room(server);var survivor=room.members.get(0).session;
    for(int i=0;i<256;i++)room.enqueue(()->{});
-   room.stop();assertFalse(room.alive);assertEquals(RoomState.RESULTS,room.phase);
+   room.stop();assertFalse(room.alive);assertEquals(RoomState.WAITING,room.phase);
    assertEquals(2,server.db.submit(()->server.db.history(survivor.account.id(),0,20)).get().get(0).reason());
   }
  }

@@ -21,16 +21,16 @@ class RoomFeaturesTest {
    BaselineTest.auth(a,"hostcfg");BaselineTest.auth(b,"joincfg");BaselineTest.auth(c,"fullcfg");
    for(int[] invalid:new int[][]{{1,60},{9,60},{4,30},{4,61},{4,660}}){BaselineTest.send(a,CREATE_ROOM,new Writer().str("Invalid").u8(invalid[0]).u16(invalid[1]).done());assertEquals(Error.INVALID_REQUEST.ordinal(),new Reader(BaselineTest.waitFor(a,ACTION_RESULT).payload()).u16());assertTrue(s.rooms.isEmpty());}
    BaselineTest.send(a,CREATE_ROOM,new Writer().str("Duel").u8(2).u16(60).done());assertEquals(0,new Reader(BaselineTest.waitFor(a,ACTION_RESULT).payload()).u16());
-   Reader state=new Reader(BaselineTest.waitFor(a,ROOM_STATE).payload());int roomId=state.u32();assertEquals("Duel",state.str(48));state.u8();state.u8();assertEquals(1,state.u8());state.u8();state.str(24);state.bool();assertEquals(2,state.u8());assertEquals(60,state.u16());assertFalse(state.bool());assertEquals(0,state.u8());assertEquals(3,state.u8());state.end();
+   Reader state=new Reader(BaselineTest.waitFor(a,ROOM_STATE).payload());int roomId=state.u32();assertEquals("Duel",state.str(48));state.u8();state.u8();assertEquals(1,state.u8());state.u8();state.str(24);state.bool();assertEquals(2,state.u8());assertEquals(60,state.u16());assertFalse(state.bool());assertEquals(0,state.u8());assertEquals(100,state.u16());state.end();
    BaselineTest.send(b,JOIN_ROOM,new Writer().u32(roomId).done());assertEquals(0,new Reader(BaselineTest.waitFor(b,ACTION_RESULT).payload()).u16());
    BaselineTest.send(c,JOIN_ROOM,new Writer().u32(roomId).done());assertEquals(Error.ROOM_FULL.ordinal(),new Reader(BaselineTest.waitFor(c,ACTION_RESULT).payload()).u16());assertEquals(2,s.rooms.get(roomId).members.size());
    BaselineTest.send(c,ROOM_LIST,new byte[0]);Reader list=new Reader(BaselineTest.waitFor(c,ROOM_LIST_RESULT).payload());list.u16();assertEquals(1,list.u16());list.u32();list.str(48);assertEquals(2,list.u8());assertEquals(2,list.u8());
   }}
  }
  @Test void oneMinuteRoomEndsAtItsOwnDeadline()throws Exception {
-  try(Server s=server()){Room room=directRoom(s,2,4,60);room.prepare(room.members.get(0).session,2);assertEquals(1,room.arenaMap.mapId);room.phase=RoomState.RUNNING;room.world.tick=1798;
+  try(Server s=server()){Room room=directRoom(s,2,4,60);room.prepare(room.members.get(0).session,2);assertEquals(2,room.arenaMap.mapId);room.phase=RoomState.RUNNING;room.world.tick=1798;World finished=room.world;
    for(var member:room.members.values())member.session.lastUdp=System.nanoTime();room.tick();assertEquals(RoomState.RUNNING,room.phase);
-   for(var member:room.members.values())member.session.lastUdp=System.nanoTime();room.tick();assertEquals(RoomState.RESULTS,room.phase);assertEquals(1800,room.world.tick);
+   for(var member:room.members.values())member.session.lastUdp=System.nanoTime();room.tick();assertEquals(RoomState.WAITING,room.phase);assertEquals(1800,finished.tick);assertNull(room.world);
   }
  }
  @Test void eightPlayersReceiveBroadMapWithUniqueSpawns()throws Exception {

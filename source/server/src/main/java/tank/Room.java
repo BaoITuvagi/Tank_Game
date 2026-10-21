@@ -9,6 +9,8 @@ public class Room  {
     static final long UDP_TIMEOUT_NANOS=10_000_000_000L;
     final Server server;
     final int id;
+    final RoomMode roomMode;
+    final RoleplayMatch roleplay;
     volatile String name;
     volatile int capacity,matchTicks,startingHp=World.DEFAULT_HP;
     final RoomAccess access=new RoomAccess();
@@ -21,7 +23,8 @@ public class Room  {
     volatile View view=new View(RoomState.WAITING,0);
     World world;
     int host=-1,snapshotId;
-    long deadline,startUs,startedUtc,resultsUntil,seed;
+    long deadline,startUs,startedUtc,seed;
+    String previousSpawnLayout="";
     boolean announced;
     volatile boolean alive=true,stopRequested;
     Thread thread;
@@ -38,29 +41,39 @@ public class Room  {
         int leaveReason;
         long rejoinDeadline;
         long activity=System.nanoTime(),activityCheck=activity,afkSince;
-        int previousAim;
+        int previousAim,skillAimTick;
         World.Tank resultTank;
         InputBuffer input=new InputBuffer();
         int ack;
         boolean forceFull=true;
         final LinkedHashMap<Integer,byte[]> cache=new LinkedHashMap<>();
+        final RoleplayMatch.Player roleplay=new RoleplayMatch.Player();
         Member(Server.Session s,int slot) {
             session=s;
             account=s.account;
             displayName=s.displayName();
             this.slot=slot;
         }
+        boolean canRejoin() {
+            // Leaving to recover a weak connection must not forfeit the running match.
+            return disconnected&&leaveReason>=0&&leaveReason<=3;
+        }
     }
     Room(Server s,int id,String name) {
         this(s,id,name,s.cfg.integer("max.players",8),s.cfg.integer("match.ticks",5400));
     }
     Room(Server s,int id,String name,int capacity,int ticks) {
+        this(s,id,name,capacity,ticks,RoomMode.NORMAL);
+    }
+    Room(Server s,int id,String name,int capacity,int ticks,RoomMode mode) {
         server=s;
         this.id=id;
         this.name=name;
         this.capacity=capacity;
+        roomMode=mode;
+        roleplay=mode==RoomMode.ROLEPLAY?new RoleplayMatch(this):null;
         matchTicks=ticks;
-        arenaMap=s.map;
+        arenaMap=s.largeMap;
     }
     void start() {
         thread=Thread.ofVirtual().name("room-"+id).start(this::loop);
@@ -108,12 +121,13 @@ public class Room  {
         for(Member removed:new ArrayList<>(members.values()))if(!removed.session.open)leave(removed.session,1);
         long now=Server.nowUs();
         if(phase==RoomState.PREPARING) {
-            if(!announced&&members.values().stream().allMatch(m->m.prepared&&m.session.endpoint!=null)) {
+            if(roleplay!=null)roleplay.tick(now);
+            if(roleplay==null&&!announced&&members.values().stream().allMatch(m->m.prepared&&m.session.endpoint!=null)) {
                 announced=true;
                 startUs=now+3_000_000;
                 for(Member m:members.values())m.session.event(START,new Writer().u64(match).u64(startUs).done());
             }
-            if(announced&&now>=startUs) {
+            if(phase==RoomState.PREPARING&&announced&&now>=startUs) {
                 phase=RoomState.RUNNING;
                 startedUtc=System.currentTimeMillis();
                 for(var m:members.values()) {
@@ -122,17 +136,22 @@ public class Room  {
                 }
                 broadcast();
             }
-            else if(!announced&&now>=deadline) {
+            else if(roleplay==null&&!announced&&now>=deadline) {
                 phase=RoomState.WAITING;
                 for(Member m:members.values())m.session.notice(Error.NOT_READY.ordinal(),"Chuẩn bị trận quá hạn");
                 broadcast();
             }
         }
         if(phase==RoomState.RUNNING) {
-            for(Member m:new ArrayList<>(members.values()))if(System.nanoTime()-m.session.lastUdp>UDP_TIMEOUT_NANOS)leave(m.session,2);
+            for(Member m:new ArrayList<>(members.values())) {
+                if(phase!=RoomState.RUNNING)break;
+                if(System.nanoTime()-m.session.lastUdp>UDP_TIMEOUT_NANOS)leave(m.session,2);
+            }
             if(phase!=RoomState.RUNNING)return;
             Map<Integer,World.Input> inputs=new HashMap<>();
             for(Member m:new ArrayList<>(members.values())) {
+                // Removing a member can finish the match and release world mid-loop.
+                if(phase!=RoomState.RUNNING)return;
                 if(m.rejoining) {
                     if(System.nanoTime()>=m.rejoinDeadline)leave(m.session,3);
                     continue;
@@ -160,19 +179,9 @@ public class Room  {
             }
             if(phase!=RoomState.RUNNING)return;
             world.step(inputs);
+            if(roleplay!=null)roleplay.observe();
             snapshot();
             if(world.tick>=matchTicks)finish(0);
-        }
-        if(phase==RoomState.RESULTS&&now>=resultsUntil) {
-            phase=RoomState.WAITING;
-            for(Member m:members.values()) {
-                m.ready=false;
-                m.prepared=false;
-                m.session.endpoint=null;
-            }
-            participants.clear();
-            world=null;
-            broadcast();
         }
     }
     void join(Server.Session s,int seq) {
@@ -223,16 +232,17 @@ public class Room  {
     }
     void updateRejoinable() {
         Set<Long> accounts=new HashSet<>();
-        if(phase==RoomState.RUNNING)for(Member m:participants)if(m.disconnected&&m.leaveReason==3)accounts.add(m.account.id());
+        if(phase==RoomState.RUNNING)for(Member m:participants)if(m.canRejoin())accounts.add(m.account.id());
         rejoinableAccounts=Set.copyOf(accounts);
     }
     void sendPrepare(Member m,boolean rejoin) {
         Writer w=new Writer().u64(match).u32(id).u8(m.slot).u16(arenaMap.mapId).bytes(arenaMap.hash).u8(server.cfg.mode().ordinal()).u8(30).u16(server.udp.getLocalPort());
-        if(rejoin)w.u8(1);
+        if(roleplay!=null)w.u8(rejoin?1:0).u8(roomMode.ordinal()).u16(RoleplayContent.Version).bytes(RoleplayMatch.CONTENT_HASH).u32(m.roleplay.highestRequest);
+        else if(rejoin)w.u8(1);
         m.session.event(PREPARE,w.done());
     }
     void rejoin(Server.Session s,int seq) {
-        Member returning=participants.stream().filter(m->m.account.id()==s.account.id()&&m.disconnected&&m.leaveReason==3).findFirst().orElse(null);
+        Member returning=participants.stream().filter(m->m.account.id()==s.account.id()&&m.canRejoin()).findFirst().orElse(null);
         if(returning==null||members.containsKey(returning.slot)||members.size()>=capacity) {
             s.room=null;
             s.error(ACTION_RESULT,seq,returning!=null&&members.size()>=capacity?Error.ROOM_FULL:Error.ROOM_BUSY);
@@ -250,6 +260,7 @@ public class Room  {
         returning.cache.clear();
         returning.input=new InputBuffer();
         returning.rejoinDeadline=System.nanoTime()+UDP_TIMEOUT_NANOS;
+        returning.roleplay.awaitingLoadout=false;
         members.put(returning.slot,returning);
         s.slot=returning.slot;
         s.room=this;
@@ -269,7 +280,14 @@ public class Room  {
         for(Member m:members.values())w.u8(m.slot).str(m.displayName).u8(m.ready?1:0);
         w.u8(capacity).u16(matchTicks/30).u8(access.locked?1:0);
         byte[] p=w.done();
-        for(Member m:members.values())m.session.event(ROOM_STATE,new Writer().bytes(p).u8(m.slot).u8(startingHp).done());
+        for(Member m:members.values()) {
+            Writer state=new Writer().bytes(p).u8(m.slot).u16(startingHp);
+            if(roleplay!=null) {
+                state.u8(roomMode.ordinal()).u8(roleplay.stage.ordinal()).u64(deadline).u64(match).u32(roleplay.revision);
+                for(Member player:members.values())state.u8(player.roleplay.nation<0?255:player.roleplay.nation);
+            }
+            m.session.event(ROOM_STATE,state.done());
+        }
     }
     void rename(Server.Session session,String value) {
         Member m=member(session);
@@ -312,6 +330,10 @@ public class Room  {
         }
         Member m=member(s);
         if(m==null)return;
+        if(value&&roleplay!=null&&m.roleplay.nation<0) {
+            s.error(ACTION_RESULT,seq,Error.NOT_READY);
+            return;
+        }
         m.ready=value;
         s.ok(ACTION_RESULT,seq);
         broadcast();
@@ -329,14 +351,15 @@ public class Room  {
             s.error(ACTION_RESULT,seq,Error.INVALID_STATE);
             return;
         }
-        if(members.size()<2||members.values().stream().anyMatch(m->!m.ready)) {
+        if(members.size()<2||members.values().stream().anyMatch(m->!m.ready||roleplay!=null&&m.roleplay.nation<0)) {
             s.error(ACTION_RESULT,seq,Error.NOT_READY);
             return;
         }
         match=server.matchId.getAndIncrement();
-        seed=Long.parseLong(server.cfg.value("match.seed","20261007"))^id;
-        arenaMap=members.size()>4?server.largeMap:server.map;
+        seed=Long.parseLong(server.cfg.value("match.seed","20261007"))^id^Long.rotateLeft(match,21);
+        arenaMap=server.largeMap;
         world=new World(arenaMap,seed,startingHp);
+        if(roleplay!=null)world.telemetry=message->System.out.println("ROLEPLAY_EFFECT match="+match+" map="+arenaMap.mapId+" hp="+startingHp+" "+message);
         participants.clear();
         rejoinableAccounts=Set.of();
         for(Member m:members.values()) {
@@ -346,6 +369,7 @@ public class Room  {
             m.afkWarn=false;
             m.afkSince=0;
             m.previousAim=world.tanks.get(m.slot).turret;
+            m.skillAimTick=0;
             m.session.endpoint=null;
             m.ack=0;
             m.forceFull=true;
@@ -353,11 +377,13 @@ public class Room  {
             m.input=new InputBuffer();
             participants.add(m);
         }
+        previousSpawnLayout=world.arrangeInitialSpawns(previousSpawnLayout);
         snapshotId=0;
         fullCount=deltaCount=fallbackCount=resyncCount=0;
         announced=false;
         phase=RoomState.PREPARING;
         deadline=Server.nowUs()+10_000_000;
+        if(roleplay!=null)roleplay.begin();
         s.ok(ACTION_RESULT,seq);
         broadcast();
         for(Member m:members.values())sendPrepare(m,false);
@@ -375,7 +401,11 @@ public class Room  {
                 tank.kills=m.resultTank.kills;
                 tank.deaths=m.resultTank.deaths;
                 tank.lastKill=m.resultTank.lastKill;
+                if(roleplay!=null) {
+                    tank.qReadyTick=m.resultTank.qReadyTick;
+                }
             }
+            if(roleplay!=null) {tank.nation=m.roleplay.nation;}
             m.rejoining=false;
             m.activity=m.activityCheck=System.nanoTime();
             m.previousAim=tank.turret;
@@ -410,6 +440,10 @@ public class Room  {
         }
         members.remove(m.slot);
         m.disconnected=true;
+        if(roleplay!=null) {
+            if(m.roleplay.usMetricsOpen)System.out.println("ROLEPLAY_UTILITY match="+match+" account="+m.account.id()+" censored=true reason=leave");
+            m.roleplay.usMetricsOpen=false;
+        }
         m.leaveReason=m.rejoining?3:reason;
         m.rejoining=false;
         updateRejoinable();
@@ -427,8 +461,11 @@ public class Room  {
         if(host==m.slot)host=members.isEmpty()?-1:members.keySet().iterator().next();
         if(phase==RoomState.RUNNING&&activeCount()<2)finish(1);
         else if(phase==RoomState.PREPARING) {
-            phase=RoomState.WAITING;
-            members.values().forEach(x->x.session.notice(Error.NOT_READY.ordinal(),"Hủy chuẩn bị: thành viên rời phòng"));
+            if(roleplay!=null)roleplay.cancel("Hủy chuẩn bị: thành viên rời phòng");
+            else {
+                phase=RoomState.WAITING;
+                members.values().forEach(x->x.session.notice(Error.NOT_READY.ordinal(),"Hủy chuẩn bị: thành viên rời phòng"));
+            }
         }
         broadcast();
         if(members.isEmpty()) {
@@ -441,6 +478,15 @@ public class Room  {
         if(m==null||m.rejoining||phase!=RoomState.RUNNING)return;
         ack(s,ack);
         for(World.Input in:input)m.input.put(in,world.tick);
+    }
+    void input(Server.Session s,int ack,List<World.Input> input,float aimX,float aimY) {
+        Member m=member(s);
+        if(m==null||m.rejoining||phase!=RoomState.RUNNING)return;
+        input(s,ack,input);
+        int newest=input.stream().mapToInt(World.Input::tick).max().orElse(0);
+        if(newest>m.skillAimTick&&newest>world.tick&&newest<=world.tick+30) {
+            m.skillAimTick=newest;world.skillAim(m.slot,aimX,aimY);
+        }
     }
     void ack(Server.Session s,int id) {
         Member m=member(s);
@@ -456,7 +502,6 @@ public class Room  {
     void snapshot() {
         long before=System.nanoTime();
         byte[] full=world.encode();
-        if(12+30+full.length>1200)throw new IllegalStateException("full snapshot exceeds MTU");
         snapshotId++;
         lastEncode=System.nanoTime()-before;
         long send=System.nanoTime();
@@ -481,7 +526,9 @@ public class Room  {
                 fullCount++;
             }
             m.forceFull=false;
-            server.udpSend(m.session,op,w.done());
+            byte[] payload=w.done();
+            if(payload.length+12<=1200)server.udpSend(m.session,op,payload);
+            else for(byte[] part:SnapshotFragments.split(match,snapshotId,op,payload))server.udpSend(m.session,SNAPSHOT_PART,part);
             m.cache.put(snapshotId,full);
             while(m.cache.size()>128)m.cache.remove(m.cache.keySet().iterator().next());
         }
@@ -489,9 +536,10 @@ public class Room  {
     }
     void finish(int reason) {
         if(phase!=RoomState.RUNNING)return;
+        if(roleplay!=null)roleplay.summary();
+        if(world!=null)world.skills.clear();
         phase=RoomState.RESULTS;
         rejoinableAccounts=Set.of();
-        resultsUntil=Server.nowUs()+10_000_000;
         List<Member> sorted=new ArrayList<>(participants);
         for(Member m:sorted) {
             World.Tank t=world.tanks.get(m.slot);
@@ -509,15 +557,25 @@ public class Room  {
             World.Tank t=m.resultTank;
             rank++;
             w.u8(m.slot).str(m.displayName).u16(t.kills).u16(t.deaths).u32(t.lastKill).u8(rank).u8(m.disconnected?1:0);
-            result.add(new Database.ResultPlayer(m.account.id(),m.displayName,m.slot,t.kills,t.deaths,rank,m.disconnected));
+            result.add(new Database.ResultPlayer(m.account.id(),m.displayName,m.slot,t.kills,t.deaths,rank,m.disconnected,roleplay==null?null:m.roleplay.nation));
         }
         byte[] payload=w.done();
         for(Member m:members.values())m.session.event(END,payload);
-        Database.Result record=new Database.Result(match,arenaMap.mapId,HexFormat.of().formatHex(arenaMap.hash),server.cfg.mode().name(),startedUtc,System.currentTimeMillis(),reason,seed,List.copyOf(result),world==null?null:world.tick);
+        Database.Result record=new Database.Result(match,arenaMap.mapId,HexFormat.of().formatHex(arenaMap.hash),server.cfg.mode().name(),startedUtc,System.currentTimeMillis(),reason,seed,List.copyOf(result),world==null?null:world.tick,roomMode.name(),roleplay==null?null:RoleplayContent.Version+"@"+RoleplayContent.Hash);
         List<Server.Session> notify=members.values().stream().map(m->m.session).toList();
         server.db.save(record).thenAccept(saved-> {
             if(!saved)for(var s:notify)s.notice(Error.DATABASE_UNAVAILABLE.ordinal(),"Kết quả đang chờ lưu; kiểm tra log và spool");
         });
+        phase=RoomState.WAITING;
+        for(Member m:members.values()) {
+            m.ready=m.prepared=m.rejoining=m.afkWarn=false;
+            m.session.endpoint=null;
+            m.resultTank=null;
+            m.cache.clear();m.input=new InputBuffer();m.ack=0;m.forceFull=true;
+        }
+        participants.clear();world=null;
+        announced=false;startUs=deadline=0;
+        if(roleplay!=null)roleplay.resetLobby();
         broadcast();
     }
     void stop() {

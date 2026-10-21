@@ -14,6 +14,12 @@ namespace Tank  {
             raw=File.ReadAllBytes(Path.Combine(Application.streamingAssetsPath,largePreview?"map.json":"map-large.json"));
             using(var sha=SHA256.Create())hash=sha.ComputeHash(raw);
             client.AddMap(JsonUtility.FromJson<GameMap>(System.Text.Encoding.UTF8.GetString(raw)),hash);
+            string assetError=null;
+            foreach(string name in RoleplayContent.RequiredSprites) {
+                var sprite=Resources.Load<Texture2D>("ArenaArt/"+name);
+                if(sprite==null||!sprite.isReadable) {assetError=name;break;}
+            }
+            client.SetRoleplayAssets(assetError);
             return client;
         }
     }

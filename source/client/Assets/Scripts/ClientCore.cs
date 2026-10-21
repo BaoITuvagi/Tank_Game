@@ -28,6 +28,9 @@ namespace Tank  {
         public long RxBytes,TxBytes,RxPackets,TxPackets,Decoded,Invalid,MissingBase,Corrections,PredictionResets,SequenceGaps;
         public double PredictionError;
         public int PingSamples;
+        public double LastPongUs;
+        public bool PingFresh { get { return LastPongUs>0&&NowUs-LastPongUs<=3e6; } }
+        double inputRttUs;
         public UdpImpairment Impairment;
         public bool Ended;
         public int EndReason;
@@ -45,11 +48,10 @@ namespace Tank  {
             }
         }
         public const int AfkGraceSeconds=15;
-        public int RoomCapacity=8,RoomSeconds=180,RoomStartingHp=3;
+        public int RoomCapacity=8,RoomSeconds=180,RoomStartingHp=GameRules.DefaultHp;
         public string RoomName="",AccountName="";
         public bool RoomLocked;
         public int NameRevision,SettingsRevision;
-        public double ResultsUntilUs;
         public bool AfkWarning;
         public double AfkWarnedAt;
         readonly ConcurrentQueue<IncomingPacket> inbox=new ConcurrentQueue<IncomingPacket>();
@@ -162,9 +164,9 @@ namespace Tank  {
         public void Kick(int slot) {
             Request(Op.Kick,new WireWriter().U8(slot).Done());
         }
-        public void Create(string name,int capacity,int seconds,string password,int startingHp=3) {
-            if(startingHp<1||startingHp>30)throw new ArgumentOutOfRangeException("startingHp");
-            Request(Op.Create,new WireWriter().Str(name).U8(capacity).U16(seconds).Str(password??"").U8(startingHp).Done());
+        public void Create(string name,int capacity,int seconds,string password,int startingHp=GameRules.DefaultHp) {
+            if(startingHp<1||startingHp>GameRules.MaxStartHp)throw new ArgumentOutOfRangeException("startingHp");
+            Request(Op.Create,new WireWriter().Str(name).U8(capacity).U16(seconds).Str(password??"").U16(startingHp).Done());
         }
         public void Join(uint room,string password) {
             Request(Op.Join,new WireWriter().U32(room).Str(password??"").Done());
@@ -172,11 +174,11 @@ namespace Tank  {
         public void SetDisplayName(string value) {
             Request(Op.SetDisplayName,new WireWriter().Str(value.Trim()).Done());
         }
-        public void ConfigureRoom(string name,int capacity,int seconds,int passwordMode,string password,int startingHp=3) {
-            if(startingHp<1||startingHp>30)throw new ArgumentOutOfRangeException("startingHp");
+        public void ConfigureRoom(string name,int capacity,int seconds,int passwordMode,string password,int startingHp=GameRules.DefaultHp) {
+            if(startingHp<1||startingHp>GameRules.MaxStartHp)throw new ArgumentOutOfRangeException("startingHp");
             var w=new WireWriter().Str(name).U8(capacity).U16(seconds).U8(passwordMode);
             if(passwordMode==2)w.Str(password);
-            Request(Op.RoomSettings,w.U8(startingHp).Done());
+            Request(Op.RoomSettings,w.U16(startingHp).Done());
         }
         public void GetHistoryDetail(ulong match) {
             SelectedHistoryMatch=match;
@@ -192,6 +194,7 @@ namespace Tank  {
         }
         public void BackToRoom() {
             if(Phase==ClientPhase.RESULTS&&RoomId!=0) {
+                ClearRoleplayMatch();
                 Phase=ClientPhase.ROOM;
                 Message="";
             }
@@ -210,6 +213,9 @@ namespace Tank  {
                     currentUdp.Send(f,f.Length,endpoint);
                     TxBytes+=f.Length;
                     TxPackets++;
+                }
+                catch(SocketException) {
+                    // UDP loss is recovered by the match timeout; keep the TCP login alive.
                 }
                 catch(Exception e) {
                     ReportError(e.Message,epoch);
@@ -239,6 +245,7 @@ namespace Tank  {
             }
             double now=NowUs;
             if(!open)return;
+            PollRoleplay(now);
             if(now-lastTcpReceived>15e6) {
                 Dispose();
                 Message="TCP heartbeat quá hạn";
@@ -258,13 +265,14 @@ namespace Tank  {
                     SendUdp(Op.Handshake,Prefix().U64(7).Done());
                 }
                 if(!handshake&&now-prepareAt>1e7) {
-                    Dispose();
-                    Message="UDP handshake quá hạn";
+                    FailPreparation("Kết nối UDP quá hạn. Đã về sảnh, hãy thử vào lại khi mạng ổn định.");
                     return;
                 }
                 if(handshake&&PingSamples>=8&&!prepared) {
                     prepared=true;
-                    Request(Op.Prepared,new WireWriter().U64(Match).Done());
+                    var preparation=new WireWriter().U64(Match);
+                    if(RoomMode==RoomMode.ROLEPLAY)preparation.U8((int)PrepStage.LOADING).U32((uint)RoleplayContent.Version).Bytes(ContentHash());
+                    Request(Op.Prepared,preparation.Done());
                 }
             }
             if(handshake&&(Phase==ClientPhase.PREPARING||Phase==ClientPhase.PLAYING||StartUs>0)) {
@@ -281,7 +289,7 @@ namespace Tank  {
             if(Phase==ClientPhase.PREPARING&&StartUs>0&&now+OffsetUs>=StartUs) {
                 Phase=ClientPhase.PLAYING;
                 if(Message=="Đang vào lại trận đấu…")Message="";
-                LeadTicks=Math.Max(2,Math.Min(12,(int)Math.Ceiling(MinRttUs/2/(1e6/30))+2));
+                UpdateInputLead(inputRttUs>0?inputRttUs:MinRttUs);
                 targetTick=0;
                 lastValidSnapshot=now;
             }
@@ -300,12 +308,15 @@ namespace Tank  {
             for(int i=0;i<a.Length;i++)if(a[i]!=b[i])return false;
             return true;
         }
+        readonly SnapshotAssembler fragments=new SnapshotAssembler();
+        public float SkillAimX,SkillAimY;
         void ReceiveSnapshot(Packet p,WireReader r) {
-            if(Phase!=ClientPhase.PLAYING&&Phase!=ClientPhase.PREPARING)return;
+            if(Phase!=ClientPhase.PLAYING&&Phase!=ClientPhase.PREPARING&&!(Phase==ClientPhase.RESULTS&&Ended))return;
             var s=new Snapshot {
                 Match=r.U64(),Id=r.U32(),Tick=r.U32(),Time=r.U64(),Resolved=r.U32(),Remaining=r.U16()
             };
             if(s.Match!=Match)return;
+            if(RoomMode==RoomMode.ROLEPLAY&&!LoadoutReady)return;
             if(p.Op==Op.Full)s.World=WorldState.Full(r);
             else {
                 uint baseId=r.U32();
@@ -323,6 +334,7 @@ namespace Tank  {
                 s.World=DeltaCodec.Apply(baseWorld,r);
             }
             r.End();
+            AttachLoadout(s.World);
             Decoded++;
             if(Message=="Mạng chậm, đang đồng bộ lại trận đấu…")Message="";
             lastValidSnapshot=NowUs;
@@ -334,6 +346,7 @@ namespace Tank  {
             cache[s.Id]=s.World;
             while(cacheOrder.Count>128)cache.Remove(cacheOrder.Dequeue());
             if(LastSnapshot!=0&&!Protocol.Newer(s.Id,LastSnapshot))return;
+            if(Latest!=null&&s.Tick<Latest.Tick)return;
             LastSnapshot=s.Id;
             Latest=s;
             LastArrivalUs=NowUs;
@@ -405,6 +418,11 @@ namespace Tank  {
             int elapsed=(int)Math.Floor(Math.Max(0,Math.Min(4e5,now-arrival+Math.Max(0,snapshotAgeUs)))*30/1e6);
             return snapshot.Tick+(uint)Math.Min(30,elapsed+Math.Max(2,Math.Min(12,lead)));
         }
+        void UpdateInputLead(double rtt) {
+            // React immediately to rising latency; release the safety margin gradually.
+            inputRttUs=Math.Max(rtt,inputRttUs*.9+rtt*.1);
+            LeadTicks=2+(int)Math.Min(10,Math.Ceiling((inputRttUs/2+Math.Min(1e5,Math.Max(0,LastJitterUs)))*30/1e6));
+        }
         public bool GenerateInput(int buttons,int angle) {
             if(Phase!=ClientPhase.PLAYING||Latest==null)return false;
             uint desired=DesiredInputTick(Latest,NowUs,LastArrivalUs,LeadTicks,LastStateAgeUs);
@@ -417,6 +435,9 @@ namespace Tank  {
                 targetTick=desired-1;
                 PredictionResets++;
             }
+            // Do not replay a backlog of already-late commands after a frame stall.
+            // Keep a two-command catch-up window so 15 FPS can still submit 30 Hz input.
+            if(desired-targetTick>2)targetTick=desired-1;
             var input=new InputRecord(++targetTick,buttons,angle);
             history[input.Tick]=input;
             if(history.Count>256) {
@@ -431,7 +452,7 @@ namespace Tank  {
             };
             var w=Prefix().U32(LastSnapshot).U8(list.Length);
             for(int i=list.Length-1;i>=0;i--)list[i].Write(w);
-            SendUdp(Op.Input,w.Done());
+            SendUdp(Op.Input,w.F32(SkillAimX).F32(SkillAimY).Done());
             if(Predicted!=null&&Latest!=null) {
                 Movement.Step(Predicted,input,map,Latest.World.Bricks);
                 predictedHistory[input.Tick]=Predicted.Copy();

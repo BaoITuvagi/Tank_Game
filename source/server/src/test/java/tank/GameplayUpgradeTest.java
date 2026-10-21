@@ -44,27 +44,39 @@ class GameplayUpgradeTest {
   for(int i=2;i<90;i++)World.movement(a,new World.Input(i,40,0),m,new byte[64]);
   assertTrue(a.x+GameRules.TankHalfSize<=11+GameRules.CollisionEpsilon);assertFalse(m.blocked(a.x,a.y,new byte[64]));
  }
- @Test void everyInitialPlayerUsesACornerZoneAcrossSeedsAndSlotGaps()throws Exception{
-  for(int count:new int[]{2,3,4,5,8})for(int seed=0;seed<32;seed++){
-   GameMap map=GameMap.load(Path.of("../client/Assets/StreamingAssets/"+(count<=4?"map.json":"map-large.json")));
-   World w=new World(map,seed);Set<String> positions=new HashSet<>();
-   for(int i=0;i<count;i++)w.add(i+8-count);
-   for(var t:w.tanks.values()){
-    assertTrue(Math.min(t.x,map.width-t.x)<=map.width/4);assertTrue(Math.min(t.y,map.height-t.y)<=map.height/4);
-    assertFalse(map.blocked(t.x,t.y,w.bricks));assertTrue(positions.add(t.x+","+t.y));
-    if(count<=4)assertTrue(Arrays.stream(map.spawns).limit(4).anyMatch(p->p.x==t.x&&p.y==t.y));
+ @Test void initialLayoutsAreBalancedSafeAndVaryAcrossSeedsAndSlotGaps()throws Exception{
+  GameMap map=GameMap.load(Path.of("../client/Assets/StreamingAssets/map-large.json"));
+  for(int count:new int[]{2,3,4,5,8}){
+   Set<String> assignments=new HashSet<>();
+   for(int seed=0;seed<32;seed++){
+    World w=new World(map,seed);for(int i=0;i<count;i++)w.add(i+8-count);w.arrangeInitialSpawns("");
+    Set<String> positions=new HashSet<>();double cx=0,cy=0;String assignment="";
+    for(var t:w.tanks.values()){
+     assertFalse(map.blocked(t.x,t.y,w.bricks));assertTrue(positions.add(t.x+","+t.y));
+     for(var other:w.tanks.values())if(other!=t)assertTrue(Math.hypot(t.x-other.x,t.y-other.y)>=12);
+     cx+=t.x;cy+=t.y;assignment+=t.x+","+t.y+";";
+    }
+    assertEquals(40,cx/count,8);assertEquals(40,cy/count,8);assignments.add(assignment);
+    if(count==8){assertTrue(w.tanks.values().stream().anyMatch(t->t.x==6&&t.y>6&&t.y<74));assertTrue(w.tanks.values().stream().anyMatch(t->t.y==6&&t.x>6&&t.x<74));}
    }
+   assertTrue(assignments.size()>1,"same spawn assignments across seeds: "+count);
+  }
+ }
+ @Test void consecutiveLayoutsDoNotRepeatEvenWhenRandomSeedRepeats()throws Exception{
+  GameMap map=GameMap.load(Path.of("../client/Assets/StreamingAssets/map-large.json"));String previous="";
+  for(int i=0;i<10;i++){
+   World w=new World(map,1);w.add(0);w.add(1);String layout=w.arrangeInitialSpawns(previous);assertNotEquals(previous,layout);previous=layout;
   }
  }
  @Test void configuredHpResetsOnRespawnAndEveryHitDamagesImmediately()throws Exception{
   var map=GameMap.load(Path.of("../client/Assets/StreamingAssets/map.json"));
-  for(int hp:new int[]{1,6,30}){
+  for(int hp:new int[]{1,100,500}){
    var w=new World(map,1,hp);w.add(0);var t=w.tanks.get(0);assertEquals(hp,t.hp);assertEquals(hp,t.maxHp);
-   w.tick=149;w.damage(t,0);assertEquals(hp-1,t.hp);
+   w.tick=149;w.damage(t,0);assertEquals(Math.max(0,hp-20),t.hp);
    for(int i=1;i<hp;i++)w.damage(t,0);assertEquals(0,t.hp);t.energy=0;
    for(int i=0;i<89;i++)w.step(Map.of());assertEquals(0,t.hp);
    w.step(Map.of());assertEquals(hp,t.hp);assertEquals(150,t.energy);assertEquals(w.tick,t.shield);
-   w.damage(t,0);assertEquals(hp-1,t.hp);
+   w.damage(t,0);assertEquals(Math.max(0,hp-20),t.hp);
   }
  }
  @Test void extendedStateRoundTripsThroughFullAndDeltaIncludingNewTank()throws Exception{

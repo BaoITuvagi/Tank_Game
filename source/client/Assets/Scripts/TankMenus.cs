@@ -6,7 +6,7 @@ namespace Tank  {
         MenuTheme menu=new MenuTheme();
         int capacityChoice=2,durationChoice=1;
         bool registerTab,roomForm,editingRoom,profileForm,joinForm,useRoomPassword;
-        string startingHpText="3",roomPassword="",joinPassword="",displayName="",formError="";
+        string startingHpText="100",roomPassword="",joinPassword="",displayName="",formError="";
         uint joinTarget;
         int savedNameRevision,savedSettingsRevision;
         readonly int[] capacities= {
@@ -198,7 +198,8 @@ namespace Tank  {
                 capacityChoice=2;
                 durationChoice=1;
                 useRoomPassword=false;
-                startingHpText="3";
+                startingHpText="100";
+                roomModeChoice=0;
             }
         }
         void DrawLobby(Rect area) {
@@ -241,7 +242,7 @@ namespace Tank  {
                     GUILayout.BeginHorizontal(GUI.skin.box);
                     GUILayout.BeginVertical();
                     GUILayout.Label(room.Name+(room.Locked?"  •  Có mật khẩu":""),menu.Section);
-                    GUILayout.Label(room.Players+" / "+room.Capacity+" · "+RoomPhaseLabel(room.Phase),menu.Hint);
+                    GUILayout.Label(room.Players+" / "+room.Capacity+" · "+(room.Mode==RoomMode.ROLEPLAY?"Nhập vai":"Thường")+" · "+RoomPhaseLabel(room.Phase),menu.Hint);
                     GUILayout.EndVertical();
                     bool returning=room.Phase==RoomPhase.RUNNING&&room.CanRejoin;
                     bool available=(room.Phase==RoomPhase.WAITING||returning)&&room.Players<room.Capacity;
@@ -276,11 +277,14 @@ namespace Tank  {
             GUILayout.Label("Trận #"+detail.Match,menu.Section);
             GUILayout.Label(DateTimeOffset.FromUnixTimeMilliseconds((long)detail.Ended).LocalDateTime.ToString("dd/MM/yyyy HH:mm")+" · "+detail.DurationSeconds+" giây · Bản đồ "+detail.MapId,menu.Hint);
             GUILayout.Label(EndReasonLabel(detail.Reason),menu.Hint);
+            if(!string.IsNullOrEmpty(detail.RoomModeName))GUILayout.Label(detail.RoomModeName=="ROLEPLAY"?"Nhập vai":"Thường",menu.Hint);
             GUILayout.Space(12);
             foreach(var score in detail.Players) {
                 GUILayout.BeginVertical(GUI.skin.box);
+                if(score.Nation>=0)GUILayout.Label(new GUIContent(RoleplayContent.NationNames[score.Nation],TankPalette.Body(score.Nation)),menu.Name);
                 GUILayout.Label("#"+score.Rank+"  "+score.Name+(score.Slot==detail.OwnSlot?" • bạn":""),menu.Section);
                 GUILayout.Label(score.Kills+" hạ gục / "+score.Deaths+" tử trận"+(score.Disconnected?" · Rời trận sớm":""),menu.Text);
+                if(detail.RoomModeName=="ROLEPLAY"&&score.Rank==1)GUILayout.Label("Giành được Hộp Đen",menu.Hint);
                 GUILayout.EndVertical();
             }
         }
@@ -307,6 +311,13 @@ namespace Tank  {
                 if(useRoomPassword)roomPassword=Field("room-password",client.RoomLocked?"Mật khẩu mới (để trống để giữ nguyên)":"Mật khẩu",roomPassword,32,true);
             }
             else roomPassword=Field("room-password","Mật khẩu phòng (không bắt buộc)",roomPassword,32,true);
+            GUILayout.Space(10);
+            if(editingRoom)GUILayout.Label("Chế độ: "+(client.RoomMode==RoomMode.ROLEPLAY?"Nhập vai":"Thường")+" · cố định khi tạo phòng",menu.Hint);
+            else {
+                GUILayout.Label("Chế độ",menu.Name);
+                roomModeChoice=GUILayout.SelectionGrid(roomModeChoice,new[]{"Thường","Nhập vai"},2,menu.Secondary);
+                if(roomModeChoice==1)GUILayout.Label("Chọn quốc gia với kỹ năng Q riêng trước trận.",menu.Hint);
+            }
             GUILayout.Space(14);
             GUILayout.Label("Số người tối đa",menu.Name);
             capacityChoice=GUILayout.SelectionGrid(capacityChoice,new[] {
@@ -318,18 +329,18 @@ namespace Tank  {
                 "1 phút","3 phút","5 phút","10 phút"
             },4,menu.Secondary);
             GUILayout.Space(14);
-            startingHpText=Field("starting-hp","Máu ban đầu / mỗi lần hồi sinh (1–30)",startingHpText,2);
+            startingHpText=Field("starting-hp","Máu ban đầu / mỗi lần hồi sinh (1–500)",startingHpText,3);
             GUILayout.Space(18);
             if(Button("Xác nhận")) {
                 formError="";
                 int hp;
                 int mode=!useRoomPassword?1:string.IsNullOrEmpty(roomPassword)&&client.RoomLocked?0:2;
                 if(string.IsNullOrWhiteSpace(roomName)||Encoding.UTF8.GetByteCount(roomName.Trim())>48)formError="Tên phòng quá dài hoặc còn trống.";
-                else if(!int.TryParse(startingHpText,out hp)||hp<1||hp>30)formError="Máu ban đầu phải là số từ 1 đến 30.";
+                else if(!int.TryParse(startingHpText,out hp)||hp<1||hp>GameRules.MaxStartHp)formError="Máu ban đầu phải là số từ 1 đến 500.";
                 else if(editingRoom&&capacities[capacityChoice]<client.Players.Count)formError="Số người tối đa không thể nhỏ hơn số người đang ở phòng.";
                 else if(editingRoom&&mode==2&&roomPassword.Length==0)formError="Nhập mật khẩu hoặc bỏ chọn dùng mật khẩu.";
                 else if(editingRoom)client.ConfigureRoom(roomName.Trim(),capacities[capacityChoice],durations[durationChoice],mode,roomPassword,hp);
-                else client.Create(roomName.Trim(),capacities[capacityChoice],durations[durationChoice],roomPassword,hp);
+                else client.Create(roomName.Trim(),capacities[capacityChoice],durations[durationChoice],roomPassword,hp,(RoomMode)roomModeChoice);
             }
             if(Button("Hủy",true,true)) {
                 roomForm=false;
@@ -357,10 +368,11 @@ namespace Tank  {
                 GUILayout.BeginHorizontal(GUI.skin.box,GUILayout.Width(cellWidth),GUILayout.Height(76));
                 if(p==null)GUILayout.Label("Trống",menu.Hint);
                 else {
-                    GUILayout.Label(new GUIContent(TankPalette.Body(p.Slot)),GUILayout.Width(42),GUILayout.Height(42));
+                    GUILayout.Label(new GUIContent(TankPalette.Body(p.Nation>=0?p.Nation:p.Slot)),GUILayout.Width(42),GUILayout.Height(42));
                     GUILayout.BeginVertical();
                     GUILayout.Label(p.Name+(p.Slot==client.Slot?" • bạn":""),menu.Name);
                     GUILayout.Label((p.Ready?"Sẵn sàng":"Đang chờ")+(p.Slot==client.Host?" • Chủ phòng":""),menu.Hint);
+                    if(client.RoomMode==RoomMode.ROLEPLAY)GUILayout.Label(p.Nation<0?"Chưa chọn quốc gia":RoleplayContent.NationNames[p.Nation],menu.Hint);
                     GUILayout.EndVertical();
                     if(client.Slot==client.Host&&p.Slot!=client.Host&&client.RoomPhase==RoomPhase.WAITING&&GUILayout.Button("×",menu.Secondary,GUILayout.Width(34)))client.Kick(p.Slot);
                 }
@@ -371,33 +383,41 @@ namespace Tank  {
             GUILayout.EndArea();
             menu.Card(info,"Phòng");
             GUILayout.BeginArea(new Rect(info.x+24,info.y+80,info.width-48,info.height-104));
+            if(client.RoomMode==RoomMode.ROLEPLAY)roleplayInfoScroll=GUILayout.BeginScrollView(roleplayInfoScroll);
             GUILayout.Label(client.RoomSeconds/60+" phút",menu.Section);
             GUILayout.Label(client.RoomCapacity+" người",menu.Text);
             GUILayout.Label(client.RoomStartingHp+" máu / xe",menu.Text);
             if(client.RoomLocked)GUILayout.Label("Có mật khẩu",menu.Hint);
+            GUILayout.Label(client.RoomMode==RoomMode.ROLEPLAY?"Nhập vai":"Thường",menu.Hint);
+            if(client.RoomMode==RoomMode.ROLEPLAY)NationSelector();
             GUILayout.Space(20);
             bool waiting=client.RoomPhase==RoomPhase.WAITING;
             if(client.Phase==ClientPhase.ROOM) {
                 var local=client.Players.Find(p=>p.Slot==client.Slot);
                 bool ready=local!=null&&local.Ready;
-                if(Button(ready?"Hủy sẵn sàng":"Sẵn sàng",waiting))client.Ready(!ready);
+                if(Button(ready?"Hủy sẵn sàng":"Sẵn sàng",waiting&&(ready||client.RoomMode!=RoomMode.ROLEPLAY||local!=null&&local.Nation>=0)))client.Ready(!ready);
                 if(client.Slot==client.Host) {
                     if(Button("Bắt đầu",waiting&&client.Players.Count>=2&&client.Players.TrueForAll(p=>p.Ready)))client.StartMatch();
                     if(Button("Cài đặt phòng",waiting,true))OpenRoomForm(true);
                 }
-                if(client.RoomPhase==RoomPhase.RESULTS)GUILayout.Label("Trận mới sau "+Math.Max(0,Math.Ceiling((client.ResultsUntilUs-ClientCore.NowUs)/1e6))+" giây",menu.Hint);
             }
-            else GUILayout.Label(client.StartUs==0?"Đang chuẩn bị…":"Bắt đầu sau "+Math.Max(0,(client.StartUs-ClientCore.NowUs-client.OffsetUs)/1e6).ToString("F1"),menu.Text);
+            else GUILayout.Label(client.RoomMode==RoomMode.ROLEPLAY?PreparationLabel():client.StartUs==0?"Đang chuẩn bị…":"Bắt đầu sau "+Math.Max(0,(client.StartUs-ClientCore.NowUs-client.OffsetUs)/1e6).ToString("F1"),menu.Text);
             if(Button("Rời phòng",true,true))client.Leave();
             Feedback();
+            if(client.RoomMode==RoomMode.ROLEPLAY)GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
         void DrawResults(Rect area) {
             menu.Card(area,"Kết quả");
             GUILayout.BeginArea(new Rect(area.x+24,area.y+80,area.width-48,area.height-104));
             scroll=GUILayout.BeginScrollView(scroll);
+            if(client.RoomMode==RoomMode.ROLEPLAY) {
+                var winner=client.Scores.Find(s=>s.Rank==1);
+                if(winner!=null)GUILayout.Label(winner.Name+" giành được Hộp Đen · phần thưởng trong câu chuyện trận đấu.",menu.Section);
+            }
             foreach(var s in client.Scores) {
                 GUILayout.BeginHorizontal(GUI.skin.box);
+                if(s.Nation>=0)GUILayout.Label(new GUIContent(TankPalette.Body(s.Nation)),GUILayout.Width(36),GUILayout.Height(36));
                 GUILayout.Label("#"+s.Rank,menu.Section,GUILayout.Width(60));
                 GUILayout.Label(s.Name+(s.Slot==client.Slot?" • bạn":""),menu.Name);
                 GUILayout.Label(s.Kills+" hạ gục / "+s.Deaths+" tử trận",menu.Text);

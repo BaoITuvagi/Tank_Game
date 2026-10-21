@@ -105,6 +105,7 @@ namespace Tank  {
     public sealed class UxTestDriver:MonoBehaviour  {
         public TankApp App;
         bool registered,login,joined,ready,autoStarted;
+        double nextNation;
         float nextReport;
         public static bool Enabled  {
             get {
@@ -132,19 +133,26 @@ namespace Tank  {
             }
             bool peer=Array.IndexOf(Environment.GetCommandLineArgs(),"--ui-peer")>=0;
             bool auto=Array.IndexOf(Environment.GetCommandLineArgs(),"--ui-auto")>=0;
+            bool roleplay=Array.IndexOf(Environment.GetCommandLineArgs(),"--roleplay")>=0;
+            int players=int.Parse(Arg("--players","2"));
+            string roomName=Arg("--room","Focus Test");
             if(auto&&!peer&&c.Phase==ClientPhase.LOBBY&&!joined) {
-                c.Create("Focus Test",4,180,"");
+                c.Create(roomName,Array.IndexOf(Environment.GetCommandLineArgs(),"--players")>=0?players:4,int.Parse(Arg("--seconds","180")),"",int.Parse(Arg("--hp","3")),roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL);
                 joined=true;
             }
-            if(peer&&c.Phase==ClientPhase.LOBBY&&!joined&&c.Rooms.Count>0) {
-                c.Join(c.Rooms[0].Id);
+            var room=Array.IndexOf(Environment.GetCommandLineArgs(),"--room")>=0?c.Rooms.Find(r=>r.Name==roomName):c.Rooms.Count>0?c.Rooms[0]:null;
+            if(peer&&c.Phase==ClientPhase.LOBBY&&!joined&&room!=null) {
+                c.Join(room.Id);
                 joined=true;
             }
             if((peer||auto)&&c.Phase==ClientPhase.ROOM&&!ready) {
-                c.Ready(true);
-                ready=true;
+                var local=c.Players.Find(p=>p.Slot==c.Slot);
+                if(roleplay&&local!=null&&local.Nation<0) {
+                    if(ClientCore.NowUs>=nextNation) {c.SelectNation((c.Slot+int.Parse(Arg("--nation-offset","0")))%8);nextNation=ClientCore.NowUs+1e6;}
+                }
+                else if(local!=null) {c.Ready(true);ready=true;}
             }
-            if(auto&&!peer&&!autoStarted&&c.Phase==ClientPhase.ROOM&&c.Players.Count==2&&c.Players.TrueForAll(p=>p.Ready)) {
+            if(auto&&!peer&&!autoStarted&&c.Phase==ClientPhase.ROOM&&c.Players.Count==players&&c.Players.TrueForAll(p=>p.Ready)) {
                 autoStarted=true;
                 c.StartMatch();
             }
@@ -153,14 +161,15 @@ namespace Tank  {
                 nextReport=Time.unscaledTime+1;
                 var t=c.Predicted;
                 System.IO.File.WriteAllText(report,JsonUtility.ToJson(new UxObservation {
-                    phase=c.Phase.ToString(),width=Screen.width,height=Screen.height,fullscreen=Screen.fullScreen,focused=GameWindowFocus.IsForeground,field=App.FocusedControl,turret=t==null?0:t.Turret,capacity=c.RoomCapacity,seconds=c.RoomSeconds,players=c.Players.Count,map=c.ActiveMap.mapId,tick=c.Latest==null?0:(int)c.Latest.Tick,x=t==null?0:t.X,y=t==null?0:t.Y,decoded=c.Decoded,invalid=c.Invalid,message=c.Message,afk=c.AfkWarning
+                    phase=c.Phase.ToString(),width=Screen.width,height=Screen.height,fullscreen=Screen.fullScreen,focused=GameWindowFocus.IsForeground,field=App.FocusedControl,turret=t==null?0:t.Turret,capacity=c.RoomCapacity,seconds=c.RoomSeconds,players=c.Players.Count,map=c.ActiveMap.mapId,tick=c.Latest==null?0:(int)c.Latest.Tick,x=t==null?0:t.X,y=t==null?0:t.Y,decoded=c.Decoded,invalid=c.Invalid,message=c.Message,afk=c.AfkWarning,
+                    mode=c.RoomMode.ToString(),stage=c.PrepareStage.ToString(),loadout=c.LoadoutReady,skillPress=c.SkillPressRevision,skillFeedback=c.SkillFeedbackRevision,skillNotice=c.SkillNotice,qReady=c.SkillReadyTick(0),qPending=c.SkillPending(0)
                 }));
             }
         }
         [Serializable] class UxObservation {
-            public string phase,message,field;
-            public int width,height,capacity,seconds,players,map,tick,turret;
-            public bool fullscreen,afk,focused;
+            public string phase,message,field,mode,stage,skillNotice;
+            public int width,height,capacity,seconds,players,map,tick,turret,skillPress,skillFeedback,qReady;
+            public bool fullscreen,afk,focused,loadout,qPending;
             public float x,y;
             public long decoded,invalid;
         }
