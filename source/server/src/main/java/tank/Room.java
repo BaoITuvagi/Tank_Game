@@ -359,6 +359,7 @@ public class Room  {
         seed=Long.parseLong(server.cfg.value("match.seed","20261007"))^id^Long.rotateLeft(match,21);
         arenaMap=server.largeMap;
         world=new World(arenaMap,seed,startingHp);
+        world.items.configure(roleplay!=null);
         if(roleplay!=null)world.telemetry=message->System.out.println("ROLEPLAY_EFFECT match="+match+" map="+arenaMap.mapId+" hp="+startingHp+" "+message);
         participants.clear();
         rejoinableAccounts=Set.of();
@@ -401,8 +402,18 @@ public class Room  {
                 tank.kills=m.resultTank.kills;
                 tank.deaths=m.resultTank.deaths;
                 tank.lastKill=m.resultTank.lastKill;
+                // Disconnect is not a death: retain item deadlines without extending them.
+                if(m.resultTank.hp>0) {
+                    tank.armorEndTick=m.resultTank.armorEndTick;
+                    tank.heEndTick=m.resultTank.heEndTick;
+                    tank.invincibilityEndTick=m.resultTank.invincibilityEndTick;
+                    tank.mirrorShots=m.resultTank.mirrorShots;
+                }
                 if(roleplay!=null) {
                     tank.qReadyTick=m.resultTank.qReadyTick;
+                    tank.qBaseReadyTick=m.resultTank.qBaseReadyTick;
+                    tank.qPenalty=m.resultTank.qPenalty;
+                    tank.qPenaltySources.addAll(m.resultTank.qPenaltySources);
                 }
             }
             if(roleplay!=null) {tank.nation=m.roleplay.nation;}

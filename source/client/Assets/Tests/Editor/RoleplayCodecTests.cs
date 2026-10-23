@@ -17,7 +17,7 @@ public class RoleplayCodecTests {
         Assert.AreEqual(19000,state.Tanks[0].QReadyTick);Assert.AreEqual(140,state.Bullets[1].SpeedPercent);Assert.AreEqual(70,state.Bullets[1].RemainingLifetime);
         Assert.AreEqual(19000,state.Tanks[0].Copy().QReadyTick);
     }
-    [Test] public void JavaGoldenFramesCoverV5AndAllRoleplayOpcodes() {
+    [Test] public void JavaGoldenFramesCoverV8AndAllRoleplayOpcodes() {
         var seen=new System.Collections.Generic.HashSet<byte>();
         foreach(string line in File.ReadAllLines(Path.GetFullPath("../../source/server/target/interop/golden.tsv"))) {
             byte[] bytes=Bytes(line.Split('\t')[1]);var packet=Protocol.Decode(bytes);

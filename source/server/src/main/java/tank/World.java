@@ -11,6 +11,9 @@ public class World  {
         public int slot,body,turret,hp=DEFAULT_HP,maxHp=DEFAULT_HP,energy=MAX_ENERGY,energyRecovery,kills,deaths,status=1,respawn,shield,lastKill=-1,cooldown;
         public int qReadyTick,qEndTick,slowEndTick,protectionFlags;
         public int qStartTick,confusionEndTick,fireLockEndTick,fogEndTick,qStage,life;
+        public int armorEndTick,heEndTick,invincibilityEndTick,mirrorShots,qBaseReadyTick;
+        int qPenalty;
+        final Set<Integer> qPenaltySources=new HashSet<>();
         public float aimX,aimY;
         // Reliable MATCH_LOADOUT supplies these; they do not occupy snapshot bytes.
         public int nation=-1;
@@ -39,6 +42,8 @@ public class World  {
             t.protectionFlags=protectionFlags;
             t.nation=nation;
             t.qStartTick=qStartTick;t.confusionEndTick=confusionEndTick;t.fireLockEndTick=fireLockEndTick;t.fogEndTick=fogEndTick;t.qStage=qStage;t.life=life;t.aimX=aimX;t.aimY=aimY;
+            t.armorEndTick=armorEndTick;t.heEndTick=heEndTick;t.invincibilityEndTick=invincibilityEndTick;t.mirrorShots=mirrorShots;t.qBaseReadyTick=qBaseReadyTick;t.qPenalty=qPenalty;
+            t.qPenaltySources.addAll(qPenaltySources);
             t.usQTick=usQTick;t.usSprintTicks=usSprintTicks;t.usDeathsAtQ=usDeathsAtQ;
             t.desiredAim=desiredAim;t.desiredButtons=desiredButtons;
             t.x=x;
@@ -49,6 +54,7 @@ public class World  {
     public static class Bullet  {
         public int id,owner,heading,bounces,born;
         public int speedPercent=100,damage=GameRules.BulletDamage;
+        public int kind;
         public int remainingLifetime=BULLET_LIFETIME_TICKS;
         public float x,y;
         public Bullet copy() {
@@ -59,6 +65,7 @@ public class World  {
             b.bounces=bounces;
             b.born=born;
             b.speedPercent=speedPercent;b.damage=damage;
+            b.kind=kind;
             b.remainingLifetime=remainingLifetime;
             b.x=x;
             b.y=y;
@@ -70,6 +77,9 @@ public class World  {
     public byte[] bricks=new byte[64];
     public int tick,nextBullet=1,nextLife=1;
     final NationSkills skills=new NationSkills(this);
+    final WorldItems items=new WorldItems(this);
+    final CombatEvents combat=new CombatEvents();
+    final byte[] combatBrickHp=new byte[64];
     public long contactsExceeded,bulletCap;
     final GameMap map;
     final Random random;
@@ -85,7 +95,7 @@ public class World  {
         map=m;
         random=new Random(seed);
         startingHp=hp;
-        if(m!=null)for(var r:m.bricks)bricks[r.id]=5;
+        if(m!=null)for(var r:m.bricks)bricks[r.id]=(byte)GameRules.BrickMaxHp;
     }
     public record Input(int tick,int buttons,int angle) {
         public Input {
@@ -185,6 +195,9 @@ public class World  {
         movement(t,in,m,hp,in.tick);
     }
     public static void movement(Tank t,Input in,GameMap m,byte[] hp,int simulationTick) {
+        movement(t,in,m,hp,simulationTick,List.of());
+    }
+    public static void movement(Tank t,Input in,GameMap m,byte[] hp,int simulationTick,Iterable<NationSkills.Effect> effects) {
         if(t.hp==0)return;
         int dx=((in.buttons&8)!=0?1:0)-((in.buttons&4)!=0?1:0),dy=((in.buttons&1)!=0?1:0)-((in.buttons&2)!=0?1:0);
         boolean held=(in.buttons&32)!=0,sprinting=held&&(dx!=0||dy!=0)&&t.energy>0;
@@ -200,6 +213,7 @@ public class World  {
         multiplier=Math.min(GameRules.MaxTankSpeedPercent/100f,multiplier);
         float water=m.water(t.x,t.y)?.5f:1;
         float slow=simulationTick<t.slowEndTick?GameRules.SlowSpeedPercent/100f:1;
+        if(NationSkills.katyushaSlowEnd(t,simulationTick,effects)>simulationTick)slow*=GameRules.KatyushaSlowSpeedPercent/100f;
         float speed=TANK_SPEED*water*multiplier*slow/30;
         float x=t.x+dx*norm*speed,y=t.y+dy*norm*speed;
         int desired=dx!=0||dy!=0?Math.floorMod((int)Math.round(Math.toDegrees(Math.atan2(dy,dx))*100),36000):t.body;
@@ -211,6 +225,10 @@ public class World  {
     }
     public void step(Map<Integer,Input> inputs) {
         tick++;
+        combat.prune(tick);
+        System.arraycopy(bricks,0,combatBrickHp,0,64);
+        items.beginTick();
+        skills.expireDebuffs();
         for(Tank t:tanks.values()) {Input input=inputs.get(t.slot);t.desiredAim=input==null?t.turret:input.angle;t.desiredButtons=input==null?0:input.buttons;}
         Runnable intent;
         while((intent=skillIntents.poll())!=null)intent.run();
@@ -224,21 +242,34 @@ public class World  {
                 if(tick>=t.respawn)spawn(t);
                 continue;
             }
-            movement(t,inputs.getOrDefault(t.slot,new Input(tick,0,t.turret)),map,bricks,tick);
+            float oldX=t.x,oldY=t.y;
+            movement(t,inputs.getOrDefault(t.slot,new Input(tick,0,t.turret)),map,bricks,tick,skills.effects);
+            items.path(t,oldX,oldY,t.x,oldY);items.path(t,t.x,oldY,t.x,t.y);
+        }
+        items.pickup();
+        for(Tank t:tanks.values()) {
+            if(t.hp<=0||!previousTanks.containsKey(t.slot))continue;
             Input in=inputs.get(t.slot);
             if(in!=null&&(in.buttons&16)!=0&&tick>=t.cooldown&&tick>=t.fireLockEndTick) {
                 t.cooldown=tick+GameRules.BaseShotIntervalTicks;
                 boolean barrage=t.nation==4&&tick<t.qEndTick;
                 int count=barrage?3:1;
-                if(bullets.size()+count>GameRules.MaxBullets) {bulletCap++;continue;}
+                boolean he=tick<t.heEndTick,mirror=t.mirrorShots>0;
+                int kind=mirror?(he?WorldItems.HE_MIRROR_BULLET:WorldItems.MIRROR_BULLET):(he?WorldItems.HE_BULLET:WorldItems.NORMAL_BULLET);
+                if(items.reservedBullets()+count*(mirror?3:1)>GameRules.MaxBullets) {bulletCap++;continue;}
+                int shotBulletId=nextBullet;
                 for(int shot=0;shot<count;shot++) {
                     Bullet b=new Bullet();b.id=nextBullet++;b.owner=t.slot;b.heading=Math.floorMod(t.turret+(shot==1?-1200:shot==2?1200:0),36000);
                     b.born=tick;b.damage=barrage?GameRules.GermanBulletDamage:GameRules.BulletDamage;
+                    b.kind=kind;
                     double a=Math.toRadians(b.heading/100.0);
-                    b.x=t.x+(float)Math.cos(a)*.6f;b.y=t.y+(float)Math.sin(a)*.6f;
+                    b.x=t.x+(float)Math.cos(a)*GameRules.BulletSpawnOffset;b.y=t.y+(float)Math.sin(a)*GameRules.BulletSpawnOffset;
                     bullets.put(b.id,b);
                     telemetry.accept("kind=shot slot="+t.slot+" nation="+t.nation+" tick="+tick+" damage="+b.damage+" speed="+b.speedPercent+" bounces="+GameRules.DefaultBulletBounceLimit+" lifetime="+BULLET_LIFETIME_TICKS);
                 }
+                if(mirror)t.mirrorShots--;
+                double muzzle=Math.toRadians(t.turret/100.0);
+                combat.add(tick,CombatEvents.SHOT,t,null,shotBulletId,65535,0,t.x+(float)Math.cos(muzzle)*GameRules.TankMuzzleOffset,t.y+(float)Math.sin(muzzle)*GameRules.TankMuzzleOffset,t.turret,0,0,0);
             }
         }
         skills.tick();
@@ -251,6 +282,8 @@ public class World  {
             advance(b);
         }
         previousTanks.clear();
+        if(map!=null)for(GameMap.Rect brick:map.bricks)if(combatBrickHp[brick.id]>0&&bricks[brick.id]==0)
+            combat.add(tick,CombatEvents.BRICK_DESTROYED,null,null,0,brick.id,2,brick.x+brick.w/2,brick.y+brick.h/2,0,0,0,0);
     }
     record Hit(double time,int nx,int ny,GameMap.Rect wall,Tank tank,int key) {
     }
@@ -320,7 +353,7 @@ public class World  {
         };
         for(double[] axis:axes) {
             double ax=axis[0],ay=axis[1];
-            double radius=TANK_HALF_SIZE*(Math.abs(ax*tx+ay*ty)+Math.abs(-ax*ty+ay*tx))+BULLET_HALF_LENGTH*Math.abs(ax*bx+ay*by)+BULLET_HALF_WIDTH*Math.abs(-ax*by+ay*bx);
+            double radius=TANK_HALF_SIZE*(Math.abs(ax*tx+ay*ty)+Math.abs(-ax*ty+ay*tx))+WorldItems.size(b)*(BULLET_HALF_LENGTH*Math.abs(ax*bx+ay*by)+BULLET_HALF_WIDTH*Math.abs(-ax*by+ay*bx));
             double center=(b.x-startX)*ax+(b.y-startY)*ay,velocity=(dx-moveX*duration)*ax+(dy-moveY*duration)*ay;
             if(Math.abs(velocity)<1e-12) {
                 if(Math.abs(center)>radius+1e-6)return null;
@@ -345,9 +378,15 @@ public class World  {
             double angle=Math.toRadians(b.heading/100.0);
             float dx=(float)Math.cos(angle)*remaining,dy=(float)Math.sin(angle)*remaining;
             Hit h=null;
+            float extentX=.08f,extentY=.08f;
+            if(WorldItems.hasHe(b.kind)||WorldItems.isMirrorChild(b.kind)) {
+                float size=WorldItems.size(b);
+                extentX=(float)(Math.abs(Math.cos(angle))*BULLET_HALF_LENGTH+Math.abs(Math.sin(angle))*BULLET_HALF_WIDTH)*size;
+                extentY=(float)(Math.abs(Math.sin(angle))*BULLET_HALF_LENGTH+Math.abs(Math.cos(angle))*BULLET_HALF_WIDTH)*size;
+            }
             for(GameMap.Rect[] rs:List.of(map.walls,map.bricks))for(var r:rs) {
                 if(r.kind==1&&bricks[r.id]==0)continue;
-                h=choose(h,sweep(b.x,b.y,dx,dy,r.x-.08f,r.y-.08f,r.x+r.w+.08f,r.y+r.h+.08f,r,null,r.kind*100+r.id));
+                h=choose(h,sweep(b.x,b.y,dx,dy,r.x-extentX,r.y-extentY,r.x+r.w+extentX,r.y+r.h+extentY,r,null,r.kind*100+r.id));
             }
             for(Tank t:tanks.values()) {
                 if(t.hp==0||(t.slot==b.owner&&tick-b.born<6))continue;
@@ -360,26 +399,33 @@ public class World  {
             }
             b.x+=dx*h.time;
             b.y+=dy*h.time;
+            int explosionId=WorldItems.hasHe(b.kind)?items.nextEffect++:0;
             if(h.tank!=null) {
-                damage(h.tank,b.owner,b.damage);
+                if(explosionId==0)contact(b,h,CombatEvents.IMPACT);
+                damage(h.tank,b.owner,b.damage,0,b.id,explosionId==0?0:WorldItems.EXPLOSION,explosionId);
+                if(WorldItems.hasHe(b.kind))items.explode(b,0,0,null,explosionId);
                 bullets.remove(b.id);
                 return;
             }
             if(h.wall.kind==1&&bricks[h.wall.id]>0)bricks[h.wall.id]--;
+            if(WorldItems.hasHe(b.kind))items.explode(b,h.nx,h.ny,h.wall,explosionId);
             if(b.bounces>=GameRules.DefaultBulletBounceLimit) {
+                if(explosionId==0)contact(b,h,CombatEvents.IMPACT);
                 bullets.remove(b.id);
                 return;
             }
             b.bounces++;
+            if(explosionId==0&&!WorldItems.isMirrorParent(b.kind))contact(b,h,CombatEvents.BOUNCE);
             if(h.time==0) {
-                if(h.nx<0)b.x=h.wall.x-.08f;
-                else if(h.nx>0)b.x=h.wall.x+h.wall.w+.08f;
-                if(h.ny<0)b.y=h.wall.y-.08f;
-                else if(h.ny>0)b.y=h.wall.y+h.wall.h+.08f;
+                if(h.nx<0)b.x=h.wall.x-extentX;
+                else if(h.nx>0)b.x=h.wall.x+h.wall.w+extentX;
+                if(h.ny<0)b.y=h.wall.y-extentY;
+                else if(h.ny>0)b.y=h.wall.y+h.wall.h+extentY;
             }
             if(h.nx!=0)dx=-dx;
             if(h.ny!=0)dy=-dy;
             b.heading=Math.floorMod((int)Math.round(Math.toDegrees(Math.atan2(dy,dx))*100),36000);
+            if(WorldItems.isMirrorParent(b.kind)) {items.split(b,b.heading,h.nx,h.ny);return;}
             b.x+=h.nx*.0001f;
             b.y+=h.ny*.0001f;
             remaining*=1-h.time;
@@ -388,11 +434,27 @@ public class World  {
         contactsExceeded++;
         bullets.remove(b.id);
     }
+    void contact(Bullet b,Hit h,int kind) {
+        int angle=h.nx==0&&h.ny==0?0:Math.floorMod((int)Math.round(Math.toDegrees(Math.atan2(h.ny,h.nx))*100),36000);
+        combat.add(tick,kind,tanks.get(b.owner),h.tank,b.id,h.wall!=null&&h.wall.kind==1?h.wall.id:65535,h.wall==null?0:h.wall.kind==1?2:1,b.x,b.y,angle,0,0,0);
+    }
     void damage(Tank t,int owner) {damage(t,owner,GameRules.BulletDamage);}
     void damage(Tank t,int owner,int amount) {
+        damage(t,owner,amount,0);
+    }
+    // 0 = ordinary damage, 1 = instant kill, 2 = mandatory sacrifice.
+    void damage(Tank t,int owner,int amount,int kind) {
+        damage(t,owner,amount,kind,0,0,0);
+    }
+    void damage(Tank t,int owner,int amount,int kind,int bulletId,int causeKind,int causeId) {
         if(t.hp<=0)return;
+        if(kind!=2&&tick<t.invincibilityEndTick)return;
+        if(kind==0&&tick<t.armorEndTick)amount=Math.round(amount*(100-GameRules.ArmorReductionPercent)/100f);
+        int previousHp=t.hp;
         t.hp=Math.max(0,t.hp-Math.max(0,amount));
+        if(t.hp<previousHp)combat.add(tick,CombatEvents.DAMAGE,tanks.get(owner),t,bulletId,65535,0,t.x,t.y,0,previousHp-t.hp,causeKind,causeId);
         if(t.hp==0) {
+            combat.add(tick,CombatEvents.DEATH,tanks.get(owner),t,bulletId,65535,0,t.x,t.y,0,t.maxHp,causeKind,causeId);
             clearEffects(t);
             t.status=0;
             t.deaths++;
@@ -405,6 +467,8 @@ public class World  {
         }
     }
     void clearEffects(Tank t) {
+        skills.clearDebuffs(t);
+        t.armorEndTick=t.heEndTick=t.invincibilityEndTick=tick;t.mirrorShots=0;
         t.qEndTick=t.slowEndTick=tick;
         t.protectionFlags=0;
         t.qStage=0;t.qStartTick=tick;t.confusionEndTick=t.fireLockEndTick=t.fogEndTick=tick;
@@ -461,6 +525,7 @@ public class World  {
         for(Tank other:tanks.values())if(other!=t&&other.hp>0)fraction=Math.min(fraction,dashContact(t,dx,dy,other.x,other.y,TANK_HALF_SIZE,TANK_HALF_SIZE,other.body));
         double travel=Math.max(0,distance*fraction-(fraction<1?.0001:0));
         if(travel<=.00001)return false;
+        items.path(t,t.x,t.y,t.x+(float)c*(float)travel,t.y+(float)s*(float)travel);
         t.x+=(float)c*(float)travel;
         t.y+=(float)s*(float)travel;
         return true;
@@ -502,7 +567,7 @@ public class World  {
     }
     public static void writeBullet(Writer w,Bullet b) {
         validate(b);
-        w.u32(b.id).u8(b.owner).f32(b.x).f32(b.y).u16(b.heading).u8(b.bounces).u8(b.speedPercent).u16(b.remainingLifetime).u8(b.damage);
+        w.u32(b.id).u8(b.owner).f32(b.x).f32(b.y).u16(b.heading).u8(b.bounces).u8(b.speedPercent).u16(b.remainingLifetime).u8(b.damage).u8(b.kind);
     }
     public static Bullet readBullet(Reader r) {
         Bullet b=new Bullet();
@@ -513,12 +578,12 @@ public class World  {
         b.heading=r.u16();
         b.bounces=r.u8();
         b.speedPercent=r.u8();
-        b.remainingLifetime=r.u16();b.damage=r.u8();
+        b.remainingLifetime=r.u16();b.damage=r.u8();b.kind=r.u8();
         validate(b);
         return b;
     }
     public static void validate(Bullet b) {
-        if((b.damage!=GameRules.BulletDamage&&b.damage!=GameRules.GermanBulletDamage)||b.owner<0||b.owner>7||b.heading<0||b.heading>=36000||b.bounces<0||b.bounces>GameRules.DefaultBulletBounceLimit||b.speedPercent<100||b.speedPercent>GameRules.MaxBulletSpeedPercent||b.remainingLifetime<0||b.remainingLifetime>GameRules.BulletLifetimeTicks||!Float.isFinite(b.x)||!Float.isFinite(b.y))throw new IllegalArgumentException("bullet");
+        if(!WorldItems.validDamage(b.kind,b.damage)||b.owner<0||b.owner>7||b.heading<0||b.heading>=36000||b.bounces<0||b.bounces>GameRules.DefaultBulletBounceLimit||b.speedPercent<100||b.speedPercent>GameRules.MaxBulletSpeedPercent||b.remainingLifetime<0||b.remainingLifetime>GameRules.BulletLifetimeTicks||!Float.isFinite(b.x)||!Float.isFinite(b.y))throw new IllegalArgumentException("bullet");
     }
     public byte[] encode() {
         if(tanks.size()>8||bullets.size()>GameRules.MaxBullets)throw new IllegalArgumentException("world count");
@@ -526,7 +591,7 @@ public class World  {
         tanks.values().forEach(t->writeTank(w,t));
         w.u8(bullets.size());
         bullets.values().forEach(b->writeBullet(w,b));
-        return w.bytes(bricks).bytes(skills.encode()).done();
+        return w.bytes(bricks).bytes(skills.encode()).bytes(items.encode()).bytes(combat.encode()).done();
     }
     public static World decode(byte[] data) {
         World s=new World(null,0);
@@ -544,8 +609,10 @@ public class World  {
             if(s.bullets.put(b.id,b)!=null)throw new IllegalArgumentException("duplicate bullet");
         }
         s.bricks=r.bytes(64);
-        for(byte b:s.bricks)if(b<0||b>5)throw new IllegalArgumentException("brick");
+        for(byte b:s.bricks)if(b<0||b>GameRules.BrickMaxHp)throw new IllegalArgumentException("brick");
         s.skills.read(r);
+        s.items.read(r);
+        s.combat.read(r);
         r.end();
         return s;
     }

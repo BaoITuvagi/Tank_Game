@@ -10,15 +10,15 @@
       "id": 0,
       "name": "Mỹ",
       "skill": "Oanh tạc chiến lược",
-      "description": "Đánh dấu vị trí đối thủ sống. Sau 1,5 giây, bom bán kính 5,1 gây 25 HP một lần mỗi xe và làm chậm còn 50% tốc độ trong 1 giây; xuyên địa hình, phá ngay gạch đỏ trúng vùng.",
+      "description": "Giảm 30% tốc độ các đối thủ sống (còn 70%) trong 3 giây ngay khi kích hoạt. Vùng bom truy bám từng mục tiêu với tốc độ cố định 4,5 đơn vị/giây (50% tốc độ xe bình thường không Shift), nổ sau 3 giây: bán kính 7,65, gây 25 HP tối đa một lần mỗi xe; xuyên địa hình, phá ngay gạch đỏ trúng vùng. Shift vẫn tăng tốc khi còn năng lượng.",
       "cooldownTicks": 900,
-      "durationTicks": 45
+      "durationTicks": 90
     },
     {
       "id": 1,
       "name": "Liên Xô",
       "skill": "Bão hỏa tiễn",
-      "description": "Q ngắm vòng bán kính 5,1; Q lần hai chốt hoặc tự chốt sau 5 giây. Chờ 0,8 giây, rải 9 rocket trong 3 giây: bán kính nổ 3,4, 12 HP/vụ, tối đa 36 HP mỗi xe kể cả bản thân; phá ngay gạch đỏ.",
+      "description": "Q ngắm vòng bán kính 11,475; Q lần hai chốt hoặc tự chốt sau 5 giây. Vùng đã chốt giảm 50% tốc độ hiện tại của mọi xe chạm vùng, kể cả bản thân; ra khỏi vùng hoặc vùng kết thúc thì hết chậm. Các vùng Liên Xô chồng nhau chỉ giảm 50% một lần, cộng dồn với nước, Shift và làm chậm của Mỹ. Chờ 0,8 giây, rải 9 rocket trong 3 giây: bán kính nổ 3,4, 12 HP/vụ, tối đa 36 HP mỗi xe kể cả bản thân; phá ngay gạch đỏ.",
       "cooldownTicks": 977,
       "durationTicks": 150
     },
@@ -42,7 +42,7 @@
       "id": 4,
       "name": "Đức",
       "skill": "Thiết giáp chớp nhoáng",
-      "description": "Trong 5 giây, mỗi phát bắn tạo ba viên theo hướng nòng và ±12°, mỗi viên 15 HP. Giữ nhịp bắn và nảy đạn.",
+      "description": "Trong 5 giây, mỗi phát bắn tạo ba viên theo hướng nòng và ±12°, mỗi viên 15 HP. Cộng dồn HE và Mirror: HE nổ thêm 6 HP khi va chạm; với Mirror, mỗi viên chạm tường tách ba đạn con 25 HP (15 HP Q + 10 HP Mirror), mỗi loạt dùng một lượt Mirror. Đạn con giữ HE nếu có. Hiệu ứng hết hạn chỉ mất trên phát bắn mới; đạn đã bắn giữ thuộc tính. Giữ nhịp bắn và nảy đạn.",
       "cooldownTicks": 900,
       "durationTicks": 150
     },

@@ -75,17 +75,45 @@ class RoleplayGameplayTest {
     @Test void katyushaClampsEveryEdgeAutoLocksAndSchedulesAllNineInsideCircle() {
         World w=world(500);var t=w.tanks.get(0);t.nation=1;w.useSkill(0,0);
         for(float x:new float[]{-100,0,60,100})for(float y:new float[]{-100,0,60,100}) {
-            w.skillAim(0,x,y);assertTrue(t.aimX>=5.1f&&t.aimX<=54.9f);assertTrue(t.aimY>=5.1f&&t.aimY<=54.9f);
+            w.skillAim(0,x,y);assertTrue(t.aimX>=GameRules.KatyushaRadius&&t.aimX<=60-GameRules.KatyushaRadius);assertTrue(t.aimY>=GameRules.KatyushaRadius&&t.aimY<=60-GameRules.KatyushaRadius);
         }
         until(w,250);assertEquals(0,t.qStage);assertEquals(1227,t.qReadyTick);
         var cast=w.skills.casts.getFirst();assertEquals(9,cast.zones.size());assertEquals(274,cast.zones.getFirst().end);assertEquals(364,cast.zones.getLast().end);
-        for(var e:cast.zones) {assertTrue(Math.hypot(e.x-t.aimX,e.y-t.aimY)<=5.10001);assertTrue(e.x>=0&&e.y>=0&&e.x<=60&&e.y<=60);}
+        for(var e:cast.zones) {assertTrue(Math.hypot(e.x-t.aimX,e.y-t.aimY)<=GameRules.KatyushaRadius+.00001);assertTrue(e.x>=0&&e.y>=0&&e.x<=60&&e.y<=60);}
+    }
+    @Test void katyushaAreaHalvesCurrentSpeedAcrossTerrainSprintAndBombSlow() throws Exception {
+        List<String> rows=new ArrayList<>();
+        for(boolean wet:new boolean[]{false,true})for(boolean bomb:new boolean[]{false,true})for(int buttons:new int[]{8,40})for(int tick:new int[]{99,100,199,200}) {
+            GameMap map=open();if(wet)map.water=new GameMap.Rect[]{rect(0,0,60,60,2)};
+            World w=new World(map,1);w.add(0);var t=w.tanks.get(0);t.x=t.y=20;t.slowEndTick=bomb?300:0;
+            w.skills.effect(NationSkills.AREA,0,100,200,20,20,GameRules.KatyushaRadius,0);
+            w.skills.effect(NationSkills.AREA,1,100,200,20,20,GameRules.KatyushaRadius,0);
+            byte[] before=w.encode();World.movement(t,new World.Input(tick,buttons,0),map,w.bricks,tick,w.skills.effects);
+            double expected=.3*(wet?.5:1)*(buttons==40?1.5:1)*(bomb?.7:1)*(tick>=100&&tick<200?.5:1);
+            assertEquals(expected,t.x-20,.00001);assertEquals(buttons==40?149:150,t.energy);
+            var after=new Protocol.Writer();World.writeTank(after,t);
+            rows.add(wet+"\t"+tick+"\t"+buttons+"\t"+HexFormat.of().formatHex(before)+"\t"+HexFormat.of().formatHex(after.done()));
+        }
+        Path path=Path.of("target/interop/katyusha-movement.tsv");Files.createDirectories(path.getParent());Files.write(path,rows);
+    }
+    @Test void katyushaSlowRequiresLockedActiveAreaAndStopsOutsideOrAfterDeath() {
+        World w=world(500);var caller=w.tanks.get(0);caller.nation=1;caller.x=caller.y=20;
+        w.skillAim(0,20,20);w.useSkill(0,0);
+        assertEquals(0,NationSkills.katyushaSlowEnd(caller,100,w.skills.effects));
+        w.useSkill(0,0);int end=caller.qEndTick;
+        assertEquals(end,NationSkills.katyushaSlowEnd(caller,100,w.skills.effects));
+        w.step(Map.of(0,new World.Input(999,8,0)));assertEquals(20.15,caller.x,.00001);
+        var target=w.tanks.get(1);target.y=20;target.x=20+GameRules.KatyushaRadius+GameRules.TankHalfSize-.01f;
+        assertEquals(end,NationSkills.katyushaSlowEnd(target,101,w.skills.effects));
+        target.x+=.02f;assertEquals(0,NationSkills.katyushaSlowEnd(target,101,w.skills.effects));
+        caller.hp=0;assertEquals(0,NationSkills.katyushaSlowEnd(caller,101,w.skills.effects));
+        caller.hp=500;caller.x=caller.y=20;assertEquals(0,NationSkills.katyushaSlowEnd(caller,end,w.skills.effects));
     }
     @Test void katyushaCapIsPerCastIncludesSelfAndDestroysBricks() {
         World w=world(500);var t=w.tanks.get(0);var target=w.tanks.get(1);t.nation=1;target.x=t.x;
         w.useSkill(0,0);w.useSkill(0,0);var cast=w.skills.casts.getFirst();
         for(var e:cast.zones) {e.x=t.x;e.y=t.y;}
-        w.map.bricks=new GameMap.Rect[]{rect(10,9,.1f,2,1)};w.bricks[0]=5;
+        w.map.bricks=new GameMap.Rect[]{rect(10,9,.1f,2,1)};w.bricks[0]=3;
         until(w,214);assertEquals(464,t.hp);assertEquals(464,target.hp);assertEquals(0,w.bricks[0]);assertEquals(0,t.kills);
     }
     @Test void sovietAimCanFinishAfterChinaAndCancelledAimKeepsChinaCooldown() {
@@ -96,23 +124,82 @@ class RoleplayGameplayTest {
             else {assertEquals(Error.OK,w.useSkill(0,0));assertEquals(1377,t.qReadyTick);}
         }
     }
-    @Test void bombingUsesFixedOverlappingZonesLifeIdentityAndCallerDeath() {
+    @Test void bombingUsesTrackingOverlappingZonesLifeIdentityAndCallerDeath() {
         World w=world(500);w.add(2);var t=w.tanks.get(0);t.nation=0;var a=w.tanks.get(1);var b=w.tanks.get(2);a.x=b.x=20;a.y=b.y=20;
         w.useSkill(0,0);w.damage(t,0,500);w.damage(b,0,500);w.spawn(b);b.x=b.y=20;
-        a.x=25.8f;a.body=4500; // corner overlap although center is outside radius 5.1
-        w.map.bricks=new GameMap.Rect[]{rect(21,0,1,60,1)};w.bricks[0]=5;
-        until(w,145);assertEquals(475,a.hp);assertEquals(175,a.slowEndTick);assertEquals(500,b.hp);assertTrue(b.slowEndTick<=w.tick);assertEquals(0,w.bricks[0]);
-        World dodge=world(100);dodge.tanks.get(0).nation=0;dodge.useSkill(0,0);dodge.tanks.get(1).x=40;until(dodge,145);assertEquals(100,dodge.tanks.get(1).hp);assertTrue(dodge.tanks.get(1).slowEndTick<=145);
+        a.x=20+GameRules.BombRadius+.7f;a.body=4500; // corner overlap although center is outside the bomb radius
+        w.map.bricks=new GameMap.Rect[]{rect(21,0,1,60,1)};w.bricks[0]=3;
+        until(w,190);assertEquals(475,a.hp);assertTrue(a.slowEndTick<=190);assertEquals(500,b.hp);assertTrue(b.slowEndTick<=w.tick);assertEquals(0,w.bricks[0]);
+        World dodge=world(100);dodge.tanks.get(0).nation=0;dodge.useSkill(0,0);dodge.tanks.get(1).x=55;until(dodge,190);assertEquals(100,dodge.tanks.get(1).hp);assertTrue(dodge.tanks.get(1).slowEndTick<=190);
     }
-    @Test void bombingSlowsEachSurvivingHitOnceForOneSecondAndDeathClearsIt() {
+    @Test void bombingSlowsImmediatelyForThreeSecondsWithoutRefreshingAtImpact() {
         World w=world(500);w.add(2);var caller=w.tanks.get(0);caller.nation=0;var a=w.tanks.get(1);var b=w.tanks.get(2);a.x=b.x=20;a.y=b.y=20;
-        w.useSkill(0,0);until(w,144);assertTrue(a.slowEndTick<=w.tick);until(w,145);
-        assertEquals(475,a.hp);assertEquals(475,b.hp);assertEquals(175,a.slowEndTick);assertEquals(175,b.slowEndTick);assertTrue(caller.slowEndTick<=w.tick);
-        float x=a.x;w.step(Map.of(1,new World.Input(146,8,0)));assertEquals(x+.15f,a.x,.00001);
-        until(w,173);x=a.x;w.step(Map.of(1,new World.Input(174,8,0)));assertEquals(x+.15f,a.x,.00001);
-        x=a.x;w.step(Map.of(1,new World.Input(175,8,0)));assertEquals(x+.3f,a.x,.00001);assertEquals(475,a.hp);assertEquals(175,a.slowEndTick);
-        World lethal=world(25);lethal.tanks.get(0).nation=0;lethal.useSkill(0,0);until(lethal,145);var killed=lethal.tanks.get(1);
-        assertEquals(0,killed.hp);assertTrue(killed.slowEndTick<=145);until(lethal,killed.respawn);assertTrue(killed.slowEndTick<=lethal.tick);
+        w.useSkill(0,0);assertEquals(190,a.slowEndTick);assertEquals(190,b.slowEndTick);assertTrue(caller.slowEndTick<=w.tick);
+        float x=a.x;w.step(Map.of(1,new World.Input(101,8,0)));assertEquals(x+.21f,a.x,.00001);
+        until(w,188);x=a.x;w.step(Map.of(1,new World.Input(189,8,0)));assertEquals(x+.21f,a.x,.00001);assertEquals(500,a.hp);
+        x=a.x;w.step(Map.of(1,new World.Input(190,8,0)));assertEquals(x+.3f,a.x,.00001);
+        assertEquals(475,a.hp);assertEquals(475,b.hp);assertTrue(a.slowEndTick<=190);until(w,214);assertEquals(475,a.hp);
+        World lethal=world(25);lethal.tanks.get(0).nation=0;lethal.useSkill(0,0);until(lethal,190);var killed=lethal.tanks.get(1);
+        assertEquals(0,killed.hp);assertTrue(killed.slowEndTick<=190);until(lethal,killed.respawn);assertTrue(killed.slowEndTick<=lethal.tick);
+    }
+    @Test void bombTrackingSpeedIsFixedWhileSlowSprintEnergyAndWaterStillAffectVehicles() {
+        for(boolean wet:new boolean[]{false,true})for(int energy:new int[]{0,1,150})for(int buttons:new int[]{8,40,41}) {
+            World w=world(500);var caller=w.tanks.get(0);caller.nation=0;var target=w.tanks.get(1);w.useSkill(0,0);
+            var zone=w.skills.casts.getFirst().zones.getFirst();float zx=zone.x,zy=zone.y;target.x=target.y=40;target.energy=energy;
+            if(wet)w.map.water=new GameMap.Rect[]{rect(0,0,60,60,2)};
+            w.step(Map.of(1,new World.Input(101,buttons,0)));
+            double distance=Math.hypot(target.x-40,target.y-40),tracking=Math.hypot(zone.x-zx,zone.y-zy);
+            boolean sprint=(buttons&32)!=0&&energy>0;double expected=6.3*(wet?.5:1)*(sprint?1.5:1);
+            assertEquals(expected,distance*30,.0001);assertEquals(4.5,tracking*30,.0001);
+            assertEquals(GameRules.TankSpeed*.5f,GameRules.BombTrackingSpeed);
+            if(!wet&&sprint)assertEquals(2.1,distance/tracking,.0001);
+            if(sprint&&energy==1) {
+                float x=target.x,y=target.y;w.step(Map.of(1,new World.Input(102,buttons,0)));
+                assertEquals(6.3*(wet?.5:1),Math.hypot(target.x-x,target.y-y)*30,.0001);assertEquals(0,target.energy);
+            }
+        }
+    }
+    @Test void bombFollowsDirectionChangesWithoutOvershootingAndKeepsItsIdentity() {
+        World w=world(500);w.tanks.get(0).nation=0;w.useSkill(0,0);var target=w.tanks.get(1);
+        var zone=w.skills.casts.getFirst().zones.getFirst();int id=zone.id;float initial=zone.x;
+        target.x+=.01f;w.skills.tick();assertEquals(initial,zone.x); // No movement on activation tick.
+        w.step(Map.of());assertEquals(target.x,zone.x);assertEquals(target.y,zone.y);
+        target.y+=10;w.step(Map.of());assertEquals(target.x,zone.x);assertEquals(10.15f,zone.y,.00001);
+        target.x-=10;float x=zone.x,y=zone.y;w.step(Map.of());assertTrue(zone.x<x);assertTrue(zone.y>y);
+        assertEquals(.15,Math.hypot(zone.x-x,zone.y-y),.00001);assertEquals(id,zone.id);assertEquals(100,zone.start);assertEquals(190,zone.end);
+    }
+    @Test void bombFreezesAfterTargetDeathDepartureOrNewLifeWithoutRetargeting() {
+        for(int mode=0;mode<3;mode++) {
+            World w=world(500);w.tanks.get(0).nation=0;w.useSkill(0,0);var target=w.tanks.get(1);target.x=40;
+            var zone=w.skills.casts.getFirst().zones.getFirst();w.step(Map.of());float x=zone.x,y=zone.y;
+            if(mode==0)w.damage(target,0,500,2);
+            else if(mode==1)w.remove(1);
+            else {w.damage(target,0,500,2);w.spawn(target);}
+            w.step(Map.of());assertEquals(x,zone.x);assertEquals(y,zone.y);
+            if(mode==0)w.spawn(target);else if(mode==1) {w.add(1);target=w.tanks.get(1);}
+            target.x=x;target.y=y;until(w,189);assertEquals(500,target.hp);assertEquals(x,zone.x);assertEquals(y,zone.y);
+            w.step(Map.of());assertEquals(500,target.hp);assertEquals(x,zone.x);assertEquals(y,zone.y);
+        }
+    }
+    @Test void purificationRemovesInitialSlowButCannotCancelTrackingOrReapplySlowAtImpact() {
+        World w=world(500);w.tanks.get(0).nation=0;w.useSkill(0,0);var target=w.tanks.get(1);
+        w.items.apply(target,WorldItems.PURIFICATION);assertTrue(target.slowEndTick<=100);
+        var zone=w.skills.casts.getFirst().zones.getFirst();float x=target.x;
+        w.step(Map.of(1,new World.Input(101,40,0)));assertEquals(x+.45f,target.x,.00001);assertEquals(x+.15f,zone.x,.00001);
+        until(w,190);assertEquals(475,target.hp);assertTrue(target.slowEndTick<=190);
+    }
+    @Test void movingBombCoordinatesAndSlowRepairDroppedSnapshotsAndRejoin() throws Exception {
+        World w=world(500);w.tanks.get(0).nation=0;w.useSkill(0,0);byte[] base=w.encode();
+        var zone=w.skills.casts.getFirst().zones.getFirst();var hex=HexFormat.of();List<String> rows=new ArrayList<>();rows.add("BASE\t"+hex.formatHex(base));
+        while(w.tick<130) {
+            w.step(Map.of(1,new World.Input(w.tick+1,40,0)));
+            if(w.tick==115)rows.add("DROPPED\t"+hex.formatHex(DeltaCodec.encode(base,w.encode())));
+        }
+        assertEquals(18.5,zone.x,.0001);assertEquals(23.45,w.tanks.get(1).x,.0001);
+        byte[] current=w.encode(),delta=DeltaCodec.encode(base,current);assertArrayEquals(current,DeltaCodec.apply(base,delta));
+        rows.add("DELTA\t"+hex.formatHex(delta));rows.add("REJOIN\t"+hex.formatHex(current));
+        var old=World.decode(base).skills.effects.stream().filter(e->e.kind==NationSkills.BOMB).findFirst().orElseThrow();assertEquals(14,old.x);
+        Path path=Path.of("target/interop/bomb-tracking.tsv");Files.createDirectories(path.getParent());Files.write(path,rows);
     }
     @Test void japanKillsCornerOverlapsThroughWallsAndCancelsOnEarlyDeath() {
         World w=world(500);var t=w.tanks.get(0);t.nation=6;var target=w.tanks.get(1);target.x=19.5f;target.body=4500;
@@ -123,27 +210,27 @@ class RoleplayGameplayTest {
     @Test void italianBeamUsesFiringAngleAndFullWidthWithMultipleTargets() {
         World w=world(500);w.add(2);var t=w.tanks.get(0);t.nation=5;t.turret=0;w.useSkill(0,0);
         var a=w.tanks.get(1);a.x=10;a.y=20;var b=w.tanks.get(2);b.x=10;b.y=30;
-        w.map.bricks=new GameMap.Rect[]{rect(0,15,60,1,1)};w.bricks[0]=5;t.turret=9000;
-        assertEquals(160,t.qEndTick);until(w,159);assertEquals(500,a.hp);assertEquals(5,w.bricks[0]);until(w,160);
+        w.map.bricks=new GameMap.Rect[]{rect(0,15,60,1,1)};w.bricks[0]=3;t.turret=9000;
+        assertEquals(160,t.qEndTick);until(w,159);assertEquals(500,a.hp);assertEquals(3,w.bricks[0]);until(w,160);
         assertEquals(0,a.hp);assertEquals(0,b.hp);assertEquals(500,t.hp);assertEquals(2,t.kills);assertEquals(0,w.bricks[0]);
-        World geometry=world(500);var near=geometry.tanks.get(1);near.x=25;near.y=11.275f;
+        World geometry=world(500);var near=geometry.tanks.get(1);near.x=25;near.y=10+GameRules.TankHalfSize+GameRules.BeamWidth/2;
         assertTrue(geometry.skills.beam(near,11.05f,10,0));near.y+=.002f;assertFalse(geometry.skills.beam(near,11.05f,10,0));
         World cancel=world(500);cancel.tanks.get(0).nation=5;cancel.useSkill(0,0);cancel.damage(cancel.tanks.get(0),1,500);until(cancel,160);assertEquals(500,cancel.tanks.get(1).hp);
     }
     @Test void reducedJapaneseBlastKillsAndBreaksBricksOnlyInsideNewRadius() {
         World w=world(500);w.add(2);var caller=w.tanks.get(0);caller.nation=6;caller.x=caller.y=20;
-        var edge=w.tanks.get(1);edge.x=30.41249f;edge.y=20;edge.body=0;
-        var outside=w.tanks.get(2);outside.x=30.4325f;outside.y=20;outside.body=0;
+        var edge=w.tanks.get(1);edge.x=20+GameRules.KamikazeRadius+GameRules.TankHalfSize-.00001f;edge.y=20;edge.body=0;
+        var outside=w.tanks.get(2);outside.x=20+GameRules.KamikazeRadius+GameRules.TankHalfSize+.02f;outside.y=20;outside.body=0;
         var brick=rect(20,29.5625f,1,1,1);var missed=rect(20,29.5825f,1,1,1);missed.id=1;
-        w.map.bricks=new GameMap.Rect[]{brick,missed};w.bricks[0]=w.bricks[1]=5;
+        w.map.bricks=new GameMap.Rect[]{brick,missed};w.bricks[0]=w.bricks[1]=3;
         w.map.walls=new GameMap.Rect[]{rect(25,0,1,60,0)};
-        w.useSkill(0,0);until(w,249);assertEquals(500,edge.hp);assertEquals(5,w.bricks[0]);until(w,250);
-        assertEquals(0,edge.hp);assertEquals(500,outside.hp);assertEquals(0,w.bricks[0]);assertEquals(5,w.bricks[1]);
+        w.useSkill(0,0);until(w,249);assertEquals(500,edge.hp);assertEquals(3,w.bricks[0]);until(w,250);
+        assertEquals(0,edge.hp);assertEquals(500,outside.hp);assertEquals(0,w.bricks[0]);assertEquals(3,w.bricks[1]);
         assertEquals(0,caller.hp);assertEquals(1,caller.kills);assertEquals(1129,caller.qReadyTick);
         var blast=w.skills.effects.stream().filter(e->e.kind==NationSkills.KAMIKAZE).findFirst().orElseThrow();assertEquals(9.5625f,blast.radius);
     }
     @Test void circleUsesRotatedHitboxNotItsCenter() {
-        var t=new World.Tank();t.x=4.5f;t.body=4500;assertTrue(NationSkills.circle(t,0,0,3.4f));t.x=4.7f;assertFalse(NationSkills.circle(t,0,0,3.4f));
+        var t=new World.Tank();t.x=3.4f+GameRules.TankHalfSize*(float)Math.sqrt(2)-.01f;t.body=4500;assertTrue(NationSkills.circle(t,0,0,3.4f));t.x=3.4f+GameRules.TankHalfSize*(float)Math.sqrt(2)+.01f;assertFalse(NationSkills.circle(t,0,0,3.4f));
     }
     @Test void damagingSkillsDestroyOnlyIntersectingBricksAtImpactAndNeverFromAfterglows() {
         for(int nation:new int[]{0,1,5,6}) {
@@ -152,7 +239,7 @@ class RoleplayGameplayTest {
             float radius=nation==0?GameRules.BombRadius:nation==1?GameRules.RocketRadius:GameRules.KamikazeRadius;
             GameMap.Rect edge=nation==5?rect(30,20+GameRules.BeamWidth/2,1,1,1):rect(20+radius,19.5f,1,1,1);
             GameMap.Rect outside=nation==5?rect(30,20+GameRules.BeamWidth/2+.01f,1,1,1):rect(20+radius+.01f,19.5f,1,1,1);outside.id=1;
-            w.map.bricks=new GameMap.Rect[]{edge,outside};w.bricks[0]=5;w.bricks[1]=4;
+            w.map.bricks=new GameMap.Rect[]{edge,outside};w.bricks[0]=3;w.bricks[1]=2;
             w.map.walls=new GameMap.Rect[]{rect(22,0,1,60,0)};
             w.useSkill(0,0);int impact=100+(nation==0?GameRules.BombDelayTicks:nation==1?GameRules.KatyushaDelayTicks:nation==5?GameRules.BeamChargeTicks:GameRules.KamikazeTicks);
             if(nation==1) {
@@ -160,9 +247,9 @@ class RoleplayGameplayTest {
                 for(var e:zones){e.x=e.y=20;}
                 zones.subList(1,zones.size()).clear();
             }
-            until(w,impact-1);assertEquals(5,w.bricks[0]);assertEquals(4,w.bricks[1]);
-            until(w,impact);assertEquals(0,w.bricks[0],"nation "+nation);assertEquals(4,w.bricks[1]);assertEquals(1,w.map.walls.length);
-            w.bricks[0]=5;until(w,impact+24);assertEquals(5,w.bricks[0],"afterglow repeated damage");
+            until(w,impact-1);assertEquals(3,w.bricks[0]);assertEquals(2,w.bricks[1]);
+            until(w,impact);assertEquals(0,w.bricks[0],"nation "+nation);assertEquals(2,w.bricks[1]);assertEquals(1,w.map.walls.length);
+            w.bricks[0]=3;until(w,impact+24);assertEquals(3,w.bricks[0],"afterglow repeated damage");
         }
     }
     @Test void beamReachesMapEdgeInEveryDirectionAndUsesExactRectangleIntersection() {
@@ -175,11 +262,11 @@ class RoleplayGameplayTest {
             assertFalse(w.skills.beamRect(30-(float)c*3,30-(float)s*3,.2f,.2f,0,30,30,angle));
         }
         // A circle's bounding box is not its damage region.
-        w.map.bricks=new GameMap.Rect[]{rect(23.3f,23.3f,1,1,1)};w.bricks[0]=5;
-        w.skills.breakCircle(20,20,3.4f);assertEquals(5,w.bricks[0]);
+        w.map.bricks=new GameMap.Rect[]{rect(23.3f,23.3f,1,1,1)};w.bricks[0]=3;
+        w.skills.breakCircle(20,20,3.4f);assertEquals(3,w.bricks[0]);
     }
     @Test void brickDestructionFullDeltaAndRecoveryUseTheAcknowledgedBase() throws Exception {
-        World w=world(500);w.map.bricks=new GameMap.Rect[]{rect(20,20,1,1,1),rect(30,30,1,1,1)};w.map.bricks[1].id=1;w.bricks[0]=w.bricks[1]=5;
+        World w=world(500);w.map.bricks=new GameMap.Rect[]{rect(20,20,1,1,1),rect(30,30,1,1,1)};w.map.bricks[1].id=1;w.bricks[0]=w.bricks[1]=3;
         byte[] base=w.encode();w.skills.breakCircle(20,20,3.4f);byte[] first=w.encode();
         w.skills.breakCircle(30,30,3.4f);byte[] after=w.encode(),repair=DeltaCodec.encode(base,after);
         assertArrayEquals(after,DeltaCodec.apply(base,repair));assertArrayEquals(after,World.decode(after).encode());
@@ -187,7 +274,7 @@ class RoleplayGameplayTest {
         Files.write(path,List.of("BASE\t"+hex.formatHex(base),"DROPPED\t"+hex.formatHex(DeltaCodec.encode(base,first)),"REPAIR\t"+hex.formatHex(repair),"REJOIN\t"+hex.formatHex(after)));
     }
     @Test void matchCleanupStopsScheduledDamageAndTemporaryEffects() {
-        World w=world(100);var t=w.tanks.get(0);t.nation=0;w.useSkill(0,0);w.skills.clear();until(w,145);assertEquals(100,w.tanks.get(1).hp);assertTrue(w.skills.effects.isEmpty());assertTrue(w.skills.casts.isEmpty());
+        World w=world(100);var t=w.tanks.get(0);t.nation=0;w.useSkill(0,0);w.skills.clear();until(w,190);assertEquals(100,w.tanks.get(1).hp);assertTrue(w.skills.effects.isEmpty());assertTrue(w.skills.casts.isEmpty());
     }
     @Test void roleplayMovementTraceMatchesPredictionAcrossDeadlineAndTerrain() throws Exception {
         GameMap map=open();map.water=new GameMap.Rect[]{rect(24,12,8,8,2)};List<String> rows=new ArrayList<>();
@@ -200,7 +287,7 @@ class RoleplayGameplayTest {
     }
     @Test void bombSlowAndSabotageDeadlinesSurviveDeltaRepairAndRejoin() throws Exception {
         World w=world(500);var american=w.tanks.get(0);american.nation=0;var chinese=w.tanks.get(1);chinese.nation=7;
-        byte[] base=w.encode();w.useSkill(0,0);until(w,145);assertEquals(175,chinese.slowEndTick);w.useSkill(1,0);assertEquals(1300,american.qReadyTick);
+        byte[] base=w.encode();w.useSkill(0,0);until(w,145);assertEquals(190,chinese.slowEndTick);w.useSkill(1,0);assertEquals(1300,american.qReadyTick);
         byte[] after=w.encode(),repair=DeltaCodec.encode(base,after);assertArrayEquals(after,DeltaCodec.apply(base,repair));assertArrayEquals(after,World.decode(after).encode());
         var hex=HexFormat.of();Path path=Path.of("target/interop/skill-debuffs.tsv");Files.createDirectories(path.getParent());
         Files.write(path,List.of("BASE\t"+hex.formatHex(base),"REPAIR\t"+hex.formatHex(repair),"REJOIN\t"+hex.formatHex(after)));

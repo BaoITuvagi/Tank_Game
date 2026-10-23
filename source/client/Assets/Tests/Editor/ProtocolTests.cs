@@ -7,6 +7,21 @@ using NUnit.Framework;
 using Tank;
 using UnityEngine.TestTools;
 public class ProtocolTests {
+ [Test] public void PreviousProtocolIsRejectedOnBothTransports(){
+  byte[] frame=Protocol.Frame(Op.HeartbeatAck,1,new byte[0]);frame[2]=8;
+  Assert.Throws<InvalidDataException>(()=>Protocol.Decode(frame,false));Assert.Throws<InvalidDataException>(()=>Protocol.Decode(frame,true));
+  using(var stream=new MemoryStream(frame))Assert.Throws<InvalidDataException>(()=>Protocol.Read(stream));
+ }
+ [UnityTest] public IEnumerator PreviousServerProtocolDisconnectsBeforeAcceptingState(){
+  var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();
+  using(var client=new ClientCore(null,new byte[32]))try{
+   var accept=listener.AcceptTcpClientAsync();client.Connect("127.0.0.1",((IPEndPoint)listener.LocalEndpoint).Port,8889);
+   yield return WaitFor(client,()=>client.Phase==ClientPhase.AUTHENTICATING);
+   using(var peer=accept.Result){byte[] frame=Protocol.Frame(Op.HeartbeatAck,1,new byte[0]);frame[2]=8;var stream=peer.GetStream();stream.Write(frame,0,frame.Length);stream.Flush();
+    yield return WaitFor(client,()=>client.Phase==ClientPhase.DISCONNECTED);StringAssert.Contains("header",client.Message);Assert.AreEqual(0,client.Decoded);Assert.IsNull(client.Latest);
+   }
+  }finally{listener.Stop();}
+ }
  [Test]public void BackgroundAndModalInputStayNeutral(){foreach(int angle in new[]{0,9000,18000,35999}){var sample=GameplayInput.Resolve(false,31,angle,12345);Assert.AreEqual(0,sample.Buttons);Assert.AreEqual(12345,sample.Aim);}var focused=GameplayInput.Resolve(true,8,9000,12345);Assert.AreEqual(8,focused.Buttons);Assert.AreEqual(9000,focused.Aim);}
  [Test]public void ReturnToRoomKeepsExistingMembership(){using(var c=new ClientCore(null,new byte[32])){c.Phase=ClientPhase.RESULTS;c.RoomId=42;c.Slot=3;c.RoomPhase=RoomPhase.RESULTS;c.Message="Đã rời phòng.";c.BackToRoom();Assert.AreEqual(ClientPhase.ROOM,c.Phase);Assert.AreEqual(42,c.RoomId);Assert.AreEqual(3,c.Slot);Assert.AreEqual("",c.Message);}}
  [UnityTest]public IEnumerator NewRoomClearsOldMessageAndIdentifiesDuplicateAliases(){
@@ -38,7 +53,7 @@ public class ProtocolTests {
    }
   }finally{listener.Stop();}
  }
- [Test] public void UnsignedAnglesAndFraming(){foreach(int angle in new[]{0,18000,32768,35999})Assert.AreEqual(angle,new WireReader(new WireWriter().U16(angle).Done()).U16());Assert.IsTrue(Protocol.Newer(1,uint.MaxValue));var p=Protocol.Frame(Op.Register,0x01020304,new WireWriter().Str("tank").Str("password").Done());Assert.AreEqual("544205010102030400100000000474616e6b000870617373776f7264",Hex(p));Assert.Throws<InvalidDataException>(()=>Protocol.Decode(new byte[13],true));}
+ [Test] public void UnsignedAnglesAndFraming(){foreach(int angle in new[]{0,18000,32768,35999})Assert.AreEqual(angle,new WireReader(new WireWriter().U16(angle).Done()).U16());Assert.IsTrue(Protocol.Newer(1,uint.MaxValue));var p=Protocol.Frame(Op.Register,0x01020304,new WireWriter().Str("tank").Str("password").Done());Assert.AreEqual("544209010102030400100000000474616e6b000870617373776f7264",Hex(p));Assert.Throws<InvalidDataException>(()=>Protocol.Decode(new byte[13],true));}
  [Test] public void JavaTraceReconstructs(){string path=Path.GetFullPath("../../source/server/target/interop/delta-trace.tsv");WorldState world=null;foreach(string line in File.ReadAllLines(path)){string[] fields=line.Split('\t');var r=new WireReader(Unhex(fields[1]));world=fields[0]=="FULL"?WorldState.Full(r):DeltaCodec.Apply(world,r);r.End();if(fields.Length>2)Assert.AreEqual(fields[2],Hex(world.Encode()));}}
  [Test] public void MovementAndTurret(){var map=new GameMap{walls=new MapRect[0],bricks=new MapRect[0],water=new MapRect[0]};var straight=new TankState{Hp=3,X=5,Y=5};var diagonal=straight.Copy();Movement.Step(straight,new InputRecord(1,1,0),map,new byte[64]);Movement.Step(diagonal,new InputRecord(1,9,0),map,new byte[64]);Assert.AreEqual(straight.Y-5,Math.Sqrt(Math.Pow(diagonal.X-5,2)+Math.Pow(diagonal.Y-5,2)),.00001);Assert.AreEqual(100,Movement.Turn(35900,100));Assert.AreEqual(35600,Movement.Turn(0,18000));}
  [Test] public void DeltaIsAtomic(){var state=new WorldState();var bad=new WireReader(new byte[]{1,0,0,1,0,0,0,0});Assert.Throws<InvalidDataException>(()=>DeltaCodec.Apply(state,bad));Assert.AreEqual(0,state.Tanks.Count);}

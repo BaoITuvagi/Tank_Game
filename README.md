@@ -65,6 +65,25 @@ $env:UNITY_EDITOR_PATH='<DUONG_DAN_DEN_EDITOR_UNITY_EXE>'
 
 Thay phần `<...>` bằng đường dẫn file `Editor/Unity.exe` trên máy bạn, giữ dấu nháy. Không chọn file chạy Unity Hub.
 
+### Hiệu ứng chiến đấu cho client
+
+Repository đã kèm **21 clip Cooked FX — Cozy Chunky** mà game sử dụng tại `source/client/Assets/Resources/CombatFx/CozyChunky/`, gồm các ảnh, `catalog.json`, `LICENSE.pdf` và `.meta`. Sau khi clone, Unity tự import asset có sẵn; không cần tải hoặc chọn ZIP thủ công trước khi bấm Play, build hay chạy test Unity. Giữ nguyên giấy phép và `.meta` đi kèm.
+
+Nếu cần khôi phục bộ hiệu ứng bị thiếu hoặc hỏng:
+
+1. Mở [trang tải Cooked FX chính thức](https://the-cooked-works.itch.io/cooked-fx), chọn **Download Now**, rồi tải **`Cooked_FX_FREE_Cozy_Chunky.zip`**. Giữ nguyên file ZIP.
+2. Kiểm tra SHA-256 trong PowerShell:
+
+   ```powershell
+   Get-FileHash -Algorithm SHA256 -LiteralPath '<DUONG_DAN_DEN_Cooked_FX_FREE_Cozy_Chunky.zip>'
+   ```
+
+   Bản ZIP mà importer hiện hỗ trợ có SHA-256 **`0ebb14888c970e6d4e08f3eeb9c469712c81bd44932ea2d7d151717e940af3af`**. Importer sẽ từ chối file khác; nếu tác giả cập nhật bộ tải, cần đối chiếu phiên bản trước khi thay đổi importer.
+3. Mở project `source/client` bằng Unity **6000.3.24f1**, đợi compile hoàn tất, chọn **Tools → Tank Battle → Import Combat FX** và chọn file ZIP trên.
+4. Import thành công sẽ ghi log **`Imported 21 Cozy Chunky Combat FX clips.`** và khôi phục asset tại `Assets/Resources/CombatFx/CozyChunky/`. Importer tự đặt thông số texture, kiểm tra bộ hiệu ứng và giữ các file `.meta` đã có. Khi cập nhật asset, đưa cả `.meta` đi kèm vào commit.
+
+Khi đóng gói client, build tự chép giấy phép vào `ThirdParty/CookedFX-LICENSE.pdf` cạnh file chạy. Thiếu hoặc sai hiệu ứng sẽ chặn build và chuẩn bị vào trận; dùng menu import trên để khôi phục, rồi đóng Editor trước khi chạy script build/test.
+
 ## Build và chạy server
 
 Từ mã nguồn vừa tải về, tạo bản server bằng:
@@ -125,11 +144,11 @@ Khi tạo phòng, chọn **Thường** (mặc định) hoặc **Nhập vai**. Ch
 
 Nhập vai có kỹ năng Q theo quốc gia. Chết xóa hiệu ứng nhưng giữ hồi chiêu. Người đứng hạng nhất giành Hộp Đen trên màn hình kết quả; đây là phần thưởng kể chuyện trong trận. Các thông số kỹ năng vẫn cần được đánh giá qua playtest về công dụng và cân bằng.
 
-### Demo cục bộ với bảy xe mô phỏng
+### Kiểm tra multiplayer cục bộ
 
-Sau khi build server và client, mở `DemoRoleplay.bat` ở thư mục gốc. Cần JDK 21 trong `JAVA_HOME` hoặc `PATH`. Script mở server loopback TCP 23888/UDP 23889, một cửa sổ game và bảy client mô phỏng. Demo tự tạo tài khoản thử, chọn quốc gia và sẵn sàng; bạn chơi bằng WASD, chuột, Space, Shift, Q. Mỗi trận kéo dài ba phút, HP 3 và dùng map tám người.
+Sau khi build server và client, chạy `./scripts/start-server.ps1 -Config config/demo.properties`. Server thử nghiệm lắng nghe tại `127.0.0.1`, TCP `23888`, UDP `23889`. Mở ít nhất hai cửa sổ `build/client/TankBattle.exe`, nhập địa chỉ/cổng trên trong phần kết nối và dùng tài khoản khác nhau cho mỗi cửa sổ. Tạo hoặc tham gia cùng phòng, chọn quốc gia nếu chơi Nhập vai, rồi tất cả sẵn sàng để chủ phòng bắt đầu trận.
 
-Dữ liệu demo nằm riêng trong `runtime/demo/`, cấu hình ở `config/demo.properties`; không dùng `runtime/tank.db` hoặc ghi đè thiết lập kết nối đã lưu của client. Bảy client mô phỏng tự thoát sau trận; đóng cửa sổ server khi xong. Không mở lại launcher khi server demo cũ còn chạy. Đây là đối thủ theo kịch bản phục vụ trình diễn và kiểm thử, chưa phải bằng chứng về cân bằng hoặc cảm giác chơi với người thật.
+Dữ liệu thử nghiệm được lưu riêng trong `runtime/demo/`, theo cấu hình `config/demo.properties`. Client ghi nhớ địa chỉ/cổng đã nhập; khi quay lại server thông thường, cập nhật lại phần kết nối theo thiết lập của server đó. Đóng các cửa sổ client và dừng server thử nghiệm khi hoàn tất.
 
 ## Điều khiển
 
@@ -144,6 +163,8 @@ Dữ liệu demo nằm riêng trong `runtime/demo/`, cấu hình ở `config/dem
 | F11 hoặc Alt+Enter | Đổi fullscreen |
 
 ## Lỗi thường gặp
+
+Nếu thiếu hoặc sai hiệu ứng chiến đấu, kiểm tra đã tải đầy đủ thư mục `Assets/Resources/CombatFx/CozyChunky/` từ repository, hoặc làm theo mục **Hiệu ứng chiến đấu cho client** ở trên để khôi phục. Validator sẽ dừng build khi thiếu clip.
 
 | Thông báo hoặc hiện tượng | Việc cần kiểm tra |
 |---|---|
@@ -167,7 +188,7 @@ Log được tạo khi chạy để giúp tìm lỗi. Log server/build/test Unit
 | `config` | Thiết lập server và mẫu thiết lập môi trường riêng |
 | `scripts` | Các lệnh build, chạy và kiểm thử |
 
-Client và server cần dùng cùng đợt build (giao thức v5, nội dung v5). Phòng mặc định 100 HP, cho phép 1–500 HP; đạn thường gây 20 HP và thanh máu xe chỉ hiển thị độ đầy, không có con số. Mọi trận dùng map lớn 80 × 80 với vị trí xuất phát ngẫu nhiên, phân bố cân đối; có thể sẵn sàng và bắt đầu trận tiếp theo ngay trong cùng phòng. Bộ kỹ năng Q và hồi chiêu được đồng bộ từ `source/shared/roleplay-content.json`; luật nền ở `source/shared/game-rules.json`. Sau khi thay đổi nội dung, đồng bộ Java/C# và content hash bằng:
+Client và server cần dùng cùng đợt build (giao thức v9, nội dung v6). Phòng mặc định 100 HP, cho phép 1–500 HP; đạn thường gây 20 HP và thanh máu xe chỉ hiển thị độ đầy, không có con số. Mọi trận Thường/Nhập vai dùng duy nhất map nhiều người chơi 120 × 80 với vị trí xuất phát ngẫu nhiên, phân bố cân đối; có thể sẵn sàng và bắt đầu trận tiếp theo ngay trong cùng phòng. Sidebar rộng 294 px nằm sát mép phải; map giữ tỷ lệ trong phần màn hình còn lại. Bộ kỹ năng Q và hồi chiêu được đồng bộ từ `source/shared/roleplay-content.json`; luật nền ở `source/shared/game-rules.json`. Sau khi thay đổi nội dung, đồng bộ Java/C# và content hash bằng:
 
 ```powershell
 python scripts/sync-contracts.py

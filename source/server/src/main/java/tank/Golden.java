@@ -65,7 +65,7 @@ public final class Golden  {
         t.turret=32768;
         world.tanks.put(0,t);
         v.put(FULL,new Writer().u64(1).u32(1).u32(1).u64(1000).u32(1).u16(5399).bytes(world.encode()).done());
-        v.put(DELTA,new Writer().u64(1).u32(2).u32(2).u64(2000).u32(2).u16(5398).u32(1).u8(0).u8(0).u8(0).u8(0).u16(0).done());
+        v.put(DELTA,new Writer().u64(1).u32(2).u32(2).u64(2000).u32(2).u16(5398).u32(1).bytes(DeltaCodec.encode(world.encode(),world.encode())).done());
         v.put(SNAPSHOT_PART,SnapshotFragments.split(1,1,FULL,v.get(FULL)).getFirst());
         v.forEach((op,payload)->add(vectors,op,"",payload));
         add(vectors,PREPARED,"_roleplay_loading",new Writer().u64(1).u8(PrepStage.LOADING.ordinal()).u32(RoleplayContent.Version).bytes(contentHash).done());

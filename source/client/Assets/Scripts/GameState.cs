@@ -20,6 +20,16 @@ namespace Tank  {
         public float width,height;
         public MapRect[] walls,bricks,water;
         public MapPoint[] spawns;
+        public MapPoint[] itemSpawns;
+        public void ValidateItemSpawns() {
+            if(itemSpawns==null||itemSpawns.Length<3||itemSpawns.Length>64)throw new InvalidDataException("item spawns");
+            var hp=new byte[64];for(int i=0;i<hp.Length;i++)hp[i]=(byte)GameRules.BrickMaxHp;
+            var points=new HashSet<string>();
+            foreach(var p in itemSpawns) {
+                if(float.IsNaN(p.x)||float.IsInfinity(p.x)||float.IsNaN(p.y)||float.IsInfinity(p.y)||Blocked(p.x,p.y,hp)||Water(p.x,p.y)||!points.Add(p.x+":"+p.y))throw new InvalidDataException("item spawn");
+                foreach(var r in water)if(p.x+GameRules.ItemHalfSize>r.x&&p.x-GameRules.ItemHalfSize<r.x+r.w&&p.y+GameRules.ItemHalfSize>r.y&&p.y-GameRules.ItemHalfSize<r.y+r.h)throw new InvalidDataException("wet item spawn");
+            }
+        }
         public bool Blocked(float x,float y,byte[] hp) {
             return Blocked(x,y,0,hp);
         }
@@ -47,6 +57,7 @@ namespace Tank  {
         public uint Respawn,Shield,LastKill=uint.MaxValue;
         public int QReadyTick,QEndTick,SlowEndTick,ProtectionFlags;
         public int QStartTick,ConfusionEndTick,FireLockEndTick,FogEndTick,QStage,Life;
+        public int ArmorEndTick,HeEndTick,InvincibilityEndTick,MirrorShots,QBaseReadyTick;
         public float AimX,AimY;
         public int Nation=-1;
         public float X,Y;
@@ -57,6 +68,7 @@ namespace Tank  {
     public class BulletState  {
         public uint Id;
         public int Owner,Heading,Bounces;
+        public int Kind;
         public int SpeedPercent=100,RemainingLifetime=GameRules.BulletLifetimeTicks,Damage=GameRules.BulletDamage;
         public float X,Y;
         public BulletState Copy() {
@@ -68,12 +80,18 @@ namespace Tank  {
         public SortedDictionary<uint,BulletState> Bullets=new SortedDictionary<uint,BulletState>();
         public byte[] Bricks=new byte[64];
         public readonly List<SkillEffect> Effects=new List<SkillEffect>();
+        public readonly SortedDictionary<uint,ItemState> Items=new SortedDictionary<uint,ItemState>();
+        public readonly List<SkillEffect> ItemEffects=new List<SkillEffect>();
+        public readonly SortedDictionary<uint,CombatEvent> Combat=new SortedDictionary<uint,CombatEvent>();
         public WorldState Copy() {
             var w=new WorldState();
             foreach(var p in Tanks)w.Tanks.Add(p.Key,p.Value.Copy());
             foreach(var p in Bullets)w.Bullets.Add(p.Key,p.Value.Copy());
             w.Bricks=(byte[])Bricks.Clone();
             w.Effects.AddRange(Effects);
+            foreach(var p in Items)w.Items.Add(p.Key,p.Value.Copy());
+            w.ItemEffects.AddRange(ItemEffects);
+            foreach(var p in Combat)w.Combat.Add(p.Key,p.Value);
             return w;
         }
         public static TankState ReadTank(WireReader r) {
@@ -91,13 +109,13 @@ namespace Tank  {
         }
         public static BulletState ReadBullet(WireReader r) {
             var b=new BulletState {
-                Id=r.U32(),Owner=r.U8(),X=r.F32(),Y=r.F32(),Heading=r.U16(),Bounces=r.U8(),SpeedPercent=r.U8(),RemainingLifetime=r.U16(),Damage=r.U8()
+                Id=r.U32(),Owner=r.U8(),X=r.F32(),Y=r.F32(),Heading=r.U16(),Bounces=r.U8(),SpeedPercent=r.U8(),RemainingLifetime=r.U16(),Damage=r.U8(),Kind=r.U8()
             };
             Validate(b);
             return b;
         }
         public static void Validate(BulletState b) {
-            if((b.Damage!=GameRules.BulletDamage&&b.Damage!=GameRules.GermanBulletDamage)||b.Owner<0||b.Owner>7||b.Heading<0||b.Heading>=36000||b.Bounces<0||b.Bounces>GameRules.DefaultBulletBounceLimit||b.SpeedPercent<100||b.SpeedPercent>GameRules.MaxBulletSpeedPercent||b.RemainingLifetime<0||b.RemainingLifetime>GameRules.BulletLifetimeTicks||float.IsNaN(b.X)||float.IsInfinity(b.X)||float.IsNaN(b.Y)||float.IsInfinity(b.Y))throw new InvalidDataException("bullet");
+            if(!ItemCodec.ValidBulletDamage(b.Kind,b.Damage)||b.Owner<0||b.Owner>7||b.Heading<0||b.Heading>=36000||b.Bounces<0||b.Bounces>GameRules.DefaultBulletBounceLimit||b.SpeedPercent<100||b.SpeedPercent>GameRules.MaxBulletSpeedPercent||b.RemainingLifetime<0||b.RemainingLifetime>GameRules.BulletLifetimeTicks||float.IsNaN(b.X)||float.IsInfinity(b.X)||float.IsNaN(b.Y)||float.IsInfinity(b.Y))throw new InvalidDataException("bullet");
         }
         public static WorldState Full(WireReader r) {
             var w=new WorldState();
@@ -114,14 +132,16 @@ namespace Tank  {
                 w.Bullets.Add(b.Id,b);
             }
             w.Bricks=r.Bytes(64);
-            foreach(byte hp in w.Bricks)if(hp>5)throw new InvalidDataException("brick");
+            foreach(byte hp in w.Bricks)if(hp>GameRules.BrickMaxHp)throw new InvalidDataException("brick");
             ReadEffects(w,r);
+            ItemCodec.Read(w,r);
+            CombatCodec.Read(w,r);
             return w;
         }
         public static void ReadEffects(WorldState w,WireReader r) {
             int count=r.U16();if(count>GameRules.MaxSkillEffects)throw new InvalidDataException("effects");
             w.Effects.Clear();var ids=new HashSet<uint>();
-            for(int i=0;i<count;i++) {var e=SkillEffect.Read(r);if(!ids.Add(e.Id))throw new InvalidDataException("duplicate effect");w.Effects.Add(e);}
+            for(int i=0;i<count;i++) {var e=SkillEffect.Read(r);if(e.Kind>8||!ids.Add(e.Id))throw new InvalidDataException("duplicate effect");w.Effects.Add(e);}
         }
         public byte[] Encode() {
             if(Tanks.Count>8||Bullets.Count>GameRules.MaxBullets||Effects.Count>GameRules.MaxSkillEffects)throw new InvalidDataException("world count");
@@ -133,9 +153,11 @@ namespace Tank  {
             w.U8(Bullets.Count);
             foreach(var b in Bullets.Values) {
                 Validate(b);
-                w.U32(b.Id).U8(b.Owner).F32(b.X).F32(b.Y).U16(b.Heading).U8(b.Bounces).U8(b.SpeedPercent).U16(b.RemainingLifetime).U8(b.Damage);
+                w.U32(b.Id).U8(b.Owner).F32(b.X).F32(b.Y).U16(b.Heading).U8(b.Bounces).U8(b.SpeedPercent).U16(b.RemainingLifetime).U8(b.Damage).U8(b.Kind);
             }
             w.Bytes(Bricks).U16(Effects.Count);foreach(var e in Effects)e.Write(w);
+            ItemCodec.Write(this,w);
+            CombatCodec.Write(this,w);
             return w.Done();
         }
     }
@@ -170,7 +192,7 @@ namespace Tank  {
             int diff=(desired-current+54000)%36000-18000;
             return (current+Math.Max(-limit,Math.Min(limit,diff))+36000)%36000;
         }
-        public static void Step(TankState t,InputRecord input,GameMap map,byte[] bricks) {
+        public static void Step(TankState t,InputRecord input,GameMap map,byte[] bricks,IEnumerable<SkillEffect> effects=null) {
             if(t.Hp==0)return;
             int dx=((input.Buttons&8)!=0?1:0)-((input.Buttons&4)!=0?1:0),dy=((input.Buttons&1)!=0?1:0)-((input.Buttons&2)!=0?1:0);
             if(input.Tick<t.ConfusionEndTick) {dx=-dx;dy=-dy;}
@@ -186,6 +208,7 @@ namespace Tank  {
             multiplier=Math.Min(GameRules.MaxTankSpeedPercent/100f,multiplier);
             float water=map.Water(t.X,t.Y)?.5f:1;
             float slow=input.Tick<t.SlowEndTick?GameRules.SlowSpeedPercent/100f:1;
+            if(SkillGeometry.KatyushaSlowEnd(t,input.Tick,effects)>input.Tick)slow*=GameRules.KatyushaSlowSpeedPercent/100f;
             float speed=TankSpeed*water*multiplier*slow/30;
             float x=t.X+dx*norm*speed,y=t.Y+dy*norm*speed;
             int desired=dx!=0||dy!=0?((int)Math.Round(Math.Atan2(dy,dx)*180/Math.PI*100)+36000)%36000:t.Body;

@@ -26,6 +26,7 @@ namespace Tank  {
             Application.runInBackground=true;
             Application.targetFrameRate=60;
             client=MapLoader.CreateClient(out map);
+            client.SnapshotAccepted+=snapshot=>arenaRenderer.AcceptEffects(client,snapshot);
             string local=Path.Combine(Application.persistentDataPath,"connection.json");
             connection=JsonUtility.FromJson<ConnectionSettings>(File.ReadAllText(File.Exists(local)?local:Path.Combine(Application.streamingAssetsPath,"connection.json")));
             hostText=connection.host;
@@ -185,10 +186,8 @@ namespace Tank  {
         void Arena() {
             map=client.ActiveMap;
             arenaRenderer.NetworkStatus(client,230,12,Mathf.Max(0,viewWidth-588));
-            float panelWidth=294;
-            scale=Mathf.Max(1,Math.Min((viewWidth-panelWidth-70)/map.width,(viewHeight-112)/map.height));
-            arenaX=Mathf.Max(16,(viewWidth-map.width*scale-22-panelWidth)/2);
-            arenaY=88;
+            var layout=ArenaLayout.Fit(viewWidth,viewHeight,map.width,map.height);
+            scale=layout.Scale;arenaX=layout.X;arenaY=layout.Y;
             var latest=client.Latest;
             WorldState rendered=null;
             bool stale=ClientCore.NowUs-client.LastArrivalUs>500000;
@@ -210,10 +209,13 @@ namespace Tank  {
                     }
                     if(stale)rendered.Bullets.Clear();
                     rendered.Effects.Clear();rendered.Effects.AddRange(latest.World.Effects);
+                    rendered.Items.Clear();foreach(var p in latest.World.Items)rendered.Items.Add(p.Key,p.Value.Copy());
+                    rendered.ItemEffects.Clear();rendered.ItemEffects.AddRange(latest.World.ItemEffects);
                     foreach(var tank in rendered.Tanks.Values) {
                         TankState current;
                         if(!latest.World.Tanks.TryGetValue(tank.Slot,out current))continue;
                         tank.QReadyTick=current.QReadyTick;
+                        tank.ArmorEndTick=current.ArmorEndTick;tank.HeEndTick=current.HeEndTick;tank.InvincibilityEndTick=current.InvincibilityEndTick;tank.MirrorShots=current.MirrorShots;tank.QBaseReadyTick=current.QBaseReadyTick;
                         tank.QEndTick=current.QEndTick;
                         tank.SlowEndTick=current.SlowEndTick;tank.ProtectionFlags=current.ProtectionFlags;
                         tank.QStartTick=current.QStartTick;tank.QStage=current.QStage;tank.AimX=current.AimX;tank.AimY=current.AimY;
@@ -222,8 +224,7 @@ namespace Tank  {
                 }
             }
             arenaRenderer.Draw(map,rendered,latest==null?null:latest.World,latest==null?0:latest.Tick,client.Slot,arenaX,arenaY,scale);
-            float panel=arenaX+map.width*scale+22;
-            arenaRenderer.Panel(client,panel,arenaY,panelWidth,map.height*scale,stale,autoFire.Enabled);
+            arenaRenderer.Panel(client,layout.SidebarX,ArenaLayout.Top,ArenaLayout.SidebarWidth,layout.Height,stale,autoFire.Enabled);
             if(client.Predicted!=null&&client.Predicted.Hp==0&&latest!=null) {
                 int seconds=(int)Math.Ceiling(Math.Max(0,((double)client.Predicted.Respawn-latest.Tick)/30));
                 Rect respawn=new Rect(arenaX+16,arenaY+map.height*scale/2-25,map.width*scale-32,50);

@@ -15,11 +15,11 @@ class RoleplayCodecTest {
             var b=new World.Bullet();b.id=i;b.owner=i%8;b.bounces=2;b.speedPercent=150;b.remainingLifetime=150;
             w.bullets.put(i,b);
         }
-        Arrays.fill(w.bricks,(byte)5);
+        Arrays.fill(w.bricks,(byte)GameRules.BrickMaxHp);
         return w;
     }
     @Test void maximumFramedFullAndDeltaSelectionFitMtu() {
-        World w=maximum();byte[] full=w.encode();assertEquals(3140,full.length);
+        World w=maximum();byte[] full=w.encode();assertEquals(3354,full.length);
         byte[] metadata=new Writer().u64(1).u32(1).u32(18000).u64(1000).u32(18000).u16(0).done();
         for(byte[] part:SnapshotFragments.split(1,1,FULL,new Writer().bytes(metadata).bytes(full).done()))assertTrue(frame(SNAPSHOT_PART,1,part).length<=1200);
         byte[] empty=new World(null,0).encode(),delta=DeltaCodec.encode(empty,full);

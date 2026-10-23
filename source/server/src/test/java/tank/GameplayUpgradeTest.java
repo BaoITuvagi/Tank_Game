@@ -40,7 +40,7 @@ class GameplayUpgradeTest {
   var m=open();var a=new World.Tank();a.x=a.y=10;var b=a.copy();
   World.movement(a,new World.Input(1,40,0),m,new byte[64]);World.movement(b,new World.Input(1,41,0),m,new byte[64]);
   assertEquals(a.x-10,Math.hypot(b.x-10,b.y-10),.00001);
-  var wall=new GameMap.Rect();wall.x=11;wall.y=0;wall.w=1;wall.h=30;m.walls=new GameMap.Rect[]{wall};a.x=9.5f;
+  var wall=new GameMap.Rect();wall.x=11;wall.y=0;wall.w=1;wall.h=30;m.walls=new GameMap.Rect[]{wall};a.x=11-GameRules.TankHalfSize-.1f;
   for(int i=2;i<90;i++)World.movement(a,new World.Input(i,40,0),m,new byte[64]);
   assertTrue(a.x+GameRules.TankHalfSize<=11+GameRules.CollisionEpsilon);assertFalse(m.blocked(a.x,a.y,new byte[64]));
  }
@@ -56,8 +56,8 @@ class GameplayUpgradeTest {
      for(var other:w.tanks.values())if(other!=t)assertTrue(Math.hypot(t.x-other.x,t.y-other.y)>=12);
      cx+=t.x;cy+=t.y;assignment+=t.x+","+t.y+";";
     }
-    assertEquals(40,cx/count,8);assertEquals(40,cy/count,8);assignments.add(assignment);
-    if(count==8){assertTrue(w.tanks.values().stream().anyMatch(t->t.x==6&&t.y>6&&t.y<74));assertTrue(w.tanks.values().stream().anyMatch(t->t.y==6&&t.x>6&&t.x<74));}
+    assertEquals(map.width/2,cx/count,map.width*.1);assertEquals(map.height/2,cy/count,map.height*.1);assignments.add(assignment);
+    if(count==8){assertTrue(w.tanks.values().stream().anyMatch(t->t.x==map.spawns[0].x&&t.y>6&&t.y<74));assertTrue(w.tanks.values().stream().anyMatch(t->t.y==6&&t.x>6&&t.x<74));}
    }
    assertTrue(assignments.size()>1,"same spawn assignments across seeds: "+count);
   }

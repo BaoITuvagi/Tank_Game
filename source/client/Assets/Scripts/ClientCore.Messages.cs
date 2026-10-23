@@ -177,6 +177,7 @@ namespace Tank  {
                         FailPreparation("Phiên bản nội dung không khớp server");return;
                     }
                     if(RoomMode==RoomMode.ROLEPLAY&&!roleplayAssetsReady) {FailPreparation("Thiếu hoặc không đọc được sprite: "+roleplayAssetError);return;}
+                    if(combatAssetError!=null) {FailPreparation("Thiếu hoặc sai hiệu ứng chiến đấu: "+combatAssetError);return;}
                     roleplayRequestId=requestHighWater;
                     Tuple<GameMap,byte[]> selected;
                     if(!maps.TryGetValue(mapId,out selected)||rate!=30||!Equal(hash,selected.Item2)) {

@@ -54,7 +54,7 @@ public class ReviewRegressionTests {
   var wall=new MapRect{x=10,y=0,w=1,h=60};var map=new GameMap{width=60,height=60,walls=new[]{wall},bricks=new MapRect[0],water=new MapRect[0]};
   var tank=new TankState{Hp=3,X=8,Y=10};for(uint tick=1;tick<=90;tick++){Movement.Step(tank,new InputRecord(tick,41,0),map,new byte[64]);Assert.IsFalse(map.Blocked(tank.X,tank.Y,tank.Body,new byte[64]));}
   Assert.Greater(tank.Y,20);Assert.IsTrue(map.Blocked(9,10,4500,new byte[64]));
-  var a=new Snapshot{Time=1000,World=new WorldState()};a.World.Tanks[0]=new TankState{Hp=3,X=8.9f,Y=10,Body=0};
+  var a=new Snapshot{Time=1000,World=new WorldState()};a.World.Tanks[0]=new TankState{Hp=3,X=10-GameRules.TankHalfSize-.01f,Y=10,Body=0};
   var b=new Snapshot{Time=2000,World=a.World.Copy()};b.World.Tanks[0].Body=9000;
   var rendered=Rendering.Interpolate(new[]{a,b},1500,map);var shown=rendered.Tanks[0];Assert.IsFalse(map.Blocked(shown.X,shown.Y,shown.Body,rendered.Bricks));
  }

@@ -12,7 +12,7 @@ namespace Tank  {
             client.Phase=ClientPhase.PLAYING;
             client.Slot=0;
             var world=new WorldState();
-            for(int i=0;i<6;i++)world.Bricks[i]=5;
+            for(int i=0;i<6;i++)world.Bricks[i]=(byte)GameRules.BrickMaxHp;
             world.Tanks[0]=new TankState {
                 Slot=0,X=19,Y=16,Body=9000,Turret=9000,Hp=100,Energy=60,Shield=200
             };
@@ -56,9 +56,9 @@ namespace Tank  {
                 world.Tanks.Clear();
                 world.Bullets.Clear();
                 client.Players.Clear();
-                for(int i=0;i<24;i++)world.Bricks[i]=5;
+                for(int i=0;i<24;i++)world.Bricks[i]=(byte)GameRules.BrickMaxHp;
                 float[] px= {
-                    20,40,62,70,56,40,12,10
+                    18,60,104,110,100,60,15,8
                 },py= {
                     10,12,12,40,70,68,60,30
                 };
@@ -83,6 +83,7 @@ namespace Tank  {
                 var args=Environment.GetCommandLineArgs();int index=Array.IndexOf(args,"--preview-nation"),slot;
                 if(index>=0&&index+1<args.Length&&int.TryParse(args[index+1],out slot)&&world.Tanks.ContainsKey(slot))client.Slot=slot;
             }
+            foreach(var tank in world.Tanks.Values)tank.Life=tank.Slot+1;
         }
         public static void Animate(ClientCore client)  {
             client.LastArrivalUs=ClientCore.NowUs;
@@ -94,9 +95,11 @@ namespace Tank  {
                 client.Latest.World.Tanks[2].Hp=25;
             }
             if(client.RoomMode==RoomMode.ROLEPLAY)AnimateSkills(client);
+            client.Latest.Id=client.Latest.Tick+1;
         }
         static void AnimateSkills(ClientCore client) {
             var world=client.Latest.World;int tick=100+Mathf.FloorToInt(Time.unscaledTime*30),start=100+(tick-100)/180*180;
+            uint effectBase=(uint)((start-100)/180*64);
             client.Latest.Tick=(uint)tick;client.Latest.Time=(ulong)ClientCore.NowUs;world.Effects.Clear();
             foreach(var t in world.Tanks.Values) {
                 t.QStartTick=start;t.QEndTick=start+RoleplayContent.NationDurations[t.Nation];t.QReadyTick=start+RoleplayContent.NationCooldowns[t.Nation];
@@ -104,14 +107,14 @@ namespace Tank  {
                 t.AimX=SkillGeometry.ClampAim(t.X+5,client.ActiveMap.width);t.AimY=SkillGeometry.ClampAim(t.Y+5,client.ActiveMap.height);
                 t.ConfusionEndTick=start+GameRules.ConfusionTicks;t.FireLockEndTick=start+GameRules.FireLockTicks;
                 if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-fog")>=0)t.FogEndTick=start+GameRules.FogEnemyTicks;
-                if(t.Nation==0)world.Effects.Add(new SkillEffect{Id=1,Kind=SkillEffect.Bomb,Owner=0,Start=start,End=start+45,X=t.X+4,Y=t.Y+6,Radius=GameRules.BombRadius});
-                if(t.Nation==2||t.Nation==7)world.Effects.Add(new SkillEffect{Id=(uint)(2+t.Nation),Kind=t.Nation==2?SkillEffect.Radar:SkillEffect.Sabotage,Owner=t.Slot,Start=start,End=start+24,X=t.X,Y=t.Y});
-                if(t.Nation==5&&tick>=t.QEndTick)world.Effects.Add(new SkillEffect{Id=11,Kind=SkillEffect.Beam,Owner=t.Slot,Start=t.QEndTick,End=t.QEndTick,X=t.X,Y=t.Y,Angle=t.Turret,Radius=GameRules.BeamWidth});
-                if(t.Nation==6&&tick>=t.QEndTick)world.Effects.Add(new SkillEffect{Id=12,Kind=SkillEffect.Kamikaze,Owner=t.Slot,Start=t.QEndTick,End=t.QEndTick,X=t.X,Y=t.Y,Radius=GameRules.KamikazeRadius});
+                if(t.Nation==0)world.Effects.Add(new SkillEffect{Id=effectBase+1,Kind=SkillEffect.Bomb,Owner=0,Start=start,End=start+45,X=t.X+4,Y=t.Y+6,Radius=GameRules.BombRadius});
+                if(t.Nation==2||t.Nation==7)world.Effects.Add(new SkillEffect{Id=effectBase+(uint)(2+t.Nation),Kind=t.Nation==2?SkillEffect.Radar:SkillEffect.Sabotage,Owner=t.Slot,Start=start,End=start+24,X=t.X,Y=t.Y});
+                if(t.Nation==5&&tick>=t.QEndTick)world.Effects.Add(new SkillEffect{Id=effectBase+11,Kind=SkillEffect.Beam,Owner=t.Slot,Start=t.QEndTick,End=t.QEndTick,X=t.X,Y=t.Y,Angle=t.Turret,Radius=GameRules.BeamWidth});
+                if(t.Nation==6&&tick>=t.QEndTick)world.Effects.Add(new SkillEffect{Id=effectBase+12,Kind=SkillEffect.Kamikaze,Owner=t.Slot,Start=t.QEndTick,End=t.QEndTick,X=t.X,Y=t.Y,Radius=GameRules.KamikazeRadius});
                 if(t.Nation==1&&t.QStage==0)for(int i=0;i<9;i++) {
                     float a=i*137.5f*Mathf.Deg2Rad,r=Mathf.Sqrt(i/9f)*GameRules.KatyushaRadius;
                     int impact=start+150+GameRules.KatyushaDelayTicks+Mathf.RoundToInt(i*GameRules.KatyushaRainTicks/8f);
-                    world.Effects.Add(new SkillEffect{Id=(uint)(20+i),Kind=SkillEffect.Rocket,Owner=t.Slot,Start=impact-15,End=impact,X=t.AimX+Mathf.Cos(a)*r,Y=t.AimY+Mathf.Sin(a)*r,Radius=GameRules.RocketRadius});
+                    world.Effects.Add(new SkillEffect{Id=effectBase+(uint)(20+i),Kind=SkillEffect.Rocket,Owner=t.Slot,Start=impact-15,End=impact,X=t.AimX+Mathf.Cos(a)*r,Y=t.AimY+Mathf.Sin(a)*r,Radius=GameRules.RocketRadius});
                 }
             }
         }

@@ -22,6 +22,9 @@ namespace Tank  {
         public readonly List<HistoryEntry> History=new List<HistoryEntry>();
         public readonly List<Snapshot> Snapshots=new List<Snapshot>();
         public Snapshot Latest;
+        public event Action<Snapshot> SnapshotAccepted;
+        string combatAssetError;
+        public void SetCombatAssets(string error) {combatAssetError=error;}
         public TankState Predicted;
         public float RenderOffsetX,RenderOffsetY;
         public double OffsetUs,MinRttUs=double.MaxValue,LastRttUs,LastArrivalUs,LastStateAgeUs,LastJitterUs,RecoveryUs;
@@ -334,6 +337,11 @@ namespace Tank  {
                 s.World=DeltaCodec.Apply(baseWorld,r);
             }
             r.End();
+            foreach(var effect in s.World.Combat.Values) {
+                if(effect.Tick>s.Tick)throw new System.IO.InvalidDataException("future combat event");
+                CombatEvent previous;
+                if(Latest!=null&&Latest.World.Combat.TryGetValue(effect.Id,out previous)&&!effect.SameContent(previous))throw new System.IO.InvalidDataException("combat mutation");
+            }
             AttachLoadout(s.World);
             Decoded++;
             if(Message=="Mạng chậm, đang đồng bộ lại trận đấu…")Message="";
@@ -356,6 +364,7 @@ namespace Tank  {
             Snapshots.Add(s);
             if(Snapshots.Count>128)Snapshots.RemoveAt(0);
             Reconcile(s);
+            SnapshotAccepted?.Invoke(s);
         }
         void RecordSequence(uint sequence) {
             if(lastSequence==0) {
@@ -387,7 +396,7 @@ namespace Tank  {
             foreach(var h in history) {
                 if(h.Key<=s.Resolved)remove.Add(h.Key);
                 else {
-                    Movement.Step(Predicted,h.Value,map,s.World.Bricks);
+                    Movement.Step(Predicted,h.Value,map,s.World.Bricks,s.World.Effects);
                     predictedHistory[h.Key]=Predicted.Copy();
                 }
             }
@@ -454,7 +463,7 @@ namespace Tank  {
             for(int i=list.Length-1;i>=0;i--)list[i].Write(w);
             SendUdp(Op.Input,w.F32(SkillAimX).F32(SkillAimY).Done());
             if(Predicted!=null&&Latest!=null) {
-                Movement.Step(Predicted,input,map,Latest.World.Bricks);
+                Movement.Step(Predicted,input,map,Latest.World.Bricks,Latest.World.Effects);
                 predictedHistory[input.Tick]=Predicted.Copy();
             }
             return true;

@@ -4,63 +4,30 @@ using UnityEngine;
 namespace Tank {
     public sealed partial class ArenaRenderer {
         Texture2D glow,ring,fog,energyField;
-        readonly HashSet<ulong> heard=new HashSet<ulong>();
-        readonly HashSet<uint> seenBullets=new HashSet<uint>();
         ulong presentationMatch;
+        ulong audioMatch;
         bool initialized;
-        float visualTick,shakeStrength;
+        float visualTick;
         public Vector2 Shake {get;private set;}
         public int LiveEffectCount {get;private set;}
         static readonly Color Orange=new Color(1,.28f,.06f),Cyan=new Color(.15f,.9f,1),Purple=new Color(.9f,.18f,1);
         internal void UpdateEffects(ClientCore client,float dt,SkillSounds audio) {
-            if(client.Phase!=ClientPhase.PLAYING||client.Latest==null) {ResetEffects();return;}
-            if(presentationMatch!=client.Match) {ResetEffects();presentationMatch=client.Match;}
+            if(client.Phase!=ClientPhase.PLAYING||client.Latest==null) {
+                if(initialized)audio.Stop();ResetEffects();return;
+            }
+            if(presentationMatch!=client.Match||!initialized||presentationSnapshot!=client.Latest.Id)AcceptEffects(client,client.Latest);
+            if(audioMatch!=client.Match) {audio.Stop();audioMatch=client.Match;}
             visualTick=client.EstimatedSkillTick;
-            var world=client.Latest.World;TankState local;world.Tanks.TryGetValue(client.Slot,out local);
-            LiveEffectCount=world.Effects.Count;
-            foreach(var e in world.Effects) {
-                bool visible=Visible(local,e.X,e.Y,client.Latest.Tick);
-                bool impact=e.Kind==SkillEffect.Rocket||e.Kind==SkillEffect.Bomb||e.Kind==SkillEffect.Kamikaze||e.Kind==SkillEffect.Beam;
-                if(impact&&client.Latest.Tick>=e.End&&client.Latest.Tick-e.End<=6) {
-                    ulong key=((ulong)e.Id<<2)|1;
-                    if(heard.Add(key)&&initialized&&visible) {
-                        audio.Impact(e.Kind);
-                        if(e.Kind!=SkillEffect.Rocket&&local!=null)shakeStrength=Mathf.Max(shakeStrength,Mathf.Clamp01(1-Vector2.Distance(new Vector2(local.X,local.Y),new Vector2(e.X,e.Y))/35)*2.2f);
-                    }
-                }
-                if(e.Kind==SkillEffect.Activate&&client.Latest.Tick>=e.Start&&client.Latest.Tick-e.Start<=6&&heard.Add((ulong)e.Id<<2)&&initialized&&visible)audio.Activate(e.Angle);
-            }
-            foreach(var t in world.Tanks.Values) {
-                if(t.Hp>0&&t.QStage==1&&(t.Nation==5||t.Nation==6)&&Visible(local,t.X,t.Y,client.Latest.Tick)) {
-                    int seconds=Mathf.CeilToInt((t.QEndTick-visualTick)/30);
-                    ulong key=0x8000000000000000UL|((ulong)(uint)t.Life<<20)|((ulong)(uint)t.QStartTick<<3)|(uint)Mathf.Clamp(seconds,0,7);
-                    if(heard.Add(key)&&initialized&&seconds>0)audio.Countdown(t.Nation,seconds);
-                }
-                if(t.Slot==client.Slot) {
-                    ulong fogKey=0x4000000000000000UL|((ulong)(uint)t.Life<<20)|(uint)t.FogEndTick;
-                    bool fogged=t.Hp>0&&client.Latest.Tick<t.FogEndTick;
-                    if(fogged&&heard.Add(fogKey)&&initialized)audio.Fog(true);
-                    ulong resetKey=0x2000000000000000UL|((ulong)(uint)t.Life<<20)|(uint)t.FireLockEndTick;
-                    if(client.Latest.Tick<t.FireLockEndTick&&heard.Add(resetKey)&&initialized)qResetUntil=Time.unscaledTime+.55f;
-                    if(wasFogged&&!fogged&&initialized)audio.Fog(false);
-                    wasFogged=fogged;
-                }
-            }
-            foreach(var b in world.Bullets.Values)if(seenBullets.Add(b.Id)&&initialized&&b.Damage==GameRules.GermanBulletDamage&&b.RemainingLifetime>=147&&Visible(local,b.X,b.Y,client.Latest.Tick)) {
-                int born=(int)client.Latest.Tick-GameRules.BulletLifetimeTicks+b.RemainingLifetime;
-                ulong key=0x1000000000000000UL|((ulong)(uint)b.Owner<<32)|(uint)born;
-                if(heard.Add(key))audio.Barrage();
-            }
-            if(heard.Count>4096)heard.Clear();
-            if(seenBullets.Count>2048) {seenBullets.Clear();foreach(uint id in world.Bullets.Keys)seenBullets.Add(id);}
-            initialized=true;
-            shakeStrength=Mathf.MoveTowards(shakeStrength,0,dt*14);
-            Shake=new Vector2(Mathf.Sin(Time.unscaledTime*83),Mathf.Cos(Time.unscaledTime*101)) * shakeStrength;
+            combatFx.Update(dt,client.Latest.World,client.ActiveMap,client.Slot);
+            if(noticeSerial!=combatFx.NoticeSerial) {noticeSerial=combatFx.NoticeSerial;qResetUntil=Time.unscaledTime+.55f;}
+            LiveEffectCount=combatFx.ActiveCount+client.Latest.World.Effects.Count;
+            Shake=new Vector2(Mathf.Sin(Time.unscaledTime*83),Mathf.Cos(Time.unscaledTime*101))*combatFx.ShakeStrength;
+            CombatPresentation.Sound sound;
+            while(combatFx.NextSound(out sound))audio.PlayWorld(sound.Clip,sound.Gain,sound.Priority>=4);
             audio.Poll();
         }
-        bool wasFogged;
         float qResetUntil;
-        void ResetEffects() {heard.Clear();seenBullets.Clear();initialized=false;wasFogged=false;visualTick=shakeStrength=0;Shake=Vector2.zero;LiveEffectCount=0;}
+        void ResetEffects() {combatFx.Clear();initialized=false;presentationSnapshot=0;visualTick=0;Shake=Vector2.zero;LiveEffectCount=0;qResetUntil=0;noticeSerial=combatFx.NoticeSerial;}
         static bool Visible(TankState local,float wx,float wy,uint tick) {
             return local==null||local.Hp==0||tick>=local.FogEndTick||(wx-local.X)*(wx-local.X)+(wy-local.Y)*(wy-local.Y)<=GameRules.FogRadius*GameRules.FogRadius;
         }
@@ -79,7 +46,8 @@ namespace Tank {
         void Disc(float wx,float wy,float radius,Texture2D texture,Color color) {
             GUI.color=color;GUI.DrawTexture(World(wx-radius,wy-radius,2*radius,2*radius),texture);GUI.color=Color.white;
         }
-        void Line(Vector2 a,Vector2 b,float width,Color color) {
+        void Line(Vector2 a,Vector2 b,float width,Color color,bool exactWidth=false) {
+            if(!exactWidth)width*=2;
             if(Event.current.type!=EventType.Repaint||width<=0||color.a<=0)return;
             Vector2 delta=b-a;float length=delta.magnitude;
             if(length<.001f)return;
@@ -109,6 +77,8 @@ namespace Tank {
             float now=visualTick,urgency=1-Mathf.Clamp01(progress),pulse=.75f+.25f*Mathf.Sin(now*(.25f+urgency*.7f));
             Color red=new Color(1,.08f,.12f,color.a);Vector2 p=Point(wx,wy);float rr=radius*scale;
             Disc(wx,wy,radius,energyField,red);
+            // This new ground layer fits inside the real warning boundary.
+            FxSprite("nature/portal",wx,wy,radius*1.6f,combatFx.Clock,Fade(color,.35f),repeat:true,originalSize:true);
             Disc(wx,wy,radius*1.035f,ring,Fade(red,.15f*pulse));
             Disc(wx,wy,radius*1.012f,ring,Fade(red,.35f*pulse));
             // Ring texture's peak is at .975; compensate so the main rim marks the real radius.
@@ -131,7 +101,7 @@ namespace Tank {
                 float fraction=Mathf.Repeat(i*.618034f+now*(.0015f+urgency*.001f),1),r=Mathf.Sqrt(fraction)*radius*.94f;
                 float alpha=(.25f+.45f*pulse)*Mathf.Sin(fraction*Mathf.PI)*color.a;
                 float px=wx+Mathf.Cos(a)*r,py=wy+Mathf.Sin(a)*r;
-                Disc(px,py,.17f,glow,new Color(1,.35f,.12f,alpha));
+                Disc(px,py,.34f,glow,new Color(1,.35f,.12f,alpha));
                 Vector2 q=Point(px,py);Line(q,q+new Vector2(1,-3),1,new Color(1,.65f,.3f,alpha));
             }
             if(symbol=="◆") {
@@ -152,7 +122,7 @@ namespace Tank {
             Color red=new Color(1,.13f,.035f),gold=new Color(1,.78f,.18f),white=new Color(1,1,.83f);
             if(warning) {
                 float pulse=.6f+.4f*Mathf.Sin(now*(.3f+progress*.6f));
-                Line(a,b,width,Fade(red,.08f));Line(a,b,4,Fade(red,.15f+progress*.15f));
+                Line(a,b,width,Fade(red,.08f),true);Line(a,b,4,Fade(red,.15f+progress*.15f));
                 Line(a,b,1,Fade(Orange,.5f+progress*.4f));
                 Line(a+normal*width/2,b+normal*width/2,1,Fade(red,.5f));Line(a-normal*width/2,b-normal*width/2,1,Fade(red,.5f));
                 Arc(a,(.6f+progress*.3f)*scale,now*.04f,Mathf.PI*1.7f,2,Fade(Orange,pulse),16);
@@ -164,7 +134,7 @@ namespace Tank {
             }
             else {
                 Line(a,b,width*4,Fade(red,.13f*alpha));Line(a,b,width*2.4f,Fade(red,.35f*alpha));
-                Line(a,b,width*1.4f,Fade(Orange,.7f*alpha));Line(a,b,width,Fade(gold,alpha));Line(a,b,Mathf.Max(1,width*.48f),Fade(white,alpha));
+                Line(a,b,width*1.4f,Fade(Orange,.7f*alpha));Line(a,b,width,Fade(gold,alpha),true);Line(a,b,Mathf.Max(1,width*.48f),Fade(white,alpha));
                 for(int side=-1;side<=1;side+=2) {
                     Vector2 previous=a;
                     for(int i=1;i<=20;i++) {
@@ -174,7 +144,7 @@ namespace Tank {
                         if(i%3==0) {Vector2 tip=p+normal*side*scale*(.5f+noise*.25f)-direction*scale*.5f;Line(p,tip,1,Fade(gold,alpha));}
                     }
                 }
-                Disc(wx,wy,1.6f,glow,Fade(Orange,alpha));Disc(wx,wy,.7f,glow,Fade(white,alpha));
+                Disc(wx,wy,3.2f,glow,Fade(Orange,alpha));Disc(wx,wy,1.4f,glow,Fade(white,alpha));
             }
         }
         void DrawSkillWorld(GameMap map,WorldState world,uint tick) {
@@ -189,18 +159,18 @@ namespace Tank {
                 if(t.Nation==6&&t.QStage==1)Warning(t.X,t.Y,GameRules.KamikazeRadius,Orange,remaining/GameRules.KamikazeTicks,"!");
                 if(t.Nation==5&&t.QStage==1) {
                     float angle=t.Turret/100f*Mathf.Deg2Rad;
-                    BeamLine(map,t.X+Mathf.Cos(angle)*1.05f,t.Y+Mathf.Sin(angle)*1.05f,t.Turret,true,1,1-remaining/GameRules.BeamChargeTicks);
+                    BeamLine(map,t.X+Mathf.Cos(angle)*GameRules.TankMuzzleOffset,t.Y+Mathf.Sin(angle)*GameRules.TankMuzzleOffset,t.Turret,true,1,1-remaining/GameRules.BeamChargeTicks);
                 }
                 if((t.Nation==4&&remaining>0)||((t.Nation==5||t.Nation==6)&&t.QStage==1)) {
                     Color color=Orange;
                     float pulse=.45f+.2f*Mathf.Sin(now*(t.Nation==6?1+(1-remaining/150)*2:.35f));
-                    Disc(t.X,t.Y,1.8f,glow,Fade(color,pulse));
+                    Disc(t.X,t.Y,3.6f,glow,Fade(color,pulse));
                     float a=t.Turret/100f*Mathf.Deg2Rad;
-                    float muzzleX=t.X+Mathf.Cos(a)*1.05f,muzzleY=t.Y+Mathf.Sin(a)*1.05f;
-                    Disc(muzzleX,muzzleY,.8f,glow,Fade(color,.8f));
+                    float muzzleX=t.X+Mathf.Cos(a)*GameRules.TankMuzzleOffset,muzzleY=t.Y+Mathf.Sin(a)*GameRules.TankMuzzleOffset;
+                    Disc(muzzleX,muzzleY,1.6f,glow,Fade(color,.8f));
                     if(t.Nation==5)for(int i=0;i<8;i++) {
-                        float orbit=(i*45+now*3)*Mathf.Deg2Rad,r=.3f+((now+i*7)%30)/30*1.3f;
-                        Disc(muzzleX+Mathf.Cos(orbit)*r,muzzleY+Mathf.Sin(orbit)*r,.16f,glow,Fade(Orange,.7f));
+                        float orbit=(i*45+now*3)*Mathf.Deg2Rad,r=.6f+((now+i*7)%30)/30*2.6f;
+                        Disc(muzzleX+Mathf.Cos(orbit)*r,muzzleY+Mathf.Sin(orbit)*r,.32f,glow,Fade(Orange,.7f));
                     }
                 }
             }
@@ -209,45 +179,35 @@ namespace Tank {
                 float after=now-e.End;
                 Color color=e.Kind==SkillEffect.Radar?Cyan:e.Kind==SkillEffect.Sabotage?Purple:Orange;
                 if(e.Kind==SkillEffect.Area&&after<0)Warning(e.X,e.Y,e.Radius,Orange,(e.End-now)/Mathf.Max(1,e.End-e.Start),"+");
-                else if(e.Kind==SkillEffect.Bomb&&after<0)Warning(e.X,e.Y,e.Radius,new Color(1,.15f,.22f),(e.End-now)/GameRules.BombDelayTicks,"◆");
+                else if(e.Kind==SkillEffect.Bomb&&after<0)Warning(e.X,e.Y,e.Radius,new Color(1,.15f,.22f),(e.End-now)/Mathf.Max(1,e.End-e.Start),"◆");
                 else if(e.Kind==SkillEffect.Rocket&&after<0) {
-                    float height=(e.End-now)/15*7;
+                    float height=(e.End-now)/15*14;
                     Disc(e.X,e.Y,e.Radius,ring,Fade(Orange,.6f));
-                    Vector2 tip=Point(e.X,e.Y+height);Line(tip,tip+new Vector2(-6,-scale*4),6,Fade(Orange,.65f));Disc(e.X,e.Y+height,1,glow,Color.white);
+                    Vector2 tip=Point(e.X,e.Y+height);Line(tip,tip+new Vector2(-12,-scale*8),6,Fade(Orange,.65f));Disc(e.X,e.Y+height,2,glow,Color.white);
+                    FxSprite("movement/dash",e.X,e.Y+height+.8f,.9f,(now-e.Start)/30f,Fade(Orange,.5f),270,repeat:true);
                 }
-                else if(e.Kind==SkillEffect.Beam&&after>=0)BeamLine(map,e.X,e.Y,e.Angle,false,Mathf.Clamp01(1-after/18));
                 else if((e.Kind==SkillEffect.Radar||e.Kind==SkillEffect.Sabotage)&&now<=e.End) {
                     float progress=(now-e.Start)/Mathf.Max(1,e.End-e.Start);
-                    Disc(e.X,e.Y,2+progress*Mathf.Max(map.width,map.height),ring,Fade(color,(1-progress)*.7f));
+                    Disc(e.X,e.Y,2*(2+progress*Mathf.Max(map.width,map.height)),ring,Fade(color,(1-progress)*.7f));
                 }
-                else if(after>=0&&(e.Kind==SkillEffect.Bomb||e.Kind==SkillEffect.Rocket||e.Kind==SkillEffect.Kamikaze)) {
-                    float p=after/24,alpha=1-p;
-                    Warning(e.X,e.Y,e.Radius,Fade(color,alpha),1-p,e.Kind==SkillEffect.Bomb?"◆":e.Kind==SkillEffect.Kamikaze?"!":"+");
-                    Disc(e.X,e.Y,e.Radius,glow,Fade(color,alpha));Disc(e.X,e.Y,e.Radius*(.2f+.8f*p),ring,Fade(color,alpha));Disc(e.X,e.Y,e.Radius*.55f,glow,Fade(Color.white,alpha*alpha));
-                    for(int i=0;i<12;i++) {
-                        float a=(i*137.5f+e.Id%90)*Mathf.Deg2Rad,r=e.Radius*(.2f+.7f*p);
-                        Disc(e.X+Mathf.Cos(a)*r,e.Y+Mathf.Sin(a)*r,.12f+.14f*alpha,glow,Fade(Color.yellow,alpha));
-                    }
-                    Disc(e.X+.2f*p,e.Y+.6f*p,e.Radius*(.25f+.45f*p),glow,new Color(.2f,.2f,.3f,alpha*.2f));
-                }
+
             }
-            foreach(var b in world.Bullets.Values)if(b.Damage==GameRules.GermanBulletDamage) {
-                Disc(b.X,b.Y,.6f,glow,Fade(Orange,.7f));
+            foreach(var b in world.Bullets.Values)if(ItemCodec.IsGerman(b)) {
+                Disc(b.X,b.Y,1.2f,glow,Fade(Orange,.7f));
                 if(b.RemainingLifetime>=147) {
-                    float a=b.Heading/100f*Mathf.Deg2Rad;Line(Point(b.X,b.Y),Point(b.X-Mathf.Cos(a)*1.1f,b.Y-Mathf.Sin(a)*1.1f),2,Fade(Orange,.8f));
+                    float a=b.Heading/100f*Mathf.Deg2Rad;Line(Point(b.X,b.Y),Point(b.X-Mathf.Cos(a)*2.2f,b.Y-Mathf.Sin(a)*2.2f),2,Fade(Orange,.8f));
                 }
             }
         }
-        void DrawSkillLabels(TankState t,uint tick) {
+        void DrawSkillLabels(TankState t,uint tick,WorldState world) {
             Vector2 p=Point(t.X,t.Y);float now=Mathf.Max(tick,visualTick),top=p.y+scale*TankSize/2+20;
             if(t.QStage==1&&(t.Nation==5||t.Nation==6)) {GUI.Label(new Rect(p.x-43,top,86,20),(t.Nation==5?"TỤ LỰC ":"TỰ NỔ ")+Mathf.Max(0,(t.QEndTick-now)/30).ToString("0.0")+"s",small);top+=18;}
-            if(tick<t.SlowEndTick) {GUI.Label(new Rect(p.x-56,top,112,18),"CHẬM 50% "+Mathf.Max(0,(t.SlowEndTick-now)/30).ToString("0.0")+"s",small);top+=17;}
+            if(tick<t.SlowEndTick) {GUI.Label(new Rect(p.x-56,top,112,18),"CHẬM "+(100-GameRules.SlowSpeedPercent)+"% "+Mathf.Max(0,(t.SlowEndTick-now)/30).ToString("0.0")+"s",small);top+=17;}
+            int areaSlowEnd=SkillGeometry.KatyushaSlowEnd(t,tick,world.Effects);
+            if(areaSlowEnd>tick) {GUI.Label(new Rect(p.x-65,top,130,18),"CHẬM VÙNG "+(100-GameRules.KatyushaSlowSpeedPercent)+"% "+Mathf.Max(0,(areaSlowEnd-now)/30).ToString("0.0")+"s",small);top+=17;}
             if(tick<t.ConfusionEndTick) {GUI.Label(new Rect(p.x-60,top,120,18),"⇄ KHÓA NÒNG "+Mathf.CeilToInt(Mathf.Max(0,t.ConfusionEndTick-now)/30)+"s",small);top+=17;}
             if(tick<t.FireLockEndTick) {
                 GUI.Label(new Rect(p.x-56,top,112,18),"KHÓA BẮN "+Mathf.CeilToInt(Mathf.Max(0,t.FireLockEndTick-now)/30)+"s",small);
-                float a=t.Turret/100f*Mathf.Deg2Rad,mx=t.X+Mathf.Cos(a)*1.05f,my=t.Y+Mathf.Sin(a)*1.05f;
-                Disc(mx,my,.65f,glow,Fade(Purple,.55f));Disc(mx,my+.3f,.7f,glow,new Color(.06f,.02f,.09f,.5f));
-                Vector2 muzzle=Point(mx,my);Line(muzzle+new Vector2(-4,2),muzzle+new Vector2(2,-3),1,Purple);Line(muzzle+new Vector2(2,-3),muzzle+new Vector2(6,1),1,Purple);
             }
         }
         void DrawFog(GameMap map,WorldState world,int localSlot,uint tick) {

@@ -12,7 +12,7 @@ final class NationSkills {
         void write(Writer w) {w.u32(id).u8(kind).u8(owner).u16(start).u16(end).f32(x).f32(y).f32(radius).u16(angle);}
         static Effect read(Reader r) {
             Effect e=new Effect();e.id=r.u32();e.kind=r.u8();e.owner=r.u8();e.start=r.u16();e.end=r.u16();e.x=r.f32();e.y=r.f32();e.radius=r.f32();e.angle=r.u16();
-            if(e.id<=0||e.kind<1||e.kind>8||e.owner>7||e.end<e.start||e.radius<0||!Float.isFinite(e.radius)||!Float.isFinite(e.x)||!Float.isFinite(e.y)||e.angle>=36000)throw new IllegalArgumentException("skill effect");
+            if(e.id<=0||e.kind<1||e.kind>11||e.owner>7||e.end<e.start||e.radius<0||!Float.isFinite(e.radius)||!Float.isFinite(e.x)||!Float.isFinite(e.y)||e.angle>=36000)throw new IllegalArgumentException("skill effect");
             return e;
         }
     }
@@ -20,10 +20,47 @@ final class NationSkills {
         int owner,kind,locked;
         final List<Effect> zones=new ArrayList<>();
         final Map<Integer,Integer> lives=new HashMap<>(),damage=new HashMap<>();
+        final Map<Integer,Integer> targets=new HashMap<>();
     }
     final World w;
     final List<Cast> casts=new ArrayList<>();
     final List<Effect> effects=new ArrayList<>();
+    // Every cast carries its own identity, source and affected vehicle life.
+    static final class Debuff {
+        int id,kind,owner,slot,life,end;
+        boolean cleansed;
+    }
+    final List<Debuff> debuffs=new ArrayList<>();
+    int nextDebuff=1;
+    void debuff(World.Tank t,int kind,int owner,int end) {
+        Debuff d=new Debuff();d.id=nextDebuff++;d.kind=kind;d.owner=owner;d.slot=t.slot;d.life=t.life;d.end=end;debuffs.add(d);refresh(t,kind);
+    }
+    void refresh(World.Tank t,int kind) {
+        int end=w.tick;
+        for(Debuff d:debuffs)if(d.slot==t.slot&&d.life==t.life&&d.kind==kind&&!d.cleansed)end=Math.max(end,d.end);
+        switch(kind) {case 0 -> t.confusionEndTick=end;case 1 -> t.fogEndTick=end;case 2 -> t.fireLockEndTick=end;case 3 -> t.slowEndTick=end;}
+    }
+    void expireDebuffs() {
+        Set<Integer> changed=new HashSet<>();
+        for(Iterator<Debuff> it=debuffs.iterator();it.hasNext();) {
+            Debuff d=it.next();World.Tank t=w.tanks.get(d.slot);
+            if(w.tick>=d.end||t==null||t.hp<=0||t.life!=d.life) {if(t!=null&&t.life==d.life)changed.add(d.slot*4+d.kind);it.remove();}
+        }
+        for(int key:changed)refresh(w.tanks.get(key/4),key%4);
+    }
+    void clearDebuffs(World.Tank t) {debuffs.removeIf(d->d.slot==t.slot);}
+    void purify(World.Tank t) {
+        Set<Integer> changed=new HashSet<>();
+        for(Debuff d:debuffs)if(d.slot==t.slot&&d.life==t.life&&d.owner!=t.slot&&!d.cleansed) {d.cleansed=true;changed.add(d.kind);}
+        for(int kind:changed)refresh(t,kind);
+        if(t.qPenalty>0) {t.qReadyTick=t.qBaseReadyTick;t.qPenalty=0;t.qPenaltySources.clear();}
+    }
+    void sabotage(World.Tank t,int owner) {
+        if(owner==t.slot)return;
+        if(t.qPenalty==0) {t.qBaseReadyTick=t.qReadyTick;t.qPenaltySources.clear();}
+        int ready=Math.min(65535,Math.max(w.tick,t.qReadyTick)+SabotageCooldownPenaltyTicks);
+        t.qPenalty=ready-t.qBaseReadyTick;t.qReadyTick=ready;t.qPenaltySources.add(owner);
+    }
     int nextId=1;
     NationSkills(World world) {w=world;}
     Effect effect(int kind,int owner,int start,int end,float x,float y,float radius,int angle) {
@@ -46,7 +83,9 @@ final class NationSkills {
                 Cast cast=new Cast();cast.owner=t.slot;cast.kind=BOMB;cast.locked=w.tick;
                 for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0) {
                     cast.lives.put(o.slot,o.life);
-                    cast.zones.add(effect(BOMB,t.slot,w.tick,w.tick+BombDelayTicks,o.x,o.y,BombRadius,0));
+                    Effect zone=effect(BOMB,t.slot,w.tick,w.tick+BombDelayTicks,o.x,o.y,BombRadius,0);
+                    cast.zones.add(zone);cast.targets.put(zone.id,o.slot);
+                    debuff(o,3,t.slot,w.tick+SlowDurationTicks);
                 }
                 casts.add(cast);t.qEndTick=w.tick+BombDelayTicks;
             }
@@ -58,12 +97,13 @@ final class NationSkills {
                 return Protocol.Error.OK;
             }
             case 2 -> {
-                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0)o.confusionEndTick=w.tick+ConfusionTicks;
+                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0)debuff(o,0,t.slot,w.tick+ConfusionTicks);
                 effect(RADAR,t.slot,w.tick,w.tick+24,t.x,t.y,0,0);
                 t.qEndTick=w.tick+ConfusionTicks;
             }
             case 3 -> {
-                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0)o.fogEndTick=w.tick+FogEnemyTicks;
+                int castId=nextDebuff;
+                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0) {debuff(o,1,t.slot,w.tick+FogEnemyTicks);debuffs.getLast().id=castId;}
                 t.qEndTick=w.tick+FogEnemyTicks;
             }
             case 4 -> t.qEndTick=w.tick+150;
@@ -71,20 +111,24 @@ final class NationSkills {
             case 6 -> {t.qStage=1;t.qEndTick=w.tick+KamikazeTicks;}
             case 7 -> {
                 for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0) {
-                    o.fireLockEndTick=w.tick+FireLockTicks;
-                    if(o.nation>=0)o.qReadyTick=Math.min(65535,Math.max(w.tick,o.qReadyTick)+SabotageCooldownPenaltyTicks);
+                    debuff(o,2,t.slot,w.tick+FireLockTicks);
+                    if(o.nation>=0)sabotage(o,t.slot);
                 }
                 effect(SABOTAGE,t.slot,w.tick,w.tick+24,t.x,t.y,0,0);
                 t.qEndTick=w.tick+FireLockTicks;
             }
         }
         t.qReadyTick=w.tick+RoleplayContent.NationCooldowns[t.nation];
+        t.qBaseReadyTick=t.qReadyTick;t.qPenalty=0;t.qPenaltySources.clear();
         effect(ACTIVATE,t.slot,w.tick,w.tick+15,t.x,t.y,0,t.nation);
         return Protocol.Error.OK;
     }
     void lock(World.Tank t) {
         // While aiming, qReadyTick can hold a sabotage penalty that must survive locking.
-        t.qStage=0;t.qReadyTick=Math.min(65535,Math.max(w.tick,t.qReadyTick)+RoleplayContent.NationCooldowns[1]);t.qEndTick=w.tick+KatyushaDelayTicks+KatyushaRainTicks;
+        if(t.qPenalty==0)t.qBaseReadyTick=t.qReadyTick;
+        t.qStage=0;t.qBaseReadyTick=Math.min(65535,Math.max(w.tick,t.qBaseReadyTick)+RoleplayContent.NationCooldowns[1]);
+        t.qReadyTick=Math.min(65535,Math.max(w.tick,t.qReadyTick)+RoleplayContent.NationCooldowns[1]);t.qPenalty=t.qReadyTick-t.qBaseReadyTick;t.qEndTick=w.tick+KatyushaDelayTicks+KatyushaRainTicks;
+        if(t.qPenalty==0)t.qPenaltySources.clear();
         Cast cast=new Cast();cast.owner=t.slot;cast.kind=ROCKET;cast.locked=w.tick;
         effect(AREA,t.slot,w.tick,t.qEndTick,t.aimX,t.aimY,KatyushaRadius,0);
         for(int i=0;i<9;i++) {
@@ -100,40 +144,56 @@ final class NationSkills {
             if(t.nation==1)lock(t);
             else if(t.nation==6) {
                 t.qStage=0;
-                effect(KAMIKAZE,t.slot,w.tick,w.tick,t.x,t.y,KamikazeRadius,0);
+                Effect cause=effect(KAMIKAZE,t.slot,w.tick,w.tick,t.x,t.y,KamikazeRadius,0);
                 breakCircle(t.x,t.y,KamikazeRadius);
-                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0&&circle(o,t.x,t.y,KamikazeRadius))w.damage(o,t.slot,o.hp);
-                w.damage(t,t.slot,t.hp);
+                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0&&circle(o,t.x,t.y,KamikazeRadius))w.damage(o,t.slot,o.hp,1,0,KAMIKAZE,cause.id);
+                w.damage(t,t.slot,t.hp,2,0,KAMIKAZE,cause.id);
             }
             else if(t.nation==5) {
                 t.qStage=0;
-                double a=Math.toRadians(t.turret/100.0);float x=t.x+(float)Math.cos(a)*1.05f,y=t.y+(float)Math.sin(a)*1.05f;
-                effect(BEAM,t.slot,w.tick,w.tick,x,y,BeamWidth,t.turret);
+                double a=Math.toRadians(t.turret/100.0);float x=t.x+(float)Math.cos(a)*GameRules.TankMuzzleOffset,y=t.y+(float)Math.sin(a)*GameRules.TankMuzzleOffset;
+                Effect cause=effect(BEAM,t.slot,w.tick,w.tick,x,y,BeamWidth,t.turret);
                 for(GameMap.Rect r:w.map.bricks)if(w.bricks[r.id]>0&&beamRect(r.x+r.w/2,r.y+r.h/2,r.w/2,r.h/2,0,x,y,t.turret))w.bricks[r.id]=0;
-                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0&&beam(o,x,y,t.turret))w.damage(o,t.slot,o.hp);
+                for(World.Tank o:w.tanks.values())if(o!=t&&o.hp>0&&beam(o,x,y,t.turret))w.damage(o,t.slot,o.hp,1,0,BEAM,cause.id);
             }
         }
         for(Iterator<Cast> it=casts.iterator();it.hasNext();) {
             Cast cast=it.next();
             for(Iterator<Effect> zones=cast.zones.iterator();zones.hasNext();) {
-                Effect e=zones.next();if(w.tick<e.end)continue;
+                Effect e=zones.next();
+                if(cast.kind==BOMB&&w.tick>cast.locked)trackBomb(cast,e);
+                if(w.tick<e.end)continue;
                 breakCircle(e.x,e.y,e.radius);
                 for(World.Tank t:w.tanks.values())if(t.hp>0&&circle(t,e.x,e.y,e.radius)) {
                     if(cast.kind==BOMB) {
                         if(t.slot==cast.owner||!Objects.equals(cast.lives.get(t.slot),t.life)||cast.damage.containsKey(t.slot))continue;
                         cast.damage.put(t.slot,BombDamage);
-                        t.slowEndTick=Math.max(t.slowEndTick,w.tick+SlowDurationTicks);
-                        w.damage(t,cast.owner,BombDamage);
+                        w.damage(t,cast.owner,BombDamage,0,0,BOMB,e.id);
                     }
                     else {
                         int damage=Math.min(RocketDamage,KatyushaDamageCap-cast.damage.getOrDefault(t.slot,0));
-                        if(damage>0) {cast.damage.merge(t.slot,damage,Integer::sum);w.damage(t,cast.owner,damage);}
+                        if(damage>0) {cast.damage.merge(t.slot,damage,Integer::sum);w.damage(t,cast.owner,damage,0,0,ROCKET,e.id);}
                     }
                 }
                 zones.remove();
             }
             if(cast.zones.isEmpty())it.remove();
         }
+    }
+    void trackBomb(Cast cast,Effect e) {
+        Integer slot=cast.targets.get(e.id);if(slot==null)return;
+        World.Tank t=w.tanks.get(slot);
+        if(t==null||t.hp<=0||!Objects.equals(cast.lives.get(slot),t.life)) {cast.targets.remove(e.id);return;}
+        float dx=t.x-e.x,dy=t.y-e.y;double distance=Math.hypot(dx,dy);
+        float step=BombTrackingSpeed/30;
+        if(distance<=step) {e.x=t.x;e.y=t.y;}
+        else {e.x+=dx/distance*step;e.y+=dy/distance*step;}
+    }
+    static int katyushaSlowEnd(World.Tank t,int tick,Iterable<Effect> effects) {
+        int end=0;
+        if(t.hp<=0)return end;
+        for(Effect e:effects)if(e.kind==AREA&&tick>=e.start&&tick<e.end&&circle(t,e.x,e.y,e.radius))end=Math.max(end,e.end);
+        return end;
     }
     static boolean circle(World.Tank t,float x,float y,float radius) {
         double a=Math.toRadians(t.body/100.0),c=Math.cos(a),s=Math.sin(a),dx=x-t.x,dy=y-t.y;
@@ -168,7 +228,7 @@ final class NationSkills {
     byte[] encode() {Writer out=new Writer().u16(effects.size());for(Effect e:effects)e.write(out);return out.done();}
     void read(Reader r) {
         int count=r.u16();if(count>MaxSkillEffects)throw new IllegalArgumentException("effects");
-        Set<Integer> ids=new HashSet<>();effects.clear();for(int i=0;i<count;i++) {Effect e=Effect.read(r);if(!ids.add(e.id))throw new IllegalArgumentException("duplicate effect");effects.add(e);}
+        Set<Integer> ids=new HashSet<>();effects.clear();for(int i=0;i<count;i++) {Effect e=Effect.read(r);if(e.kind>8||!ids.add(e.id))throw new IllegalArgumentException("duplicate effect");effects.add(e);}
     }
-    void clear() {casts.clear();effects.clear();for(World.Tank t:w.tanks.values())w.clearEffects(t);w.skillIntents.clear();}
+    void clear() {casts.clear();effects.clear();debuffs.clear();w.items.clear();for(World.Tank t:w.tanks.values())w.clearEffects(t);w.skillIntents.clear();}
 }

@@ -32,7 +32,7 @@ class PlayerRecoveryTest {
    World w=new World(s.map,1);w.add(0);var t=w.tanks.get(0);
    // Lower left brick formation in the supplied image. Touch its top/right edge.
    var brick=Arrays.stream(s.map.bricks).filter(r->r.x<s.map.width/2&&r.y<s.map.height/2).findFirst().orElseThrow();
-   t.x=brick.x+brick.w+1.21f;t.y=brick.y+brick.h+1.21f;assertFalse(s.map.blocked(t.x,t.y,w.bricks));
+   t.x=brick.x+brick.w+GameRules.TankHalfSize*(float)Math.sqrt(2)+.01f;t.y=brick.y+brick.h+GameRules.TankHalfSize*(float)Math.sqrt(2)+.01f;assertFalse(s.map.blocked(t.x,t.y,w.bricks));
    float x=t.x,y=t.y;for(int i=0;i<15;i++)w.step(Map.of(0,new World.Input(w.tick+1,25,9000)));
    assertTrue(t.x>x);assertTrue(t.y>y);assertTrue(w.nextBullet>1);assertFalse(s.map.blocked(t.x,t.y,w.bricks));
    t.hp=0;t.respawn=w.tick+1;w.step(Map.of());assertTrue(t.hp>0);assertFalse(s.map.blocked(t.x,t.y,w.bricks));

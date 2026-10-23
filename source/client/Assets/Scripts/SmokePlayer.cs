@@ -8,7 +8,7 @@ namespace Tank  {
     public class SmokePlayer:MonoBehaviour  {
         ClientCore core;
         string username,output,roomName;
-        bool auth,login,join,ready,start,history,roleplay,configuredRoom;
+        bool auth,login,join,ready,start,roleplay,configuredRoom;
         double began,lastHistory,lastSkill,nextNation;
         int expectedTicks,players,seconds,startingHp,nationOffset,qRequests,matchPlayers;
         uint change;
@@ -93,7 +93,6 @@ namespace Tank  {
                 }
             }
             if(core.Ended&&ClientCore.NowUs-lastHistory>2e6) {
-                history=true;
                 lastHistory=ClientCore.NowUs;
                 core.GetHistory();
             }

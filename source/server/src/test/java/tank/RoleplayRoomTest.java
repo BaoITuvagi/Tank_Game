@@ -150,7 +150,7 @@ class RoleplayRoomTest {
             r.input(player.session,0,List.of(new World.Input(now+2,0,0)),50,50);assertEquals(50,tank.aimX);
             r.input(player.session,0,List.of(new World.Input(now+1,0,0)),10,10);assertEquals(50,tank.aimX);
             r.input(player.session,0,List.of(new World.Input(now+31,0,0)),10,10);assertEquals(50,tank.aimX);
-            r.input(player.session,0,List.of(new World.Input(now+3,0,0)),100,-100);assertEquals(74.9f,tank.aimX);assertEquals(5.1f,tank.aimY);
+            r.input(player.session,0,List.of(new World.Input(now+3,0,0)),200,-100);assertEquals(r.arenaMap.width-GameRules.KatyushaRadius,tank.aimX);assertEquals(11.475f,tank.aimY);
         }
     }
 }
