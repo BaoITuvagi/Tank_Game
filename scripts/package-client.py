@@ -34,7 +34,8 @@ def main():
     client = args.client_dir.resolve()
     for name in ('TankBattle.exe', 'UnityPlayer.dll', 'TankBattle_Data'):
         path = client / name
-        if not path.exists() or (name == 'TankBattle_Data' and not path.is_dir()):
+        valid = (path.is_dir() and any(path.iterdir())) if name == 'TankBattle_Data' else path.is_file()
+        if not valid:
             parser.error(f'Missing Unity build component: {path}. Run scripts/build-client.ps1 first.')
     output = args.output_dir.resolve() / args.version
     if output.exists():
@@ -51,7 +52,11 @@ def main():
                     parser.error(f'Symbolic links are not supported: {relative}')
                 if any(part.endswith(('_BackUpThisFolder_ButDontShipItWithYourGame', '_BurstDebugInformation_DoNotShip')) for part in relative.parts):
                     continue
-                if path.is_file() and path.suffix.lower() not in ('.pdb', '.log'):
+                excluded = ('.pdb', '.mdb', '.log', '.tmp', '.temp', '.bak', '.dmp',
+                            '.db', '.sqlite', '.sqlite3', '.db-wal', '.db-shm', '.db-journal',
+                            '.sqlite-wal', '.sqlite-shm', '.sqlite-journal',
+                            '.sqlite3-wal', '.sqlite3-shm', '.sqlite3-journal')
+                if path.is_file() and path.suffix.lower() not in excluded and '.log.' not in path.name.lower():
                     package.write(path, relative.as_posix())
         digest = hashlib.sha256()
         with archive.open('rb') as stream:

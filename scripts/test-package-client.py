@@ -21,7 +21,9 @@ class PackageTests(unittest.TestCase):
         self.client.mkdir()
         for name in ('TankBattle.exe', 'UnityPlayer.dll', 'TankBattle_Data/data.bin',
                      'TankBattle_Data/StreamingAssets/map.json', 'debug.pdb', 'player.log',
-                     'TankBattle_BackUpThisFolder_ButDontShipItWithYourGame/secret.txt'):
+                     'TankBattle_BackUpThisFolder_ButDontShipItWithYourGame/secret.txt',
+                     'players.db', 'players.db-wal', 'save.sqlite3', 'save.sqlite3-shm',
+                     'copy.tmp', 'old.bak', 'crash.dmp', 'player.log.1', 'debug.mdb'):
             path = self.client / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'test build fixture')
@@ -55,6 +57,25 @@ class PackageTests(unittest.TestCase):
 
     def test_missing_unity_dependency(self):
         (self.client / 'UnityPlayer.dll').unlink()
+        self.assertNotEqual(self.package().returncode, 0)
+        self.assertFalse((self.root / 'releases/1.0.0').exists())
+
+    def test_required_unity_binaries_must_be_files(self):
+        for name in ('TankBattle.exe', 'UnityPlayer.dll'):
+            with self.subTest(name=name):
+                path = self.client / name
+                content = path.read_bytes()
+                path.unlink()
+                path.mkdir()
+                self.assertNotEqual(self.package().returncode, 0)
+                self.assertFalse((self.root / 'releases/1.0.0').exists())
+                path.rmdir()
+                path.write_bytes(content)
+
+    def test_empty_unity_data_rejected(self):
+        import shutil
+        shutil.rmtree(self.client / 'TankBattle_Data')
+        (self.client / 'TankBattle_Data').mkdir()
         self.assertNotEqual(self.package().returncode, 0)
         self.assertFalse((self.root / 'releases/1.0.0').exists())
 
