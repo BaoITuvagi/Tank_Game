@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Tank.Campaign {
     // Owns presentation assets exclusively for campaign. Never changes shared textures.
-    public static class CampaignArt {
+    public static partial class CampaignArt {
         static readonly Dictionary<string,Texture2D> textures=new Dictionary<string,Texture2D>();
         static readonly string[] pickups={"pickup_health","pickup_damage","pickup_shield","pickup_gold"};
         public static Texture2D Texture(string name) {
@@ -55,8 +55,13 @@ namespace Tank.Campaign {
         }
         public static void Pickup(Rect rect,int kind) {
             if(kind<0||kind>=pickups.Length)return;
-            float size=Mathf.Min(rect.width,rect.height)*.75f;
-            Draw(new Rect(rect.center.x-size/2,rect.center.y-size/2,size,size),pickups[kind]);
+            float size=Mathf.Min(rect.width,rect.height)*(kind==3?.9f:.75f);
+            Rect icon=new Rect(rect.center.x-size/2,rect.center.y-size/2,size,size);
+            if(kind==3){
+                var coin=Texture(pickups[kind]);if(coin==null)return;
+                int frames=Mathf.Max(1,coin.width/coin.height),frame=(int)(Time.unscaledTimeAsDouble*10)%frames;
+                GUI.DrawTextureWithTexCoords(icon,coin,new Rect(frame/(float)frames,0,1f/frames,1));
+            }else Draw(icon,pickups[kind]);
         }
     }
 }

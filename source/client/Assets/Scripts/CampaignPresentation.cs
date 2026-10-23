@@ -76,6 +76,25 @@ namespace Tank.Campaign {
             if(Previous!=null&&y>=Previous.Bottom&&y<Previous.Bottom+19)return Previous.Terrain[(y-Previous.Bottom)*13+x];
             return 0;
         }
+        public byte Surface(int x,int y){return Layer(x,y,false);}
+        public byte Decoration(int x,int y){return Layer(x,y,true);}
+        byte Layer(int x,int y,bool decor){
+            if(x<0||x>=13||y<0||y>10000)return 0;
+            var state=y>=Current.Bottom&&y<Current.Bottom+19?Current:Previous!=null&&y>=Previous.Bottom&&y<Previous.Bottom+19?Previous:null;
+            if(state==null)return 0;var data=decor?state.Decorations:state.Ground;return data==null?(byte)0:data[(y-state.Bottom)*13+x];
+        }
+        public int SurfaceMask(int x,int y,bool water){
+            int mask=0;int[] dx={0,1,0,-1},dy={1,0,-1,0};
+            for(int i=0;i<4;i++){int ground=Surface(x+dx[i],y+dy[i]);bool match=water?ground!=2&&ground!=3:ground==1||ground==3;if(match)mask|=1<<i;}
+            if(water){
+                int[] diagonalX={-1,1,1,-1},diagonalY={1,1,-1,-1},adjacent={9,3,6,12};
+                for(int i=0;i<4;i++){
+                    int ground=Surface(x+diagonalX[i],y+diagonalY[i]);
+                    if((mask&adjacent[i])==0&&ground!=2&&ground!=3)mask|=16<<i;
+                }
+            }
+            return mask;
+        }
         public Vector2 Shake(double now) {
             foreach(var e in effects)if(e.Visual.Kind==VisualKind.Hit&&e.Visual.Target==0){
                 float t=(float)(now-e.Started)-Impact(e.Visual);

@@ -12,7 +12,7 @@ final class CampaignTactics {
         if(ax!=bx&&ay!=by)return false;
         int dx=Integer.signum(bx-ax),dy=Integer.signum(by-ay);
         for(int x=ax+dx,y=ay+dy;x!=bx||y!=by;x+=dx,y+=dy)
-            if(r.terrain(x,y)!=0||actors&&r.at(x,y)!=null)return false;
+            if(r.blocksShot(x,y)||actors&&r.at(x,y)!=null)return false;
         return true;
     }
     static boolean covered(CampaignRun r,Enemy target){
@@ -35,12 +35,12 @@ final class CampaignTactics {
     static java.util.List<Enemy> spawn(CampaignRun r,int row,Role[] roles,boolean reserve){
         if(r.enemies.size()+roles.length>64)return java.util.List.of();
         var cells=new ArrayList<int[]>();
-        int center=CampaignMap.pathX(r.seed,row);int[] counts=new int[3];
+        int center=r.campaignMap.encounterX(row);int[] counts=new int[3];
         for(int i=0;i<roles.length;i++){
             int order=counts[roles[i].ordinal()]++,offset=roles[i]==Role.SUPPORT?new int[]{0,-1,1}[Math.min(order,2)]:new int[]{-1,1,-2,2}[Math.min(order,3)];
             int wantedX=center+offset,wantedY=row+(roles[i]==Role.MELEE?0:roles[i]==Role.RANGED?2:3);
             int[] chosen=null;int best=Integer.MAX_VALUE;
-            for(int y=row;y<=row+3;y++)for(int x=Math.max(0,center-3);x<=Math.min(WIDTH-1,center+3);x++){
+            for(int y=row;y<=Math.min(GOAL,row+5);y++)for(int x=Math.max(0,center-3);x<=Math.min(WIDTH-1,center+3);x++){
                 final int px=x,py=y;
                 if(r.terrain(x,y)!=0||r.at(x,y)!=null||x==r.x&&y==r.y||cells.stream().anyMatch(c->c[0]==px&&c[1]==py))continue;
                 int score=distance(x,y,wantedX,wantedY);
@@ -72,7 +72,8 @@ final class CampaignTactics {
             if(e.readyTurn>r.turn)continue;
             if(e.cooldown>0)e.cooldown--;
             boolean alerted=CampaignDifficulty.at(r.distance).index()>=3&&e.squad>0&&r.enemies.stream().anyMatch(a->a.squad==e.squad&&r.range(a)<=8);
-            if(r.range(e)>(alerted?18:12))continue;
+            if(r.range(e)<=(alerted?18:12))e.awake=true;
+            if(!e.awake||r.range(e)>(e.boss>0?12:28))continue;
             if(e.boss>0&&e.phase==2&&CampaignBosses.react(r,e,detonated,occupied))continue;
             if(e.role==Role.MELEE||e.boss>0){
                 if(r.range(e)==1)attack(r,e,false);

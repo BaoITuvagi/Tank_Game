@@ -20,7 +20,8 @@ namespace Tank.Campaign {
         public int[] Prices=new int[3];
         public bool CanBuy(int item){return ShopAvailable&&!Finished&&item>=0&&item<3&&Prices[item]>0&&Gold>=Prices[item]&&(item==0?Hp<100:item==1?Shields<=MaxBuff-3:DoubleHits<=MaxBuff-3);}
         public ulong TotalGold;
-        public byte[] Terrain;
+        public byte[] Terrain,Ground,Decorations;
+        public int Template,Biome;public string RegionName="";
         public List<CampaignVisual> Visuals=new List<CampaignVisual>();
         public List<Actor> Enemies=new List<Actor>();
         public List<Pickup> Loot=new List<Pickup>();
@@ -91,6 +92,11 @@ namespace Tank.Campaign {
                             s.Dangers.Add(danger);
                         }
                     }
+                    if(r.Remaining>0){
+                        if(r.U8()!=1)throw new InvalidDataException("campaign environment version");
+                        s.Template=r.U8();s.Biome=r.U8();s.RegionName=r.Str(120);s.Ground=r.Bytes(13*19);s.Decorations=r.Bytes(13*19);
+                        if(s.Template>11||s.Biome>3||Array.Exists(s.Ground,g=>g>5)||Array.Exists(s.Decorations,d=>d>14))throw new InvalidDataException("campaign environment data");
+                    }
                     Run=s;TotalGold=s.TotalGold;
                 }
             }else throw new InvalidDataException("campaign response");
@@ -103,7 +109,7 @@ namespace Tank {
         public Campaign.CampaignClient Campaign=new Campaign.CampaignClient();
         public void CampaignCommand(int command,int value=0) {
             if(Phase!=ClientPhase.LOBBY||Campaign.Pending)return;
-            var w=new WireWriter().U8(5).U8(command);
+            var w=new WireWriter().U8(6).U8(command);
             if(command==0)w.U8(value);
             if(command==1){if(Campaign.Run==null)return;w.U32((uint)Campaign.Run.Turn).U8(value);}
             if(command==5){if(Campaign.Run==null||!Campaign.Run.CanBuy(value))return;w.Str(Campaign.Run.Id).U32((uint)Campaign.Run.Turn).U32((uint)Campaign.Run.ShopRevision).U8(value);}

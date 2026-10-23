@@ -28,7 +28,7 @@ public final class CampaignRun {
     public enum Role { MELEE, RANGED, SUPPORT }
     public static final class Enemy {
         public int id,x,y,hp,maxHp,damage,boss,squad,guard,cooldown,phase,readyTurn;
-        public Role role=Role.MELEE;
+        public Role role=Role.MELEE;public boolean awake;
         Enemy(int id,int x,int y,int hp,int damage,int boss){this.id=id;this.x=x;this.y=y;this.hp=this.maxHp=hp;this.damage=damage;this.boss=boss;this.phase=boss>0?1:0;}
     }
     public record Loot(int x,int y,int kind,int amount) {} // heal, damage, shield, chest
@@ -37,16 +37,18 @@ public final class CampaignRun {
         this.nation=nation;this.seed=seed;campaignMap=new CampaignMap(seed);random=new Random(seed);generate();
     }
     public int terrain(int px,int py) {return campaignMap.tile(px,py);}
+    public boolean blocksShot(int px,int py){return campaignMap.blocksShot(px,py);}
     Enemy at(int px,int py){return enemies.stream().filter(e->e.x==px&&e.y==py).findFirst().orElse(null);}
     int range(Enemy e){return Math.abs(e.x-x)+Math.abs(e.y-y);}
     void generate() {
         int top=Math.min(GOAL,y+VIEW);
         for(int row=generated+1;row<=top;row++) {
-            if(row>=40&&row%CampaignDifficulty.at(row).spacing()==0&&row%500>5&&row%500<490)CampaignTactics.spawn(this,row);
-            else if(row>5&&row%500!=0&&enemies.size()<64&&random.nextInt(100)<Math.min(36,22+CampaignDifficulty.at(row).index()/2)) {
+            if(!campaignMap.peaceful(row)&&row>=40&&(row==campaignMap.encounterRow(row)||row%CampaignDifficulty.at(row).spacing()==0&&Math.abs(row-campaignMap.encounterRow(row))>5)&&row%500>5&&row%500<490)CampaignTactics.spawn(this,row);
+            else if(!campaignMap.peaceful(row)&&row>5&&row%500!=0&&enemies.size()<64&&random.nextInt(100)<Math.min(36,22+CampaignDifficulty.at(row).index()/2)) {
                 int px=random.nextInt(WIDTH);
                 if(terrain(px,row)==0)enemies.add(new Enemy(nextEnemy++,px,row,CampaignDifficulty.hp(row,Role.MELEE),CampaignDifficulty.damage(row,Role.MELEE),0));
             }
+            if(row>5&&row==campaignMap.rewardY(row))loot.add(new Loot(campaignMap.rewardX(row),row,campaignMap.peaceful(row)?0:3,campaignMap.peaceful(row)?0:25+CampaignDifficulty.at(row).index()*3));
             if(row>0&&row%17==0)loot.add(new Loot(CampaignMap.pathX(seed,row),row,3,10+random.nextInt(16)));
         }
         generated=Math.max(generated,top);
@@ -72,7 +74,7 @@ public final class CampaignRun {
         } else if(action==4) {
             visuals.clear();
             Enemy target=null;int tx=x,ty=y;
-            for(int n=1;n<=SHOT_RANGE;n++){int nx=x+DX[facing]*n,ny=y+DY[facing]*n;if(terrain(nx,ny)!=0)break;tx=nx;ty=ny;target=at(nx,ny);if(target!=null)break;}
+            for(int n=1;n<=SHOT_RANGE;n++){int nx=x+DX[facing]*n,ny=y+DY[facing]*n;if(blocksShot(nx,ny))break;tx=nx;ty=ny;target=at(nx,ny);if(target!=null)break;}
             visual(SHOT,0,target==null?-1:target.id,x,y,tx,ty,0);
             if(target!=null){hit(target,40*(doubleHits>0?2:1));if(doubleHits>0)doubleHits--;}
             shot=11;

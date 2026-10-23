@@ -15,6 +15,7 @@ final class CampaignSession {
     boolean tactics;
     boolean shop;
     boolean progression;
+    boolean environment;
     String saveStatus="";
     long totalGold;
     CampaignSession(Server.Session session,Database db){this.session=session;this.db=db;}
@@ -24,8 +25,8 @@ final class CampaignSession {
             if(session.room!=null)throw new IllegalArgumentException("Hãy rời phòng trước khi vào chiến dịch.");
             Reader r=new Reader(p.payload());
             int version=r.u8();
-            if(version<1||version>5)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
-            visualEvents=version>=2;tactics=version>=3;shop=version>=4;progression=version>=5;
+            if(version<1||version>6)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
+            visualEvents=version>=2;tactics=version>=3;shop=version>=4;progression=version>=5;environment=version>=6;
             int command=r.u8();
             if(command==0) {
                 int nation=r.u8();r.end();
@@ -97,6 +98,11 @@ final class CampaignSession {
             w.u8(bosses.size());for(var boss:bosses)w.u32(boss.id).u8(boss.phase);
             var danger=run.dangers.stream().filter(d->d.y()>=bottom&&d.y()<bottom+CampaignRun.VIEW).toList();
             w.u16(danger.size());for(var d:danger)w.u32(d.source()).u8(d.x()).u32(d.y()).u32(d.due()).u16(d.damage());
+        }
+        if(run!=null&&environment){
+            int bottom=Math.max(0,run.y-7);w.u8(1).u8(run.campaignMap.template(run.y)).u8(CampaignMap.style(run.seed,run.y/CampaignMap.SECTION)).str(run.campaignMap.name(run.y));
+            for(int row=bottom;row<bottom+CampaignRun.VIEW;row++)for(int x=0;x<CampaignRun.WIDTH;x++)w.u8(run.campaignMap.ground(x,row));
+            for(int row=bottom;row<bottom+CampaignRun.VIEW;row++)for(int x=0;x<CampaignRun.WIDTH;x++)w.u8(run.campaignMap.decoration(x,row));
         }
         session.send(RESPONSE,sequence,w.done());
     }

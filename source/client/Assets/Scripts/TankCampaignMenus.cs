@@ -90,6 +90,7 @@ namespace Tank {
                 GUILayout.Label("Tổng thống Đô-na-tri và gia đình đã bị tổ chức Vu-a-lo bắt cóc. Hãy lên đường giải cứu!",menu.Text);
                 GUILayout.Label("C: C\u1eadn chi\u1ebfn \u00b7 X: X\u1ea1 th\u1ee7 \u00b7 H: H\u1ed7 tr\u1ee3. H\u1ea1 xe h\u1ed7 tr\u1ee3 \u0111\u1ec3 ph\u00e1 khi\u00ean c\u1ee7a t\u1ed5 \u0111\u1ecbch.",menu.Hint);
                 GUILayout.Label("P: C\u1eeda h\u00e0ng \u00b7 S / m\u0169i t\u00ean xu\u1ed1ng: l\u00f9i xe. X\u1ea1 th\u1ee7 v\u00e0 xe b\u1ea1n \u0111\u1ec1u b\u1eafn th\u01b0\u1eddng trong 4 \u00f4.",menu.Hint);
+                GUILayout.Label("Nước chặn xe nhưng đạn bay qua; dùng cầu hoặc đường vòng. Bãi nghỉ không sinh địch mới; tìm vật phẩm ở nhánh phụ.",menu.Hint);
                 float skillHeight=0;
                 for(int i=0;i<3;i++)skillHeight=Mathf.Max(skillHeight,menu.Hint.CalcHeight(new GUIContent("J · "+campaignSkills[i]+"\nTự chọn mục tiêu trong 12 ô · hồi 50 lượt"),(area.width-80)/3-24));
                 GUILayout.Space(16);GUILayout.BeginHorizontal();
@@ -121,7 +122,7 @@ namespace Tank {
             float bottom=campaignPresentation.CameraBottom(rows,now);
             for(float py=64;py<viewHeight-64;py+=cell)for(float px=0;px<viewWidth;px+=cell) {
                 GUI.color=new Color(.48f,.57f,.46f);
-                CampaignArt.Surroundings(new Rect(px,py,cell,Mathf.Min(cell,viewHeight-64-py)),Mathf.FloorToInt(px/cell),Mathf.FloorToInt(py/cell));
+                CampaignArt.Surroundings(new Rect(px,py,cell,Mathf.Min(cell,viewHeight-64-py)),Mathf.FloorToInt(px/cell),Mathf.FloorToInt(py/cell),run.Biome);
             }
             GUI.color=Color.white;
             Vector2 shake=campaignPresentation.Shake(now);
@@ -129,8 +130,10 @@ namespace Tank {
             GUI.BeginGroup(new Rect(bx+shake.x,by+shake.y,bw,bh));
             System.Func<Vector2,Rect> tileAt=pos=>new Rect(pos.x*cell,(rows-1-(pos.y-bottom))*cell,cell,cell);
             for(int y=Mathf.FloorToInt(bottom);y<=Mathf.CeilToInt(bottom)+rows;y++)for(int col=0;col<13;col++) {
-                CampaignArt.Ground(tileAt(new Vector2(col,y)),col,y,campaignPresentation.Terrain(col,y));
+                CampaignArt.EnvironmentGround(tileAt(new Vector2(col,y)),col,y,campaignPresentation.Surface(col,y),campaignPresentation.SurfaceMask(col,y,false),campaignPresentation.SurfaceMask(col,y,true));
             }
+            for(int y=Mathf.CeilToInt(bottom)+rows;y>=Mathf.FloorToInt(bottom);y--)for(int col=0;col<13;col++)
+                CampaignArt.EnvironmentObject(tileAt(new Vector2(col,y)),col,y,campaignPresentation.Terrain(col,y),campaignPresentation.Surface(col,y),campaignPresentation.Decoration(col,y));
             foreach(var danger in run.Dangers){
                 Rect mark=tileAt(new Vector2(danger.X,danger.Y));
                 ArenaRenderer.Fill(new Rect(mark.x+1,mark.y+1,mark.width-2,mark.height-2),new Color(1,.15f,.07f,.50f));
@@ -181,7 +184,7 @@ namespace Tank {
             if(GUI.Button(new Rect(viewWidth-172,10,154,40),"Kết thúc & lưu",menu.Secondary))client.CampaignCommand(2);
             GUI.enabled=enabled;
             if(viewWidth>=900)GUI.Label(new Rect(healthWidth+230,12,viewWidth-healthWidth-420,40),"×2 "+run.DoubleHits+" · Khiên "+run.Shields+" · Hạ địch "+run.Kills,menu.White);
-            if(viewWidth>=900&&!string.IsNullOrEmpty(run.StageName))GUI.Label(new Rect(healthWidth+230,34,viewWidth-healthWidth-420,22),"Chặng "+(run.Stage+1)+" · "+run.StageName,menu.White);
+            if(viewWidth>=900&&!string.IsNullOrEmpty(run.StageName))GUI.Label(new Rect(healthWidth+230,34,viewWidth-healthWidth-420,22),"Chặng "+(run.Stage+1)+" · "+(string.IsNullOrEmpty(run.RegionName)?run.StageName:viewWidth>=1200?run.StageName+" · "+run.RegionName:run.RegionName),menu.White);
             string feedback=client.Campaign.Error;
             if(string.IsNullOrEmpty(feedback)&&run.Turn>0&&!run.Finished)feedback=run.Message;
             if(!string.IsNullOrEmpty(feedback)) {
