@@ -37,6 +37,7 @@ public class Database implements AutoCloseable  {
     final ScheduledExecutorService retry=Executors.newSingleThreadScheduledExecutor();
     final Path spool;
     final Connection db;
+    final CampaignStore campaigns;
     final Gson gson=new Gson();
     final Map<Long,Result> pending=new ConcurrentHashMap<>();
     public volatile long failures;
@@ -53,6 +54,7 @@ public class Database implements AutoCloseable  {
                 for(String sql:schema.split(";"))if(!sql.isBlank())statement.execute(sql);
             }
         }
+        CampaignStore.schema(db);
         migrateDurationColumn();
         migrateColumn("matches","room_mode","TEXT");
         migrateColumn("matches","content_version","TEXT");
@@ -67,7 +69,8 @@ public class Database implements AutoCloseable  {
                 }
             });
         }
-        retry.scheduleWithFixedDelay(this::retryPending,0,5,TimeUnit.SECONDS);
+        campaigns=new CampaignStore(this);
+        retry.scheduleWithFixedDelay(()->{retryPending();campaigns.retry();},0,5,TimeUnit.SECONDS);
     }
     void migrateDurationColumn() throws SQLException {
         try (Statement statement=db.createStatement();ResultSet columns=statement.executeQuery("PRAGMA table_info(matches)")) {

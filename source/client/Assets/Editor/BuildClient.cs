@@ -5,6 +5,7 @@ using UnityEngine;
 public static class BuildClient {
  public static void Build(){BuildTo("../../build/client/TankBattle.exe");}
  public static void BuildGameplay(){BuildTo("../../build/client-gameplay/TankBattle.exe");}
+ public static void BuildCampaignUi(){BuildTo("../../build/client-campaign-ui/TankBattle.exe");}
  public static void BuildCurrentScene(){
   string path=Path.GetFullPath("../../build/client/TankBattle.exe");Directory.CreateDirectory(Path.GetDirectoryName(path));
   var result=BuildPipeline.BuildPlayer(new[]{"Assets/Scenes/Main.unity"},path,BuildTarget.StandaloneWindows64,BuildOptions.None);
