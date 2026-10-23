@@ -186,3 +186,23 @@ Sau đó build lại cả server và client. Build server tự chạy test Java.
 Database, bản build, cache, log và cấu hình riêng được `.gitignore` bỏ qua. Khi thay đổi tài nguyên Unity, giữ file `.meta` đi kèm để bảo toàn tham chiếu.
 
 Hình ảnh game của Kenney dùng giấy phép CC0, giữ tại [Kenney-LICENSE.txt](source/client/Assets/Resources/ArenaArt/Kenney-LICENSE.txt).
+
+
+## Chế độ chiến dịch
+
+Từ menu, chọn **Chiến dịch**, chọn quốc gia rồi bắt đầu chuyến giải cứu. Chiến dịch dùng bộ luật, bố cục map và giao diện riêng.
+
+- **WASD / phím mũi tên:** di chuyển; đi vào ô có địch để cận chiến.
+- **I:** bắn theo hướng xe, tầm 4 ô; hồi sau 5 lượt hợp lệ.
+- **O:** kỹ năng quốc gia. Phím J không còn dùng trong chiến dịch.
+- **P:** mở/đóng shop; Esc đóng shop. Mua vật phẩm không tiêu lượt hoặc hồi chiêu.
+
+| Quốc gia | Máu | Giáp giảm mỗi đòn | Cận chiến | Đạn I | Kỹ năng O | Hồi O |
+|---|---:|---:|---:|---:|---|---:|
+| Mỹ | 100 | 0 | 20 | 40 | Không kích 70 sát thương, bán kính 2 ô quanh địch gần nhất trong 12 ô | 24 lượt |
+| Liên Xô | 140 | 3 | 28 | 32 | Nhận 3 khiên và xung kích 45 sát thương quanh xe trong 1 ô | 20 lượt |
+| Ý | 85 | 0 | 16 | 48 | Pháo 120 sát thương xuyên đội hình và khiên hỗ trợ, theo hướng xe trong 8 ô; dừng ở vật cản | 16 lượt |
+
+Shop và vật phẩm hồi máu theo giới hạn riêng của từng xe. Khiên chặn trọn một đòn; kỹ năng Liên Xô có thể dùng để chuẩn bị phòng thủ trước giao tranh. Các lượt bắn hoặc kỹ năng bị từ chối không làm địch hành động.
+
+UI chiến dịch sử dụng Theme Wood và Sprout Lands UI của Cup Nooble. Tệp ghi công và điều khoản Sprout nằm trong [CampaignUI/Sprout-License.txt](source/client/Assets/Resources/CampaignUI/Sprout-License.txt).

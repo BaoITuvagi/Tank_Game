@@ -10,6 +10,7 @@ public final class CampaignRun {
     final long seed;
     final CampaignMap campaignMap;
     public final int nation;
+    public final CampaignNation stats;
     public int x=6,y=0,distance=0,hp=100,turn=0,facing=0,shot=0,skill=0;
     public int gold=0,kills=0,doubleHits=0,shields=0,bosses=0,shopRevision=0;
     public boolean finished=false,victory=false;
@@ -34,7 +35,7 @@ public final class CampaignRun {
     public record Loot(int x,int y,int kind,int amount) {} // heal, damage, shield, chest
     public CampaignRun(int nation,long seed) {
         if(nation!=0&&nation!=1&&nation!=5)throw new IllegalArgumentException("campaign nation");
-        this.nation=nation;this.seed=seed;campaignMap=new CampaignMap(seed);random=new Random(seed);generate();
+        this.nation=nation;this.stats=CampaignNation.of(nation);hp=stats.maxHp();this.seed=seed;campaignMap=new CampaignMap(seed);random=new Random(seed);generate();
     }
     public int terrain(int px,int py) {return campaignMap.tile(px,py);}
     public boolean blocksShot(int px,int py){return campaignMap.blocksShot(px,py);}
@@ -57,7 +58,7 @@ public final class CampaignRun {
         loot.removeIf(e->e.y<y-10);
         CampaignTactics.refreshGuards(this);
     }
-    /** 0..3 move north/east/south/west, 4 shoot I, 5 skill J. */
+    /** 0..3 move north/east/south/west, 4 shoot I, 5 national skill O. */
     public boolean act(int action) {
         if(finished||action<0||action>5)return false;
         if(action==4&&shot>0||action==5&&skill>0){message="Kỹ năng đang hồi chiêu.";return false;}
@@ -69,24 +70,18 @@ public final class CampaignRun {
             if(ny>gate){message="Hạ trùm tại mốc "+gate+" m trước khi tiến tiếp.";return false;}
             visuals.clear();
             Enemy e=at(nx,ny);
-            if(e!=null){visual(MELEE,0,e.id,x,y,e.x,e.y,0);hit(e,20*(doubleHits>0?2:1));if(doubleHits>0)doubleHits--;}
+            if(e!=null){visual(MELEE,0,e.id,x,y,e.x,e.y,0);hit(e,stats.meleeDamage()*(doubleHits>0?2:1));if(doubleHits>0)doubleHits--;}
             else {x=nx;y=ny;distance=Math.max(distance,y);}
         } else if(action==4) {
             visuals.clear();
             Enemy target=null;int tx=x,ty=y;
             for(int n=1;n<=SHOT_RANGE;n++){int nx=x+DX[facing]*n,ny=y+DY[facing]*n;if(blocksShot(nx,ny))break;tx=nx;ty=ny;target=at(nx,ny);if(target!=null)break;}
             visual(SHOT,0,target==null?-1:target.id,x,y,tx,ty,0);
-            if(target!=null){hit(target,40*(doubleHits>0?2:1));if(doubleHits>0)doubleHits--;}
-            shot=11;
+            if(target!=null){hit(target,stats.shotDamage()*(doubleHits>0?2:1));if(doubleHits>0)doubleHits--;}
+            shot=CampaignNation.SHOT_COOLDOWN+1;
         } else {
-            List<Enemy> targets=new ArrayList<>(enemies);targets.sort(Comparator.comparingInt(this::range));
-            if(targets.isEmpty()){message="Chưa có mục tiêu.";return false;}
-            Enemy target=targets.getFirst();
-            if(range(target)>12){message="Mục tiêu ngoài tầm kỹ năng (12 ô).";return false;}
-            visuals.clear();visual(SKILL,0,target.id,x,y,target.x,target.y,nation);
-            if(nation==5)hit(target,120);
-            else for(Enemy e:targets)if(nation==0?Math.abs(e.x-target.x)+Math.abs(e.y-target.y)<=2:Math.abs(e.x-target.x)+Math.abs(e.y-target.y)<=3)hit(e,nation==0?60:45);
-            skill=51;
+            if(!nationalSkill())return false;
+            skill=stats.skillCooldown()+1;
         }
         turn++;shot=Math.max(0,shot-1);skill=Math.max(0,skill-1);
         if(!finished) {
@@ -103,6 +98,41 @@ public final class CampaignRun {
         }
         return true;
     }
+    boolean nationalSkill(){
+        if(nation==1){
+            var nearby=enemies.stream().filter(e->range(e)<=1).toList();
+            if(shields==MAX_BUFF&&nearby.isEmpty()){message="Khiên đã đầy; chưa có địch ở cự ly xung kích.";return false;}
+            visuals.clear();visual(SKILL,0,0,x,y,x,y,nation);shields=Math.min(MAX_BUFF,shields+3);
+            for(var e:nearby)hit(e,45);
+            message="Pháo đài thép: +3 khiên, xung kích 45 sát thương trong 1 ô.";
+            return true;
+        }
+        if(nation==5){
+            var targets=new ArrayList<Enemy>();int tx=x,ty=y;
+            for(int n=1;n<=stats.skillRange();n++){
+                int nx=x+DX[facing]*n,ny=y+DY[facing]*n;if(blocksShot(nx,ny))break;
+                tx=nx;ty=ny;var e=at(nx,ny);if(e!=null)targets.add(e);
+            }
+            if(targets.isEmpty()){message="Ngắm theo hướng xe: cần mục tiêu trên đường thẳng trong 8 ô.";return false;}
+            visuals.clear();visual(SKILL,0,targets.getLast().id,x,y,tx,ty,nation);
+            for(var e:targets)hit(e,120,true);
+            message="Pháo xuyên giáp: xuyên đội hình và khiên hỗ trợ, dừng ở vật cản.";
+            return true;
+        }
+        var targets=new ArrayList<>(enemies);targets.sort(Comparator.comparingInt(this::range));
+        if(targets.isEmpty()){message="Chưa có mục tiêu.";return false;}
+        var target=targets.getFirst();
+        if(range(target)>stats.skillRange()){message="Mục tiêu ngoài tầm không kích (12 ô).";return false;}
+        visuals.clear();visual(SKILL,0,target.id,x,y,target.x,target.y,nation);
+        for(var e:targets)if(Math.abs(e.x-target.x)+Math.abs(e.y-target.y)<=2)hit(e,70);
+        message="Không kích: 70 sát thương trong bán kính 2 ô quanh mục tiêu gần nhất.";
+        return true;
+    }
+    void receiveDamage(Enemy source,int amount){
+        if(shields>0){shields--;visual(BLOCK,source.id,0,source.x,source.y,x,y,0);return;}
+        int damage=amount<=0?0:Math.max(1,amount-stats.armor());
+        visual(HIT,source.id,0,source.x,source.y,x,y,Math.min(Math.max(0,hp),damage));hp-=damage;
+    }
     public int price(int item){
         if(item<0||item>2)throw new IllegalArgumentException("shop item");
         return new int[]{20,30,35}[item]+distance/250*new int[]{5,8,10}[item];
@@ -111,18 +141,19 @@ public final class CampaignRun {
     public boolean buy(int item){
         if(finished){message="Chi\u1ebfn d\u1ecbch \u0111\u00e3 k\u1ebft th\u00fac.";return false;}
         if(item<0||item>2){message="V\u1eadt ph\u1ea9m kh\u00f4ng h\u1ee3p l\u1ec7.";return false;}
-        if(item==0&&hp>=100||item==1&&shields>MAX_BUFF-3||item==2&&doubleHits>MAX_BUFF-3){message="Kh\u00f4ng th\u1ec3 nh\u1eadn th\u00eam v\u1eadt ph\u1ea9m n\u00e0y.";return false;}
+        if(item==0&&hp>=stats.maxHp()||item==1&&shields>MAX_BUFF-3||item==2&&doubleHits>MAX_BUFF-3){message="Kh\u00f4ng th\u1ec3 nh\u1eadn th\u00eam v\u1eadt ph\u1ea9m n\u00e0y.";return false;}
         int cost=price(item);
         if(gold<cost){message="Kh\u00f4ng \u0111\u1ee7 v\u00e0ng trong chuy\u1ebfn \u0111i.";return false;}
         gold-=cost;shopRevision++;visuals.clear();
-        if(item==0){int amount=Math.min(25,100-hp);hp+=amount;visual(HEAL,0,0,x,y,x,y,amount);}
+        if(item==0){int amount=Math.min(25,stats.maxHp()-hp);hp+=amount;visual(HEAL,0,0,x,y,x,y,amount);}
         else if(item==1)shields+=3;
         else doubleHits+=3;
         message="\u0110\u00e3 mua "+new String[]{"h\u1ed3i m\u00e1u","khi\u00ean","t\u0103ng s\u00e1t th\u01b0\u01a1ng"}[item]+" (-"+cost+" v\u00e0ng).";
         return true;
     }
-    void hit(Enemy e,int damage) {
-        int absorbed=Math.min(damage,CampaignTactics.covered(this,e)?e.guard:0);
+    void hit(Enemy e,int damage){hit(e,damage,false);}
+    void hit(Enemy e,int damage,boolean piercing) {
+        int absorbed=Math.min(damage,!piercing&&CampaignTactics.covered(this,e)?e.guard:0);
         if(absorbed>0){e.guard-=absorbed;damage-=absorbed;visual(BLOCK,0,e.id,x,y,e.x,e.y,absorbed);}
         visual(HIT,0,e.id,x,y,e.x,e.y,Math.min(e.hp,damage));
         e.hp-=damage;
@@ -150,5 +181,5 @@ public final class CampaignRun {
         }
         return -1;
     }
-    void collect(){for(var it=loot.iterator();it.hasNext();){Loot l=it.next();if(l.x!=x||l.y!=y)continue;switch(l.kind){case 0->{int healed=Math.min(100,hp+25)-hp;hp+=healed;if(healed>0)visual(HEAL,0,0,x,y,x,y,healed);}case 1->doubleHits=Math.min(MAX_BUFF,doubleHits+3);case 2->shields=Math.min(MAX_BUFF,shields+3);case 3->gold+=l.amount;}it.remove();}}
+    void collect(){for(var it=loot.iterator();it.hasNext();){Loot l=it.next();if(l.x!=x||l.y!=y)continue;switch(l.kind){case 0->{int healed=Math.min(stats.maxHp(),hp+25)-hp;hp+=healed;if(healed>0)visual(HEAL,0,0,x,y,x,y,healed);}case 1->doubleHits=Math.min(MAX_BUFF,doubleHits+3);case 2->shields=Math.min(MAX_BUFF,shields+3);case 3->gold+=l.amount;}it.remove();}}
 }

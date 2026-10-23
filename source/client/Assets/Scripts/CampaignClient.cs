@@ -17,8 +17,10 @@ namespace Tank.Campaign {
         public int Nation,Turn,X,Y,Distance,Hp,Facing,Shot,Skill,Gold,Kills,DoubleHits,Shields,Bosses,Bottom;
         public bool Finished,Victory,ShopAvailable;
         public int ShotRange=4,MaxBuff=9,ShopRevision;
+        public bool NationStatsAvailable;
+        public int MaxHp=100,ShotDamage=40,MeleeDamage=20,Armor,ShotCooldown=5,SkillCooldown=50,SkillRange=12;
         public int[] Prices=new int[3];
-        public bool CanBuy(int item){return ShopAvailable&&!Finished&&item>=0&&item<3&&Prices[item]>0&&Gold>=Prices[item]&&(item==0?Hp<100:item==1?Shields<=MaxBuff-3:DoubleHits<=MaxBuff-3);}
+        public bool CanBuy(int item){return ShopAvailable&&!Finished&&item>=0&&item<3&&Prices[item]>0&&Gold>=Prices[item]&&(item==0?Hp<MaxHp:item==1?Shields<=MaxBuff-3:DoubleHits<=MaxBuff-3);}
         public ulong TotalGold;
         public byte[] Terrain,Ground,Decorations;
         public int Template,Biome;public string RegionName="";
@@ -97,6 +99,12 @@ namespace Tank.Campaign {
                         s.Template=r.U8();s.Biome=r.U8();s.RegionName=r.Str(120);s.Ground=r.Bytes(13*19);s.Decorations=r.Bytes(13*19);
                         if(s.Template>11||s.Biome>3||Array.Exists(s.Ground,g=>g>5)||Array.Exists(s.Decorations,d=>d>14))throw new InvalidDataException("campaign environment data");
                     }
+                    if(r.Remaining>0){
+                        if(r.U8()!=1)throw new InvalidDataException("campaign nation version");
+                        s.MaxHp=r.U16();s.ShotDamage=r.U16();s.MeleeDamage=r.U16();s.Armor=r.U8();s.ShotCooldown=r.U8();s.SkillCooldown=r.U8();s.SkillRange=r.U8();
+                        if(s.MaxHp<1||s.MaxHp>1000||s.Hp>s.MaxHp||s.ShotDamage<1||s.MeleeDamage<1||s.Armor>100||s.ShotCooldown<1||s.SkillCooldown<1||s.SkillRange<1||s.SkillRange>12)throw new InvalidDataException("campaign nation stats");
+                        s.NationStatsAvailable=true;
+                    }
                     Run=s;TotalGold=s.TotalGold;
                 }
             }else throw new InvalidDataException("campaign response");
@@ -109,7 +117,7 @@ namespace Tank {
         public Campaign.CampaignClient Campaign=new Campaign.CampaignClient();
         public void CampaignCommand(int command,int value=0) {
             if(Phase!=ClientPhase.LOBBY||Campaign.Pending)return;
-            var w=new WireWriter().U8(6).U8(command);
+            var w=new WireWriter().U8(7).U8(command);
             if(command==0)w.U8(value);
             if(command==1){if(Campaign.Run==null)return;w.U32((uint)Campaign.Run.Turn).U8(value);}
             if(command==5){if(Campaign.Run==null||!Campaign.Run.CanBuy(value))return;w.Str(Campaign.Run.Id).U32((uint)Campaign.Run.Turn).U32((uint)Campaign.Run.ShopRevision).U8(value);}

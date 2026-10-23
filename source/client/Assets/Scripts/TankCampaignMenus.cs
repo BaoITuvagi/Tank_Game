@@ -9,8 +9,6 @@ namespace Tank {
         int queuedCampaignAction=-1;
         double nextCampaignRepeat;
         readonly int[] campaignNations={0,1,5};
-        readonly string[] campaignNames={"Mỹ","Liên Xô","Ý"};
-        readonly string[] campaignSkills={"Oanh tạc chiến lược\n60 sát thương trong bán kính 2 ô quanh mục tiêu gần nhất.","Bão hỏa tiễn\n45 sát thương trong bán kính 3 ô quanh mục tiêu gần nhất.","Siêu pháo tụ lực\n120 sát thương lên mục tiêu gần nhất."};
         bool CampaignOpen {get{return campaignPage!=0;}}
         void SetupCampaignPreview() {
             if(!IsMenuPreview)return;
@@ -21,7 +19,7 @@ namespace Tank {
             client.Campaign.Rankings.Add(new Ranking{Name="Chỉ huy Việt",Score=10000});
             client.Campaign.Rankings.Add(new Ranking{Name="Đội giải cứu",Score=2500});client.Campaign.TotalGold=1240;
             if(campaignPage==3){
-                var run=new RunState{Id="preview",Nation=0,X=6,Y=506,Distance=506,Hp=75,Facing=0,Shot=4,Skill=32,Gold=185,Kills=28,Shields=2,DoubleHits=3,Bosses=1,Bottom=499,TotalGold=1240,Terrain=new byte[247],Message="Tiến về phía bắc. Trùm tiếp theo tại 1.000 m.",SaveStatus=""};
+                var run=new RunState{Id="preview",Nation=0,X=6,Y=506,Distance=506,Hp=75,Facing=0,Shot=4,Skill=12,Gold=185,Kills=28,Shields=2,DoubleHits=3,Bosses=1,Bottom=499,TotalGold=1240,ShopAvailable=true,Prices=new[]{30,46,55},NationStatsAvailable=true,SkillCooldown=24,Terrain=new byte[247],Message="Tiến về phía bắc. Trùm tiếp theo tại 1.000 m.",SaveStatus=""};
                 for(int y=0;y<19;y++)for(int x=0;x<13;x++)if(x<4||x>8)run.Terrain[y*13+x]=(byte)((x+y)%9==0?1:0);
                 run.Enemies.Add(new Actor{Id=1,X=6,Y=510,Hp=46,MaxHp=46});run.Enemies.Add(new Actor{Id=2,X=8,Y=512,Hp=180,MaxHp=180,Boss=2});run.Loot.Add(new Pickup{X=6,Y=508,Kind=3});run.Loot.Add(new Pickup{X=5,Y=507,Kind=0});
                 if(page=="campaign-results"){run.Finished=true;run.Message="Xe đã bị phá hủy. Chiến dịch kết thúc.";run.Hp=0;run.SaveStatus="Đã lưu kết quả.";}
@@ -52,7 +50,7 @@ namespace Tank {
             else if(Input.GetKeyDown(KeyCode.S)||Input.GetKeyDown(KeyCode.DownArrow))action=2;
             else if(Input.GetKeyDown(KeyCode.A)||Input.GetKeyDown(KeyCode.LeftArrow))action=3;
             else if(Input.GetKeyDown(KeyCode.I))action=4;
-            else if(Input.GetKeyDown(KeyCode.J))action=5;
+            else if(Input.GetKeyDown(KeyCode.O))action=5;
             if(action>=0)queuedCampaignAction=action;
             if(client.Campaign.Pending||campaignPresentation.Busy(now))return;
             action=queuedCampaignAction;queuedCampaignAction=-1;
@@ -64,65 +62,18 @@ namespace Tank {
             }
             if(action>=0){client.CampaignCommand(1,action);nextCampaignRepeat=now+.18;}
         }
-        void DrawCampaign() {
-            if(campaignPage==3&&client.Phase==ClientPhase.LOBBY&&client.Campaign.Run!=null){DrawCampaignRun(client.Campaign.Run);return;}
-            GUI.Label(new Rect(24,17,500,40),"TANK BATTLE · CHIẾN DỊCH",menu.Header);
-            Rect area=Content;
-            menu.Card(area,campaignPage==2?"Bảng xếp hạng chiến dịch":campaignPage==3?"Chiến dịch giải cứu":"Chọn chỉ huy");
-            if(client.Phase!=ClientPhase.LOBBY) {
-                GUILayout.BeginArea(new Rect(area.x+24,area.y+84,area.width-48,area.height-108));
-                GUILayout.Label("Đăng nhập tài khoản để chơi và lưu vàng, điểm chiến dịch.",menu.Text);
-                if(Button("Về đăng nhập"))campaignPage=0;
-                GUILayout.EndArea();return;
-            }
-            GUILayout.BeginArea(new Rect(area.x+24,area.y+78,area.width-48,area.height-102));
-            campaignScroll=GUILayout.BeginScrollView(campaignScroll);
-            if(campaignPage==2){
-                GUILayout.Label("Tổng vàng chiến dịch: "+client.Campaign.TotalGold,menu.Name);
-                GUILayout.BeginHorizontal();GUILayout.Label("Hạng",menu.Name,GUILayout.Width(60));GUILayout.Label("Tên người chơi",menu.Name,GUILayout.ExpandWidth(true));GUILayout.Label("Điểm (m)",new GUIStyle(menu.Name){alignment=TextAnchor.MiddleRight},GUILayout.Width(100));GUILayout.EndHorizontal();
-                for(int i=0;i<client.Campaign.Rankings.Count;i++) {
-                    var row=client.Campaign.Rankings[i];
-                    GUILayout.BeginHorizontal();GUILayout.Label((i+1).ToString(),GUILayout.Width(60));GUILayout.Label(row.Name,GUILayout.ExpandWidth(true));GUILayout.Label(row.Score.ToString(),new GUIStyle(menu.Text){alignment=TextAnchor.MiddleRight},GUILayout.Width(100));GUILayout.EndHorizontal();
-                }
-                if(client.Campaign.Rankings.Count==0)GUILayout.Label(client.Campaign.Pending?"Đang tải…":"Chưa có kết quả chiến dịch.");
-                if(Button("Làm mới",!client.Campaign.Pending))client.CampaignCommand(3);
-            }else {
-                GUILayout.Label("Tổng thống Đô-na-tri và gia đình đã bị tổ chức Vu-a-lo bắt cóc. Hãy lên đường giải cứu!",menu.Text);
-                GUILayout.Label("C: C\u1eadn chi\u1ebfn \u00b7 X: X\u1ea1 th\u1ee7 \u00b7 H: H\u1ed7 tr\u1ee3. H\u1ea1 xe h\u1ed7 tr\u1ee3 \u0111\u1ec3 ph\u00e1 khi\u00ean c\u1ee7a t\u1ed5 \u0111\u1ecbch.",menu.Hint);
-                GUILayout.Label("P: C\u1eeda h\u00e0ng \u00b7 S / m\u0169i t\u00ean xu\u1ed1ng: l\u00f9i xe. X\u1ea1 th\u1ee7 v\u00e0 xe b\u1ea1n \u0111\u1ec1u b\u1eafn th\u01b0\u1eddng trong 4 \u00f4.",menu.Hint);
-                GUILayout.Label("Nước chặn xe nhưng đạn bay qua; dùng cầu hoặc đường vòng. Bãi nghỉ không sinh địch mới; tìm vật phẩm ở nhánh phụ.",menu.Hint);
-                float skillHeight=0;
-                for(int i=0;i<3;i++)skillHeight=Mathf.Max(skillHeight,menu.Hint.CalcHeight(new GUIContent("J · "+campaignSkills[i]+"\nTự chọn mục tiêu trong 12 ô · hồi 50 lượt"),(area.width-80)/3-24));
-                GUILayout.Space(16);GUILayout.BeginHorizontal();
-                for(int i=0;i<3;i++) {
-                    GUILayout.BeginVertical(GUI.skin.box,GUILayout.Width((area.width-80)/3));
-                    int nation=campaignNations[i];
-                    GUILayout.Label(campaignNames[i],menu.Section);
-                    Rect picture=GUILayoutUtility.GetRect(80,96,GUILayout.ExpandWidth(true));
-                    CampaignTank(new Rect(picture.center.x-36,picture.y,72,88),nation,0);
-                    GUILayout.Label("100 HP · Công cơ bản 20\nI: đạn 40 · tầm 4 ô · hồi 10 lượt",menu.Text);
-                    GUILayout.Label("J · "+campaignSkills[i]+"\nTự chọn mục tiêu trong 12 ô · hồi 50 lượt",menu.Hint,GUILayout.Height(skillHeight));
-                    if(GUILayout.Button((campaignChoice==i?"✓ Đã chọn ":"Chọn xe ")+campaignNames[i],campaignChoice==i?menu.Primary:menu.Secondary))campaignChoice=i;
-                    GUILayout.EndVertical();
-                }
-                GUILayout.EndHorizontal();
-                if(Button("Vào chiến dịch",campaignChoice>=0&&!client.Campaign.Pending)) {client.CampaignCommand(0,campaignNations[campaignChoice]);campaignPage=3;}
-                if(client.Campaign.Run!=null&&!client.Campaign.Run.Finished&&Button("Tiếp tục chuyến đi"))campaignPage=3;
-            }
-            GUILayout.Label(client.Campaign.Error,menu.Hint);
-            if(Button("Về menu",!client.Campaign.Pending,true))campaignPage=0;
-            GUILayout.EndScrollView();GUILayout.EndArea();
-        }
         void DrawCampaignRun(RunState run) {
             const int rows=13;
-            float cell=Mathf.Max(1,Mathf.Min((viewWidth-32)/13,(viewHeight-128)/rows));
-            float bw=13*cell,bh=rows*cell,bx=(viewWidth-bw)/2,by=64+(viewHeight-128-bh)/2;
+            const float mapTop=100,mapFooter=96;
+            float playHeight=viewHeight-mapTop-mapFooter;
+            float cell=Mathf.Max(1,Mathf.Min((viewWidth-32)/13,playHeight/rows));
+            float bw=13*cell,bh=rows*cell,bx=(viewWidth-bw)/2,by=mapTop+(playHeight-bh)/2;
             double now=Time.unscaledTimeAsDouble;
             campaignPresentation.Observe(run,now);
             float bottom=campaignPresentation.CameraBottom(rows,now);
-            for(float py=64;py<viewHeight-64;py+=cell)for(float px=0;px<viewWidth;px+=cell) {
+            for(float py=mapTop;py<viewHeight-mapFooter;py+=cell)for(float px=0;px<viewWidth;px+=cell) {
                 GUI.color=new Color(.48f,.57f,.46f);
-                CampaignArt.Surroundings(new Rect(px,py,cell,Mathf.Min(cell,viewHeight-64-py)),Mathf.FloorToInt(px/cell),Mathf.FloorToInt(py/cell),run.Biome);
+                CampaignArt.Surroundings(new Rect(px,py,cell,Mathf.Min(cell,viewHeight-mapFooter-py)),Mathf.FloorToInt(px/cell),Mathf.FloorToInt(py/cell),run.Biome);
             }
             GUI.color=Color.white;
             Vector2 shake=campaignPresentation.Shake(now);
@@ -164,56 +115,23 @@ namespace Tank {
             Rect player=tileAt(campaignPresentation.Player(now));
             GUI.color=campaignPresentation.Tint(0,now);
             CampaignTank(player,run.Nation,run.Facing);GUI.color=Color.white;
-            CampaignHealthBar(new Rect(player.x+3,player.y,cell-6,5),run.Hp);
+            CampaignHealthBar(new Rect(player.x+3,player.y,cell-6,5),run.Hp,run.MaxHp);
             campaignPresentation.DrawEffects(tileAt,cell,now,menu.White);
             GUI.EndGroup();
 
-            ArenaRenderer.Fill(new Rect(0,0,viewWidth,60),new Color(.04f,.1f,.08f,.97f));
-            ArenaRenderer.Fill(new Rect(0,viewHeight-60,viewWidth,60),new Color(.04f,.1f,.08f,.97f));
-            float healthWidth=Mathf.Clamp(viewWidth*.22f,120,250);
-            CampaignHealthBar(new Rect(18,12,healthWidth,18),run.Hp);
-            GUI.Label(new Rect(18,33,healthWidth,22),"HP "+run.Hp+" / 100",menu.White);
-            GUI.Label(new Rect(healthWidth+38,10,180,26),run.Distance+" / 10.000 m",menu.White);
-            GUI.Label(new Rect(healthWidth+38,33,180,22),"Vàng "+run.Gold+" · Trùm "+run.Bosses+"/20",menu.White);
-            float footerWidth=Mathf.Min(780,viewWidth-32),footerX=(viewWidth-footerWidth)/2,buttonWidth=(footerWidth-24)/3;
-            bool enabled=GUI.enabled;
-            GUI.enabled=enabled&&!campaignShopOpen&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now);
-            if(GUI.Button(new Rect(footerX,viewHeight-50,buttonWidth,40),"I · Bắn"+(run.Shot>0?" · "+run.Shot:""),run.Shot==0?menu.Primary:menu.Secondary)&&run.Shot==0)client.CampaignCommand(1,4);
-            if(GUI.Button(new Rect(footerX+buttonWidth+12,viewHeight-50,buttonWidth,40),"J · Kỹ năng"+(run.Skill>0?" · "+run.Skill:""),run.Skill==0?menu.Primary:menu.Secondary)&&run.Skill==0)client.CampaignCommand(1,5);
-            if(GUI.Button(new Rect(footerX+2*(buttonWidth+12),viewHeight-50,buttonWidth,40),"P \u00b7 C\u1eeda h\u00e0ng",menu.Secondary))ToggleCampaignShop();
-            if(GUI.Button(new Rect(viewWidth-172,10,154,40),"Kết thúc & lưu",menu.Secondary))client.CampaignCommand(2);
-            GUI.enabled=enabled;
-            if(viewWidth>=900)GUI.Label(new Rect(healthWidth+230,12,viewWidth-healthWidth-420,40),"×2 "+run.DoubleHits+" · Khiên "+run.Shields+" · Hạ địch "+run.Kills,menu.White);
-            if(viewWidth>=900&&!string.IsNullOrEmpty(run.StageName))GUI.Label(new Rect(healthWidth+230,34,viewWidth-healthWidth-420,22),"Chặng "+(run.Stage+1)+" · "+(string.IsNullOrEmpty(run.RegionName)?run.StageName:viewWidth>=1200?run.StageName+" · "+run.RegionName:run.RegionName),menu.White);
+            DrawCampaignHud(run,now);
             string feedback=client.Campaign.Error;
             if(string.IsNullOrEmpty(feedback)&&run.Turn>0&&!run.Finished)feedback=run.Message;
             if(!string.IsNullOrEmpty(feedback)) {
-                Rect notice=new Rect(bx+8,by+8,bw-16,48);
-                ArenaRenderer.Fill(notice,new Color(.04f,.1f,.08f,.92f));
-                GUI.Label(new Rect(notice.x+10,notice.y+7,notice.width-20,34),feedback,menu.White);
+                Rect notice=new Rect(bx+8,by+8,bw-16,60);
+                CampaignUI.Notice(notice,feedback);
             }
             if(run.Finished&&campaignPresentation.ResultsReady(now))DrawCampaignResults(run);
             else if(campaignShopOpen)DrawCampaignShop(run);
         }
-        void CampaignHealthBar(Rect rect,int hp) {
-            ArenaRenderer.Fill(rect,new Color(.12f,.16f,.15f));
-            ArenaRenderer.Fill(new Rect(rect.x+1,rect.y+1,(rect.width-2)*Mathf.Clamp01(hp/100f),Mathf.Max(1,rect.height-2)),hp<=25?new Color(.95f,.28f,.25f):new Color(.25f,.86f,.55f));
-        }
-        void DrawCampaignResults(RunState run) {
-            ArenaRenderer.Fill(new Rect(0,0,viewWidth,viewHeight),new Color(0,0,0,.7f));
-            float width=Mathf.Min(520,viewWidth-32),height=Mathf.Min(410,viewHeight-32);
-            Rect card=new Rect((viewWidth-width)/2,(viewHeight-height)/2,width,height);
-            menu.Card(card,run.Victory?"Giải cứu thành công!":"Kết thúc chuyến đi");
-            GUILayout.BeginArea(new Rect(card.x+24,card.y+80,card.width-48,card.height-104));
-            campaignScroll=GUILayout.BeginScrollView(campaignScroll);
-            GUILayout.Label("Điểm: "+run.Distance+" m\nVàng nhận: "+run.Gold+"\nTổng vàng: "+run.TotalGold+"\n"+run.SaveStatus,menu.Text);
-            GUILayout.Space(14);
-            if(run.SaveStatus=="Đã lưu kết quả.") {
-                if(Button("Chọn xe / Chơi lại"))campaignPage=1;
-                if(Button("Về menu",true,true))campaignPage=0;
-            }else if(Button("Lưu lại",!client.Campaign.Pending,true))client.CampaignCommand(4);
-            GUILayout.Label(client.Campaign.Error,menu.Hint);
-            GUILayout.EndScrollView();GUILayout.EndArea();
+        void CampaignHealthBar(Rect rect,int hp,int maximum){
+            float fraction=hp/(float)Mathf.Max(1,maximum);
+            CampaignUI.Meter(rect,fraction,fraction<=.25f?new Color(1,.4f,.3f):new Color(.55f,1,.55f));
         }
         void CampaignTank(Rect rect,int nation,int facing) {
             CampaignArt.Tank(rect,nation,facing);

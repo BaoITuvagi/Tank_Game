@@ -116,9 +116,3 @@ Desktop.ini
 /source/client/Assets/Tests/
 /source/client/Assets/Tests.meta
 /scripts/test-*.ps1
-
-# Sprout UI originals: local use only, raw redistribution is restricted by its license
-/source/client/Assets/Resources/CampaignUI/sprout_*.png
-/source/client/Assets/Resources/CampaignUI/sprout_*.png.meta
-/source/client/Assets/Resources/CampaignUI/Sprout-License.txt
-/source/client/Assets/Resources/CampaignUI/Sprout-License.txt.meta

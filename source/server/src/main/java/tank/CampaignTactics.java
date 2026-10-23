@@ -59,8 +59,7 @@ final class CampaignTactics {
     }
     static void attack(CampaignRun r,Enemy e,boolean shot){
         r.visual(shot?SHOT:MELEE,e.id,0,e.x,e.y,r.x,r.y,0);
-        if(r.shields>0){r.shields--;r.visual(BLOCK,e.id,0,e.x,e.y,r.x,r.y,0);}
-        else {r.visual(HIT,e.id,0,e.x,e.y,r.x,r.y,Math.min(Math.max(0,r.hp),e.damage));r.hp-=e.damage;}
+        r.receiveDamage(e,e.damage);
     }
     static void react(CampaignRun r){
         var detonated=CampaignBosses.resolve(r);if(r.hp<=0)return;

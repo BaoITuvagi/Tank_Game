@@ -26,8 +26,7 @@ final class CampaignBosses {
             it.remove();resolved.add(boss.id);
             r.visual(SKILL,boss.id,-1,boss.x,boss.y,d.x(),d.y(),0);
             if(r.x==d.x()&&r.y==d.y()&&r.hp>0){
-                if(r.shields>0){r.shields--;r.visual(BLOCK,boss.id,0,boss.x,boss.y,r.x,r.y,0);}
-                else {r.visual(HIT,boss.id,0,boss.x,boss.y,r.x,r.y,Math.min(r.hp,d.damage()));r.hp-=d.damage();}
+                r.receiveDamage(boss,d.damage());
             }
         }
         return resolved;
