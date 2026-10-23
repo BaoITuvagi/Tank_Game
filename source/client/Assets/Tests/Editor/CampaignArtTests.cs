@@ -22,4 +22,28 @@ public class CampaignArtTests {
         }
         Assert.IsTrue(kinds.Contains(1));Assert.IsTrue(kinds.Contains(2));Assert.IsTrue(kinds.Contains(3));Assert.IsTrue(kinds.Contains(4));
     }
+    [Test] public void EveryEnemyRoleAndBossUsesADifferentVehicleAsset(){
+        var names=new System.Collections.Generic.HashSet<string>();var pixels=new System.Collections.Generic.HashSet<string>();
+        foreach(EnemyRole role in System.Enum.GetValues(typeof(EnemyRole))){
+            string name=CampaignArt.EnemyAsset(0,role);Assert.IsTrue(names.Add(name));Assert.IsNotNull(CampaignArt.Texture(name));
+            Assert.IsTrue(pixels.Add(System.Convert.ToBase64String(File.ReadAllBytes("Assets/Resources/CampaignArt/"+name+".png"))));
+        }
+        for(int boss=1;boss<=4;boss++){
+            string name=CampaignArt.EnemyAsset(boss,EnemyRole.Melee);Assert.IsTrue(names.Add(name));Assert.IsNotNull(CampaignArt.Texture(name));
+            Assert.IsTrue(pixels.Add(System.Convert.ToBase64String(File.ReadAllBytes("Assets/Resources/CampaignArt/"+name+".png"))));
+        }
+    }
+
+    [Test] public void FractionalGroundCellsOverlapInsteadOfExposingBlackGaps(){
+        foreach(int width in new[]{800,1280,1917,1920}){
+            float size=(width-32)/13f;
+            for(int i=0;i<13;i++){
+                Rect a=CampaignArt.GroundBounds(new Rect(i*size,123.37f,size,size));
+                Rect b=CampaignArt.GroundBounds(new Rect((i+1)*size,123.37f+size,size,size));
+                Assert.GreaterOrEqual(a.xMax,b.xMin);Assert.GreaterOrEqual(a.yMax,b.yMin);
+                Assert.LessOrEqual(a.xMin,i*size);Assert.GreaterOrEqual(a.xMax,(i+1)*size);
+            }
+        }
+    }
+
 }

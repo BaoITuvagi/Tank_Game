@@ -104,14 +104,16 @@ namespace Tank.Campaign {
                     float t=(age-delay-.045f)/.13f;
                     if(t>=0&&t<1){Color color=new Color(1,.92f,.63f,1-t);Vector2 offset=new Vector2(cell*.22f,-cell*.22f);Line(b-offset,b+offset,Mathf.Max(2,cell*.07f),color);Sparks(b,cell,t,color,v.Target);}
                 }
-                if(v.Kind==VisualKind.Shot&&age<.14f){
-                    float t=Mathf.Clamp01(age/.105f);Vector2 head=Vector2.Lerp(a,b,t),dir=(b-a).normalized;
+                if(v.Kind==VisualKind.Shot&&age>=delay&&age<delay+.14f){
+                    float shotAge=age-delay;
+                    float t=Mathf.Clamp01(shotAge/.105f);Vector2 head=Vector2.Lerp(a,b,t),dir=(b-a).normalized;
                     Line(head-dir*cell*.35f,head,Mathf.Max(2,cell*.06f),new Color(1,.77f,.22f));
                     Fill(new Rect(head.x-3,head.y-3,6,6),Color.white);
-                    if(age<.06f)Sparks(a+dir*cell*.35f,cell,age/.08f,new Color(1,.9f,.4f),0);
+                    if(shotAge<.06f)Sparks(a+dir*cell*.35f,cell,shotAge/.08f,new Color(1,.9f,.4f),0);
                 }
                 if(v.Kind==VisualKind.Skill&&age<.30f){
                     float t=Mathf.Clamp01(age/.30f);Color color=effect.Nation==5?new Color(.3f,.9f,1,1-t):new Color(1,.65f,.12f,1-t);
+                    if(v.Source>0){Ring(b,cell*(.2f+t*.5f),new Color(1,.25f,.08f,1-t));Sparks(b,cell,t,new Color(1,.6f,.15f,1-t),v.Source);continue;}
                     if(effect.Nation==5){Line(a,b,cell*.18f*(1-t),color);Line(a,b,Mathf.Max(1,cell*.045f*(1-t)),new Color(1,1,1,1-t));}
                     else {Ring(b,cell*(.25f+t*(effect.Nation==0?2:3)),color);for(int i=0;i<(effect.Nation==0?1:3);i++){Vector2 start=b+new Vector2((i-1)*cell,-cell*2.5f);Line(Vector2.Lerp(start,b,Mathf.Clamp01(age/.09f)),b,3,color);}}
                     Sparks(b,cell,t,color,v.Target);

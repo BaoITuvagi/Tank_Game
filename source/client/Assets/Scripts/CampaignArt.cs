@@ -20,9 +20,10 @@ namespace Tank.Campaign {
             if(texture!=null)GUI.DrawTexture(rect,texture,mode);
         }
         static uint Noise(int x,int y){unchecked{uint h=(uint)x*374761393u+(uint)y*668265263u;h=(h^(h>>13))*1274126177u;return h^(h>>16);}}
+        public static Rect GroundBounds(Rect rect){return Rect.MinMaxRect(Mathf.Floor(rect.xMin),Mathf.Floor(rect.yMin),Mathf.Ceil(rect.xMax)+1,Mathf.Ceil(rect.yMax)+1);}
         public static void Ground(Rect rect,int x,int y,int terrain) {
             uint variant=Noise(x,y);
-            Draw(rect,variant%43==0?"grass_flowers":variant%5==0?"grass_detail":"grass",ScaleMode.StretchToFill);
+            Draw(GroundBounds(rect),variant%43==0?"grass_flowers":variant%5==0?"grass_detail":"grass",ScaleMode.StretchToFill);
             if(terrain==1)Draw(rect,(variant&1)==0?"trees":"tree");
             else if(terrain==2)Draw(rect,"rock");
             else if(terrain==3)Draw(rect,"crate");
@@ -30,7 +31,7 @@ namespace Tank.Campaign {
         }
         public static void Surroundings(Rect rect,int x,int y) {
             uint variant=Noise(x,y);
-            Draw(rect,variant%5==0?"grass_detail":"grass",ScaleMode.StretchToFill);
+            Draw(GroundBounds(rect),variant%5==0?"grass_detail":"grass",ScaleMode.StretchToFill);
             if(variant%4==0)Draw(rect,(variant&16)==0?"trees":"tree");
         }
         public static Rect VehicleUV(int facing){return facing==3?new Rect(1,0,-1,1):new Rect(0,0,1,1);}
@@ -48,8 +49,9 @@ namespace Tank.Campaign {
         public static void Tank(Rect rect,int nation,int facing) {
             Vehicle(rect,nation==0?"tank_usa":nation==1?"tank_ussr":"tank_italy",facing);
         }
-        public static void Enemy(Rect rect,int boss,int facing) {
-            Vehicle(rect,boss>0?"boss_"+Mathf.Clamp(boss,1,4):"enemy",facing);
+        public static string EnemyAsset(int boss,EnemyRole role){return boss>0?"boss_"+Mathf.Clamp(boss,1,4):role==EnemyRole.Ranged?"enemy_ranged":role==EnemyRole.Support?"enemy_support":"enemy";}
+        public static void Enemy(Rect rect,int boss,int facing,EnemyRole role=EnemyRole.Melee) {
+            Vehicle(rect,EnemyAsset(boss,role),facing);
         }
         public static void Pickup(Rect rect,int kind) {
             if(kind<0||kind>=pickups.Length)return;

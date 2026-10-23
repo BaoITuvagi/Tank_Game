@@ -12,6 +12,9 @@ final class CampaignSession {
     boolean saving;
     boolean detached;
     boolean visualEvents;
+    boolean tactics;
+    boolean shop;
+    boolean progression;
     String saveStatus="";
     long totalGold;
     CampaignSession(Server.Session session,Database db){this.session=session;this.db=db;}
@@ -21,8 +24,8 @@ final class CampaignSession {
             if(session.room!=null)throw new IllegalArgumentException("Hãy rời phòng trước khi vào chiến dịch.");
             Reader r=new Reader(p.payload());
             int version=r.u8();
-            if(version!=1&&version!=2)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
-            visualEvents=version==2;
+            if(version<1||version>5)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
+            visualEvents=version>=2;tactics=version>=3;shop=version>=4;progression=version>=5;
             int command=r.u8();
             if(command==0) {
                 int nation=r.u8();r.end();
@@ -34,6 +37,12 @@ final class CampaignSession {
                 if(run==null)throw new IllegalArgumentException("Chưa bắt đầu chiến dịch.");
                 if(turn==run.turn)run.act(action);
                 if(run.finished)save();state(p.sequence());
+            }else if(command==5) {
+                if(!shop)throw new IllegalArgumentException("Shop requires campaign version 4.");
+                String id=r.str(36);int turn=r.u32(),revision=r.u32(),item=r.u8();r.end();
+                if(run==null)throw new IllegalArgumentException("No active campaign.");
+                if(run.id.equals(id)&&run.turn==turn&&run.shopRevision==revision)run.buy(item);
+                state(p.sequence());
             }else if(command==2) {
                 r.end();if(run!=null&&!run.finished){run.finished=true;run.message="Đã kết thúc chuyến đi.";}if(run!=null)save();state(p.sequence());
             }else if(command==3) {
@@ -74,6 +83,20 @@ final class CampaignSession {
         if(run!=null&&visualEvents){
             w.u8(1).u16(run.visuals.size());
             for(var v:run.visuals)w.u8(v.kind()).u32(v.source()).u32(v.target()).u8(v.x()).u32(v.y()).u8(v.tx()).u32(v.ty()).u16(v.amount());
+        }
+        if(run!=null&&tactics){
+            var visible=run.enemies.stream().filter(e->e.y>=Math.max(0,run.y-7)&&e.y<Math.max(0,run.y-7)+CampaignRun.VIEW).toList();
+            w.u8(1).u16(visible.size());
+            for(var e:visible)w.u32(e.id).u8(e.role.ordinal()).u32(e.squad).u8(CampaignTactics.covered(run,e)?e.guard:0);
+        }
+        if(run!=null&&shop)w.u8(1).u8(CampaignRun.SHOT_RANGE).u8(CampaignRun.MAX_BUFF).u32(run.shopRevision).u32(run.price(0)).u32(run.price(1)).u32(run.price(2));
+        if(run!=null&&progression){
+            var stage=CampaignDifficulty.at(run.distance);w.u8(1).u8(stage.index()).str(stage.name());
+            int bottom=Math.max(0,run.y-7);
+            var bosses=run.enemies.stream().filter(e->e.boss>0&&e.y>=bottom&&e.y<bottom+CampaignRun.VIEW).toList();
+            w.u8(bosses.size());for(var boss:bosses)w.u32(boss.id).u8(boss.phase);
+            var danger=run.dangers.stream().filter(d->d.y()>=bottom&&d.y()<bottom+CampaignRun.VIEW).toList();
+            w.u16(danger.size());for(var d:danger)w.u32(d.source()).u8(d.x()).u32(d.y()).u32(d.due()).u16(d.damage());
         }
         session.send(RESPONSE,sequence,w.done());
     }

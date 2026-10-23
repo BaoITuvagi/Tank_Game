@@ -60,13 +60,27 @@ public final class CampaignMap {
     static int raw(long seed,int x,int y){
         if(x<0||x>=CampaignRun.WIDTH||y<0||y>CampaignRun.GOAL)return ROCK;
         int row=y%SECTION,checkpoint=y%500;
-        // Connected clearings, safe boss arenas and a wandering three-cell passage.
-        if(checkpoint<=3||checkpoint>=497||row==0||row==16||row==31||Math.abs(x-pathX(seed,y))<=1)return OPEN;
+        // Safe arena and section joins stay open; pressure routes are deterministic.
+        if(checkpoint<=3||checkpoint>=497||row==0||row==16||row==31)return OPEN;
+        int stage=y/500,gate=pressureRow(stage),side=(hash(seed,y/SECTION)&32)==0?1:11;
+        int pressure=pressure(x,row,pathX(seed,y),side,gate,stage%2==0?RUINS:ROCK);
+        if(pressure>=0)return pressure;
+        if(stage>=6){pressure=pressure(x,row,pathX(seed,y),12-side,gate==22?10:22,CRATE);if(pressure>=0)return pressure;}
+        if(Math.abs(x-pathX(seed,y))<=1)return OPEN;
         long h=hash(seed,y/SECTION);int localX=(h&16)==0?x:12-x,style=(int)(h&3);
         if(style==2){int room=room(localX,row,1,6,4,7,true);if(room>=0)return room;room=room(localX,row,8,20,4,7,false);if(room>=0)return room;}
         if(style==3){int room=room(localX,row,1,20,4,6,true);if(room>=0)return room;if(row==8&&localX>=8&&localX<=11)return RUINS;}
         for(Patch p:PATCHES[style]){int dx=localX-p.x,dy=row-p.y;if(dx*dx*p.ry*p.ry+dy*dy*p.rx*p.rx<=p.rx*p.rx*p.ry*p.ry)return p.tile;}
         return OPEN;
+    }
+    static int pressureRow(int stage){return new int[]{8,10,22}[Math.floorMod(stage,3)];}
+    static int pressure(int x,int row,int main,int flank,int gate,int material){
+        if(row<gate-2||row>gate+4)return -1;
+        // Broad approach/exit clearings connect a one-cell gate and a second flank route.
+        if(row==gate-2||row==gate+4||x==main||x==flank)return OPEN;
+        if(row==gate+1)return material;
+        if(row>=gate&&row<=gate+2&&Math.abs(x-main)==1)return material;
+        return -1;
     }
     static int room(int x,int y,int left,int bottom,int width,int height,boolean doorRight){
         int right=left+width-1,top=bottom+height-1;

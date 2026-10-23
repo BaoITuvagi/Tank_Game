@@ -17,7 +17,7 @@ namespace Tank {
             string page=UxTestDriver.Arg("--menu-preview","");
             if(!page.StartsWith("campaign"))return;
             client.Phase=ClientPhase.LOBBY;client.Nickname="Chỉ huy";
-            campaignPage=page=="campaign-ranking"?2:page=="campaign-play"||page=="campaign-results"||page=="campaign-motion"||page=="campaign-layout"?3:1;campaignChoice=0;
+            campaignPage=page=="campaign-ranking"?2:page=="campaign-shop"||page=="campaign-play"||page=="campaign-results"||page=="campaign-motion"||page=="campaign-layout"?3:1;campaignChoice=0;
             client.Campaign.Rankings.Add(new Ranking{Name="Chỉ huy Việt",Score=10000});
             client.Campaign.Rankings.Add(new Ranking{Name="Đội giải cứu",Score=2500});client.Campaign.TotalGold=1240;
             if(campaignPage==3){
@@ -28,6 +28,7 @@ namespace Tank {
                 client.Campaign.Run=run;
                 string fixture=UxTestDriver.Arg("--campaign-map-fixture","");
                 if(!string.IsNullOrEmpty(fixture)){var packet=Protocol.Decode(System.IO.File.ReadAllBytes(fixture),false);client.Campaign.Read(new WireReader(packet.Payload));}
+                if(page=="campaign-shop")campaignShopOpen=true;
                 string facing=UxTestDriver.Arg("--campaign-preview-facing","");int direction;
                 if(int.TryParse(facing,out direction)&&direction>=0&&direction<4)client.Campaign.Run.Facing=direction;
             }
@@ -38,11 +39,13 @@ namespace Tank {
         }
         void UpdateCampaign() {
             double now=Time.unscaledTimeAsDouble;
-            if(campaignAccountRevision!=client.AccountRevision){campaignAccountRevision=client.AccountRevision;campaignPage=0;campaignPresentation.Reset();queuedCampaignAction=-1;}
+            if(campaignAccountRevision!=client.AccountRevision){campaignAccountRevision=client.AccountRevision;campaignPage=0;campaignPresentation.Reset();queuedCampaignAction=-1;campaignShopOpen=false;}
             var run=client.Campaign.Run;
             campaignPresentation.Observe(run,now);
             if(!CampaignOpen||client.Phase!=ClientPhase.LOBBY||!GameWindowFocus.IsForeground||AnyDialog){queuedCampaignAction=-1;return;}
-            if(campaignPage!=3||run==null||run.Finished)return;
+            if(campaignPage!=3||run==null||run.Finished){campaignShopOpen=false;return;}
+            if(Input.GetKeyDown(KeyCode.P)){ToggleCampaignShop();return;}
+            if(campaignShopOpen){queuedCampaignAction=-1;if(Input.GetKeyDown(KeyCode.Escape))ToggleCampaignShop();return;}
             int action=-1;
             if(Input.GetKeyDown(KeyCode.W)||Input.GetKeyDown(KeyCode.UpArrow))action=0;
             else if(Input.GetKeyDown(KeyCode.D)||Input.GetKeyDown(KeyCode.RightArrow))action=1;
@@ -85,6 +88,8 @@ namespace Tank {
                 if(Button("Làm mới",!client.Campaign.Pending))client.CampaignCommand(3);
             }else {
                 GUILayout.Label("Tổng thống Đô-na-tri và gia đình đã bị tổ chức Vu-a-lo bắt cóc. Hãy lên đường giải cứu!",menu.Text);
+                GUILayout.Label("C: C\u1eadn chi\u1ebfn \u00b7 X: X\u1ea1 th\u1ee7 \u00b7 H: H\u1ed7 tr\u1ee3. H\u1ea1 xe h\u1ed7 tr\u1ee3 \u0111\u1ec3 ph\u00e1 khi\u00ean c\u1ee7a t\u1ed5 \u0111\u1ecbch.",menu.Hint);
+                GUILayout.Label("P: C\u1eeda h\u00e0ng \u00b7 S / m\u0169i t\u00ean xu\u1ed1ng: l\u00f9i xe. X\u1ea1 th\u1ee7 v\u00e0 xe b\u1ea1n \u0111\u1ec1u b\u1eafn th\u01b0\u1eddng trong 4 \u00f4.",menu.Hint);
                 float skillHeight=0;
                 for(int i=0;i<3;i++)skillHeight=Mathf.Max(skillHeight,menu.Hint.CalcHeight(new GUIContent("J · "+campaignSkills[i]+"\nTự chọn mục tiêu trong 12 ô · hồi 50 lượt"),(area.width-80)/3-24));
                 GUILayout.Space(16);GUILayout.BeginHorizontal();
@@ -94,7 +99,7 @@ namespace Tank {
                     GUILayout.Label(campaignNames[i],menu.Section);
                     Rect picture=GUILayoutUtility.GetRect(80,96,GUILayout.ExpandWidth(true));
                     CampaignTank(new Rect(picture.center.x-36,picture.y,72,88),nation,0);
-                    GUILayout.Label("100 HP · Công cơ bản 20\nI: đạn 40 · hồi 10 lượt",menu.Text);
+                    GUILayout.Label("100 HP · Công cơ bản 20\nI: đạn 40 · tầm 4 ô · hồi 10 lượt",menu.Text);
                     GUILayout.Label("J · "+campaignSkills[i]+"\nTự chọn mục tiêu trong 12 ô · hồi 50 lượt",menu.Hint,GUILayout.Height(skillHeight));
                     if(GUILayout.Button((campaignChoice==i?"✓ Đã chọn ":"Chọn xe ")+campaignNames[i],campaignChoice==i?menu.Primary:menu.Secondary))campaignChoice=i;
                     GUILayout.EndVertical();
@@ -126,17 +131,31 @@ namespace Tank {
             for(int y=Mathf.FloorToInt(bottom);y<=Mathf.CeilToInt(bottom)+rows;y++)for(int col=0;col<13;col++) {
                 CampaignArt.Ground(tileAt(new Vector2(col,y)),col,y,campaignPresentation.Terrain(col,y));
             }
+            foreach(var danger in run.Dangers){
+                Rect mark=tileAt(new Vector2(danger.X,danger.Y));
+                ArenaRenderer.Fill(new Rect(mark.x+1,mark.y+1,mark.width-2,mark.height-2),new Color(1,.15f,.07f,.50f));
+                GUI.Label(mark,"! "+(danger.Due-run.Turn),new GUIStyle(menu.White){alignment=TextAnchor.MiddleCenter,fontStyle=FontStyle.Bold,fontSize=Mathf.Clamp((int)(cell*.4f),14,24)});
+            }
             foreach(var l in run.Loot)CampaignArt.Pickup(tileAt(new Vector2(l.X,l.Y)),l.Kind);
             foreach(var e in campaignPresentation.Actors()) {
                 float opacity=campaignPresentation.Opacity(e.Id,now);if(opacity<=0)continue;
                 Vector2 pos=campaignPresentation.Enemy(e,now),direction=campaignPresentation.Player(now)-pos;
                 int facing=Mathf.Abs(direction.x)>Mathf.Abs(direction.y)?(direction.x>=0?1:3):(direction.y>=0?0:2);
                 Rect tile=tileAt(pos);
-                Color tint=campaignPresentation.Tint(e.Id,now);tint.a=opacity;GUI.color=tint;
-                CampaignArt.Enemy(tile,e.Boss,facing);GUI.color=Color.white;
+                Color tint=campaignPresentation.Tint(e.Id,now);
+                if(e.Boss==0)tint*=e.Squad%3==1?new Color(1,.86f,.78f):e.Squad%3==2?new Color(.78f,.91f,1):Color.white;
+                tint.a=opacity;GUI.color=tint;
+                CampaignArt.Enemy(tile,e.Boss,facing,e.Role);GUI.color=Color.white;
                 if(run.Enemies.Exists(actor=>actor.Id==e.Id)){
                     ArenaRenderer.Fill(new Rect(tile.x,tile.y,cell*Mathf.Clamp01((float)e.Hp/e.MaxHp),4),e.Boss>0?Color.yellow:Color.red);
-                    if(e.Boss>0)GUI.Label(tile,"B"+e.Boss,menu.Chip);
+                    if(e.Boss>0)GUI.Label(tile,"B"+e.Boss+(e.BossPhase==2?" · II":" · I"),menu.Chip);
+                    else {
+                        string role=e.Role==EnemyRole.Ranged?"X":e.Role==EnemyRole.Support?"H":"C";
+                        var badge=new Rect(tile.xMax-cell*.35f,tile.y+5,cell*.35f,Mathf.Max(16,cell*.32f));
+                        ArenaRenderer.Fill(badge,new Color(.04f,.1f,.08f,.85f));
+                        GUI.Label(badge,role,new GUIStyle(menu.White){alignment=TextAnchor.MiddleCenter,fontSize=Mathf.Clamp((int)(cell*.25f),10,16)});
+                        if(e.Guard>0)ArenaRenderer.Fill(new Rect(tile.x,tile.y+4,cell*e.Guard/10f,3),new Color(.35f,.85f,1));
+                    }
                 }
             }
             Rect player=tileAt(campaignPresentation.Player(now));
@@ -153,14 +172,16 @@ namespace Tank {
             GUI.Label(new Rect(18,33,healthWidth,22),"HP "+run.Hp+" / 100",menu.White);
             GUI.Label(new Rect(healthWidth+38,10,180,26),run.Distance+" / 10.000 m",menu.White);
             GUI.Label(new Rect(healthWidth+38,33,180,22),"Vàng "+run.Gold+" · Trùm "+run.Bosses+"/20",menu.White);
-            float footerWidth=Mathf.Min(580,viewWidth-32),footerX=(viewWidth-footerWidth)/2;
+            float footerWidth=Mathf.Min(780,viewWidth-32),footerX=(viewWidth-footerWidth)/2,buttonWidth=(footerWidth-24)/3;
             bool enabled=GUI.enabled;
-            GUI.enabled=enabled&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now);
-            if(GUI.Button(new Rect(footerX,viewHeight-50,(footerWidth-12)/2,40),"I · Bắn"+(run.Shot>0?" · "+run.Shot:""),run.Shot==0?menu.Primary:menu.Secondary)&&run.Shot==0)client.CampaignCommand(1,4);
-            if(GUI.Button(new Rect(footerX+(footerWidth+12)/2,viewHeight-50,(footerWidth-12)/2,40),"J · Kỹ năng"+(run.Skill>0?" · "+run.Skill:""),run.Skill==0?menu.Primary:menu.Secondary)&&run.Skill==0)client.CampaignCommand(1,5);
+            GUI.enabled=enabled&&!campaignShopOpen&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now);
+            if(GUI.Button(new Rect(footerX,viewHeight-50,buttonWidth,40),"I · Bắn"+(run.Shot>0?" · "+run.Shot:""),run.Shot==0?menu.Primary:menu.Secondary)&&run.Shot==0)client.CampaignCommand(1,4);
+            if(GUI.Button(new Rect(footerX+buttonWidth+12,viewHeight-50,buttonWidth,40),"J · Kỹ năng"+(run.Skill>0?" · "+run.Skill:""),run.Skill==0?menu.Primary:menu.Secondary)&&run.Skill==0)client.CampaignCommand(1,5);
+            if(GUI.Button(new Rect(footerX+2*(buttonWidth+12),viewHeight-50,buttonWidth,40),"P \u00b7 C\u1eeda h\u00e0ng",menu.Secondary))ToggleCampaignShop();
             if(GUI.Button(new Rect(viewWidth-172,10,154,40),"Kết thúc & lưu",menu.Secondary))client.CampaignCommand(2);
             GUI.enabled=enabled;
             if(viewWidth>=900)GUI.Label(new Rect(healthWidth+230,12,viewWidth-healthWidth-420,40),"×2 "+run.DoubleHits+" · Khiên "+run.Shields+" · Hạ địch "+run.Kills,menu.White);
+            if(viewWidth>=900&&!string.IsNullOrEmpty(run.StageName))GUI.Label(new Rect(healthWidth+230,34,viewWidth-healthWidth-420,22),"Chặng "+(run.Stage+1)+" · "+run.StageName,menu.White);
             string feedback=client.Campaign.Error;
             if(string.IsNullOrEmpty(feedback)&&run.Turn>0&&!run.Finished)feedback=run.Message;
             if(!string.IsNullOrEmpty(feedback)) {
@@ -169,6 +190,7 @@ namespace Tank {
                 GUI.Label(new Rect(notice.x+10,notice.y+7,notice.width-20,34),feedback,menu.White);
             }
             if(run.Finished&&campaignPresentation.ResultsReady(now))DrawCampaignResults(run);
+            else if(campaignShopOpen)DrawCampaignShop(run);
         }
         void CampaignHealthBar(Rect rect,int hp) {
             ArenaRenderer.Fill(rect,new Color(.12f,.16f,.15f));
