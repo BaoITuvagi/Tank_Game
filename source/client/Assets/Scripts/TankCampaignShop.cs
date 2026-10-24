@@ -6,7 +6,7 @@ namespace Tank {
         bool campaignShopOpen,campaignShopAttempted;
         Vector2 campaignShopScroll;
         void ToggleCampaignShop(){
-            campaignShopOpen=!campaignShopOpen;queuedCampaignAction=-1;
+            campaignShopOpen=!campaignShopOpen;campaignAudio?.ShopToggle(campaignShopOpen);queuedCampaignAction=-1;
             if(campaignShopOpen){campaignShopAttempted=false;campaignShopScroll=Vector2.zero;client.Campaign.Error="";}
             nextCampaignRepeat=Time.unscaledTimeAsDouble+.18;
         }

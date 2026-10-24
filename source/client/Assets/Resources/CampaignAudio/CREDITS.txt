@@ -1,0 +1,19 @@
+Campaign sound effects by Kenney (https://kenney.nl), CC0 1.0.
+https://creativecommons.org/publicdomain/zero/1.0/
+Original OGG files retained without modifications.
+
+shot.ogg <- laserRetro_004.ogg (Sci-fi Sounds)
+hit.ogg <- impactMetal_000.ogg (Sci-fi Sounds)
+explosion.ogg <- explosionCrunch_000.ogg (Sci-fi Sounds)
+airstrike.ogg <- lowFrequency_explosion_000.ogg (Sci-fi Sounds)
+fortress.ogg <- forceField_000.ogg (Sci-fi Sounds)
+pierce.ogg <- laserLarge_001.ogg (Sci-fi Sounds)
+heal.ogg <- confirmation_002.ogg (Interface Sounds)
+purchase.ogg <- confirmation_001.ogg (Interface Sounds)
+victory.ogg <- confirmation_004.ogg (Interface Sounds)
+shop_open.ogg <- open_001.ogg (Interface Sounds)
+shop_close.ogg <- close_001.ogg (Interface Sounds)
+
+Sources:
+https://kenney.nl/assets/sci-fi-sounds
+https://kenney.nl/assets/interface-sounds

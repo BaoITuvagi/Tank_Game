@@ -6,6 +6,12 @@ namespace Tank {
         int campaignPage,campaignChoice=-1,campaignAccountRevision;
         Vector2 campaignScroll;
         readonly CampaignPresentation campaignPresentation=new CampaignPresentation();
+        CampaignAudio campaignAudio;
+        void EnsureCampaignAudio(){
+            if(campaignAudio!=null)return;
+            campaignAudio=gameObject.AddComponent<CampaignAudio>();
+            campaignAudio.Bind(()=>client.Campaign.Run,()=>CampaignOpen&&campaignPage==3&&client.Phase==ClientPhase.LOBBY);
+        }
         int queuedCampaignAction=-1;
         double nextCampaignRepeat;
         readonly int[] campaignNations={0,1,5};
@@ -39,6 +45,7 @@ namespace Tank {
             if(Button("BXH chiến dịch",true,true)){campaignPage=2;campaignScroll=Vector2.zero;if(client.Phase==ClientPhase.LOBBY)client.CampaignCommand(3);}
         }
         void UpdateCampaign() {
+            if(CampaignOpen)EnsureCampaignAudio();
             double now=Time.unscaledTimeAsDouble;
             if(campaignAccountRevision!=client.AccountRevision){campaignAccountRevision=client.AccountRevision;campaignPage=0;campaignPresentation.Reset();queuedCampaignAction=-1;campaignShopOpen=false;}
             var run=client.Campaign.Run;
@@ -66,6 +73,7 @@ namespace Tank {
             if(action>=0){client.CampaignCommand(1,action);nextCampaignRepeat=now+.18;}
         }
         void DrawCampaignRun(RunState run) {
+            EnsureCampaignAudio();
             const int rows=13;
             const float mapTop=100,mapFooter=96;
             float playHeight=viewHeight-mapTop-mapFooter;
