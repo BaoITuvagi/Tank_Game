@@ -115,4 +115,4 @@ Desktop.ini
 /source/server/src/test/
 /source/client/Assets/Tests/
 /source/client/Assets/Tests.meta
-/scripts/test-*.ps1
+/scripts/test-*

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Tank.Campaign;
 
 namespace Tank {
@@ -29,7 +29,7 @@ namespace Tank {
                 GUI.Label(new Rect(90,row.y+14,textWidth,29),titles[item],CampaignUI.Text);
                 GUI.Label(new Rect(90,row.y+47,textWidth,62),descriptions[item],CampaignUI.Hint);
                 bool affordable=run.CanBuy(item),ready=!client.Campaign.Pending&&!campaignPresentation.Busy(Time.unscaledTimeAsDouble);
-                if(CampaignUI.Button(new Rect(row.width-156,row.y+24,142,40),"Mua · "+run.Prices[item]+" vàng",affordable&&ready)){campaignShopAttempted=true;client.CampaignCommand(5,item);}
+                if(CampaignUI.Button(new Rect(row.width-156,row.y+24,142,40),run.Prices[item]+" vàng",affordable&&ready)){campaignShopAttempted=true;client.CampaignCommand(5,item);}
                 string reason=!run.ShopAvailable?"Cần cập nhật server":item==0&&run.Hp>=run.MaxHp?"Máu đã đầy":item==1&&run.Shields>run.MaxBuff-3||item==2&&run.DoubleHits>run.MaxBuff-3?"Đã đạt giới hạn":run.Gold<run.Prices[item]?"Thiếu "+(run.Prices[item]-run.Gold)+" vàng":"Có thể mua";
                 GUI.Label(new Rect(row.width-156,row.y+75,142,28),reason,CampaignUI.Hint);
             }

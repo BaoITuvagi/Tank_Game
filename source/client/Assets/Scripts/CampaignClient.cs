@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -9,7 +9,7 @@ namespace Tank.Campaign {
     public sealed class Actor {public int Id,X,Y,Hp,MaxHp,Boss,Squad,Guard;public int BossPhase=1;public EnemyRole Role;}
     public sealed class DangerZone {public int Source,X,Y,Due,Damage;}
     public sealed class Pickup {public int X,Y,Kind;}
-    public sealed class Ranking {public string Name;public int Score;}
+    public sealed class Ranking {public string Name;public int Score,Gold,Rank;public ulong DurationMillis=ulong.MaxValue;public bool DetailsAvailable;}
     public sealed class RunState {
         public string Id,Message,SaveStatus;
         public int Stage;public string StageName="";
@@ -30,6 +30,7 @@ namespace Tank.Campaign {
     }
     public sealed class CampaignClient {
         public const byte Request=90,Response=91;
+        public const int GoalDistance=10000,BossInterval=200,BossCount=GoalDistance/BossInterval;
         public RunState Run;
         public readonly List<Ranking> Rankings=new List<Ranking>();
         public ulong TotalGold;
@@ -42,7 +43,18 @@ namespace Tank.Campaign {
             Error="";
             if(r.U8()!=1)throw new InvalidDataException("campaign version");
             int kind=r.U8();
-            if(kind==1){TotalGold=r.U64();int n=r.U8();Rankings.Clear();for(int i=0;i<n;i++)Rankings.Add(new Ranking{Name=r.Str(96),Score=(int)r.U32()});}
+            if(kind==1){
+                TotalGold=r.U64();int n=r.U8();if(n>50)throw new InvalidDataException("campaign ranking count");
+                var rows=new List<Ranking>();for(int i=0;i<n;i++)rows.Add(new Ranking{Name=r.Str(96),Score=(int)r.U32(),Rank=i+1});
+                if(r.Remaining>0){
+                    if(r.U8()!=1||r.U8()!=n)throw new InvalidDataException("campaign ranking details");
+                    for(int i=0;i<n;i++){
+                        var row=rows[i];row.Rank=r.U8();row.Gold=(int)r.U32();row.DurationMillis=r.U64();row.DetailsAvailable=true;
+                        if(row.Rank<1||row.Rank>i+1||row.Gold<0)throw new InvalidDataException("campaign ranking row");
+                    }
+                }
+                Rankings.Clear();Rankings.AddRange(rows);
+            }
             else if(kind==0){
                 if(r.U8()==0)Run=null;
                 else {
@@ -117,7 +129,7 @@ namespace Tank {
         public Campaign.CampaignClient Campaign=new Campaign.CampaignClient();
         public void CampaignCommand(int command,int value=0) {
             if(Phase!=ClientPhase.LOBBY||Campaign.Pending)return;
-            var w=new WireWriter().U8(7).U8(command);
+            var w=new WireWriter().U8(8).U8(command);
             if(command==0)w.U8(value);
             if(command==1){if(Campaign.Run==null)return;w.U32((uint)Campaign.Run.Turn).U8(value);}
             if(command==5){if(Campaign.Run==null||!Campaign.Run.CanBuy(value))return;w.Str(Campaign.Run.Id).U32((uint)Campaign.Run.Turn).U32((uint)Campaign.Run.ShopRevision).U8(value);}

@@ -4,8 +4,17 @@ import java.util.*;
 
 /** Isolated, turn-based campaign simulation. No Room, World or roleplay dependencies. */
 public final class CampaignRun {
-    public static final int WIDTH=13, VIEW=19, GOAL=10000, SHOT_RANGE=4, MAX_BUFF=9;
+    public static final int WIDTH=13, VIEW=19, GOAL=10000, BOSS_INTERVAL=200, BOSS_COUNT=GOAL/BOSS_INTERVAL, SHOT_RANGE=4, MAX_BUFF=9;
     public final String id=UUID.randomUUID().toString();
+    final long startedNanos=System.nanoTime();
+    long completedMillis=-1;
+    public long elapsedMillis(){
+        long elapsed=Math.max(0,(System.nanoTime()-startedNanos)/1_000_000);
+        if(finished&&completedMillis<0)completedMillis=elapsed;
+        return completedMillis>=0?completedMillis:elapsed;
+    }
+    public void finish(boolean won){if(!finished){finished=true;victory=won;elapsedMillis();}}
+
     final Random random;
     final long seed;
     final CampaignMap campaignMap;
@@ -44,8 +53,8 @@ public final class CampaignRun {
     void generate() {
         int top=Math.min(GOAL,y+VIEW);
         for(int row=generated+1;row<=top;row++) {
-            if(!campaignMap.peaceful(row)&&row>=40&&(row==campaignMap.encounterRow(row)||row%CampaignDifficulty.at(row).spacing()==0&&Math.abs(row-campaignMap.encounterRow(row))>5)&&row%500>5&&row%500<490)CampaignTactics.spawn(this,row);
-            else if(!campaignMap.peaceful(row)&&row>5&&row%500!=0&&enemies.size()<64&&random.nextInt(100)<Math.min(36,22+CampaignDifficulty.at(row).index()/2)) {
+            if(!campaignMap.peaceful(row)&&row>=40&&(row==campaignMap.encounterRow(row)||row%CampaignDifficulty.at(row).spacing()==0&&Math.abs(row-campaignMap.encounterRow(row))>5)&&row%BOSS_INTERVAL>5&&row%BOSS_INTERVAL<BOSS_INTERVAL-10)CampaignTactics.spawn(this,row);
+            else if(!campaignMap.peaceful(row)&&row>5&&row%BOSS_INTERVAL!=0&&enemies.size()<64&&random.nextInt(100)<Math.min(36,22+CampaignDifficulty.at(row).index()/2)) {
                 int px=random.nextInt(WIDTH);
                 if(terrain(px,row)==0)enemies.add(new Enemy(nextEnemy++,px,row,CampaignDifficulty.hp(row,Role.MELEE),CampaignDifficulty.damage(row,Role.MELEE),0));
             }
@@ -66,7 +75,7 @@ public final class CampaignRun {
         if(action<4) {
             facing=action;int nx=x+DX[action],ny=y+DY[action];
             if(terrain(nx,ny)!=0){message="Địa hình chặn đường.";return false;}
-            int gate=(bosses+1)*500;
+            int gate=(bosses+1)*BOSS_INTERVAL;
             if(ny>gate){message="Hạ trùm tại mốc "+gate+" m trước khi tiến tiếp.";return false;}
             visuals.clear();
             Enemy e=at(nx,ny);
@@ -85,16 +94,16 @@ public final class CampaignRun {
         }
         turn++;shot=Math.max(0,shot-1);skill=Math.max(0,skill-1);
         if(!finished) {
-            if(distance>=(bosses+1)*500&&!enemies.stream().anyMatch(e->e.boss>0)) {
+            if(distance>=(bosses+1)*BOSS_INTERVAL&&!enemies.stream().anyMatch(e->e.boss>0)) {
                 int stage=bosses+1;
                 int bossX=x==6?5:6;
                 // Never overlap an enemy that has moved onto the checkpoint row.
-                for(int candidate=0;at(bossX,stage*500)!=null&&candidate<WIDTH;candidate++)if(candidate!=x)bossX=candidate;
-                enemies.add(new Enemy(nextEnemy++,bossX,stage*500,140+stage*20,12+stage,1+(stage-1)%4));
-                message=stage==20?"Trùm cuối đang giữ Tổng thống!":"Trùm Vu-a-lo tại "+stage*500+" m!";
+                for(int candidate=0;at(bossX,stage*BOSS_INTERVAL)!=null&&candidate<WIDTH;candidate++)if(candidate!=x)bossX=candidate;
+                enemies.add(new Enemy(nextEnemy++,bossX,stage*BOSS_INTERVAL,140+stage*20,12+stage,1+(stage-1)%4));
+                message=stage==BOSS_COUNT?"Trùm cuối đang giữ Tổng thống!":"Trùm Vu-a-lo tại "+stage*BOSS_INTERVAL+" m!";
             }
             react();collect();generate();
-            if(hp<=0){hp=0;finished=true;message="Xe đã bị phá hủy. Chiến dịch kết thúc.";}
+            if(hp<=0){hp=0;finish(false);message="Xe đã bị phá hủy. Chiến dịch kết thúc.";}
         }
         return true;
     }
@@ -160,7 +169,7 @@ public final class CampaignRun {
         if(e.hp>0){if(e.boss>0&&e.phase==1&&e.hp*2<=e.maxHp)CampaignBosses.escalate(this,e);return;}
         visual(DEATH,0,e.id,x,y,e.x,e.y,e.boss);
         enemies.remove(e);dangers.removeIf(d->d.source()==e.id);kills++;
-        if(e.boss>0){bosses++;loot.add(new Loot(e.x,e.y,3,100+bosses*10));if(bosses==20){collect();gold+=500;finished=victory=true;message="Đã giải cứu Tổng thống Đô-na-tri và gia đình!";}}
+        if(e.boss>0){bosses++;loot.add(new Loot(e.x,e.y,3,100+bosses*10));if(bosses==BOSS_COUNT){collect();gold+=500;finish(true);message="Đã giải cứu Tổng thống Đô-na-tri và gia đình!";}}
         else loot.add(new Loot(e.x,e.y,random.nextInt(3),0));
     }
     void react() {CampaignTactics.react(this);}

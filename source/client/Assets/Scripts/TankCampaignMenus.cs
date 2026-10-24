@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Tank.Campaign;
 
 namespace Tank {
@@ -16,8 +16,11 @@ namespace Tank {
             if(!page.StartsWith("campaign"))return;
             client.Phase=ClientPhase.LOBBY;client.Nickname="Chỉ huy";
             campaignPage=page=="campaign-ranking"?2:page=="campaign-shop"||page=="campaign-play"||page=="campaign-results"||page=="campaign-motion"||page=="campaign-layout"?3:1;campaignChoice=0;
-            client.Campaign.Rankings.Add(new Ranking{Name="Chỉ huy Việt",Score=10000});
-            client.Campaign.Rankings.Add(new Ranking{Name="Đội giải cứu",Score=2500});client.Campaign.TotalGold=1240;
+            client.Campaign.Rankings.Add(new Ranking{Name="Chỉ huy Việt",Score=10000,Gold=1850,DurationMillis=325450,Rank=1,DetailsAvailable=true});
+            client.Campaign.Rankings.Add(new Ranking{Name="Đội giải cứu",Score=10000,Gold=1850,DurationMillis=325450,Rank=1,DetailsAvailable=true});
+            client.Campaign.Rankings.Add(new Ranking{Name="Thiết giáp",Score=10000,Gold=1850,DurationMillis=410120,Rank=2,DetailsAvailable=true});
+            client.Campaign.Rankings.Add(new Ranking{Name="Trinh sát",Score=10000,Gold=1500,DurationMillis=310000,Rank=3,DetailsAvailable=true});
+            client.Campaign.Rankings.Add(new Ranking{Name="Hậu cần",Score=2500,Gold=600,Rank=4,DetailsAvailable=true});client.Campaign.TotalGold=1240;
             if(campaignPage==3){
                 var run=new RunState{Id="preview",Nation=0,X=6,Y=506,Distance=506,Hp=75,Facing=0,Shot=4,Skill=12,Gold=185,Kills=28,Shields=2,DoubleHits=3,Bosses=1,Bottom=499,TotalGold=1240,ShopAvailable=true,Prices=new[]{30,46,55},NationStatsAvailable=true,SkillCooldown=24,Terrain=new byte[247],Message="Tiến về phía bắc. Trùm tiếp theo tại 1.000 m.",SaveStatus=""};
                 for(int y=0;y<19;y++)for(int x=0;x<13;x++)if(x<4||x>8)run.Terrain[y*13+x]=(byte)((x+y)%9==0?1:0);

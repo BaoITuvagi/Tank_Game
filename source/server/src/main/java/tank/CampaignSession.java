@@ -26,7 +26,7 @@ final class CampaignSession {
             if(session.room!=null)throw new IllegalArgumentException("Hãy rời phòng trước khi vào chiến dịch.");
             Reader r=new Reader(p.payload());
             int version=r.u8();
-            if(version<1||version>7)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
+            if(version<1||version>8)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
             visualEvents=version>=2;tactics=version>=3;shop=version>=4;progression=version>=5;environment=version>=6;nationStats=version>=7;
             int command=r.u8();
             if(command==0) {
@@ -46,14 +46,16 @@ final class CampaignSession {
                 if(run.id.equals(id)&&run.turn==turn&&run.shopRevision==revision)run.buy(item);
                 state(p.sequence());
             }else if(command==2) {
-                r.end();if(run!=null&&!run.finished){run.finished=true;run.message="Đã kết thúc chuyến đi.";}if(run!=null)save();state(p.sequence());
+                r.end();if(run!=null&&!run.finished){run.finish(false);run.message="Đã kết thúc chuyến đi.";}if(run!=null)save();state(p.sequence());
             }else if(command==3) {
                 r.end();long account=session.account.id();
                 db.submit(()->new Object[]{CampaignStore.ranking(db.db),CampaignStore.gold(db.db,account)}).whenComplete((result,error)->{
                     if(detached||session.account==null||session.account.id()!=account)return;
                     if(error!=null){failure(p.sequence(),"Không tải được bảng xếp hạng. Hãy thử lại.");return;}
                     @SuppressWarnings("unchecked") var rows=(java.util.List<CampaignStore.Rank>)result[0];
-                    Writer w=new Writer().u16(0).u8(1).u8(1).u64((long)result[1]).u8(rows.size());for(var row:rows)w.str(row.name()).u32(row.score());session.send(RESPONSE,p.sequence(),w.done());
+                    Writer w=new Writer().u16(0).u8(1).u8(1).u64((long)result[1]).u8(rows.size());for(var row:rows)w.str(row.name()).u32(row.score());
+                    if(version>=8){w.u8(1).u8(rows.size());for(var row:rows)w.u8(row.rank()).u32(row.gold()).u64(row.durationMillis()==null?-1:row.durationMillis());}
+                    session.send(RESPONSE,p.sequence(),w.done());
                 });
             }else if(command==4){r.end();if(run!=null&&run.finished)save();state(p.sequence());}
             else throw new IllegalArgumentException("Thao tác chiến dịch không hợp lệ.");
@@ -69,7 +71,7 @@ final class CampaignSession {
             synchronized(this){saving=false;saveStatus=error==null?"Đã lưu kết quả.":"Chưa lưu được. Bấm Lưu lại để thử lại.";if(error==null)totalGold=gold;state(0);}
         });
     }
-    synchronized void close(){detached=true;if(run!=null){run.finished=true;save();}}
+    synchronized void close(){detached=true;if(run!=null){run.finish(false);save();}}
     synchronized void state(int sequence) {
         if(detached)return;
         Writer w=new Writer().u16(0).u8(1).u8(0).u8(run==null?0:1);

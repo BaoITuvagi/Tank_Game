@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Tank.Campaign;
 
 namespace Tank {
@@ -14,9 +14,9 @@ namespace Tank {
             GUI.Label(new Rect(82,66,healthWidth-82,20),run.Hp+" / "+run.MaxHp+" HP",CampaignUI.SmallLight);
             string region=string.IsNullOrEmpty(run.RegionName)?run.StageName:run.RegionName;
             GUI.Label(new Rect(journeyX,14,journeyWidth,28),string.IsNullOrEmpty(region)?"Chiến dịch giải cứu":region,CampaignUI.Light);
-            GUI.Label(new Rect(journeyX,43,journeyWidth,23),run.Distance+" / 10.000 m · Trùm "+run.Bosses+"/20",CampaignUI.SmallLight);
-            CampaignUI.Meter(new Rect(journeyX,73,journeyWidth,10),run.Distance/10000f,new Color(1,.85f,.5f));
-            if(CampaignUI.Button(new Rect(viewWidth-160,14,144,38),"Kết thúc & lưu",!campaignShopOpen&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now),true))client.CampaignCommand(2);
+            GUI.Label(new Rect(journeyX,43,journeyWidth,23),run.Distance+" / 10.000 m · Trùm "+run.Bosses+"/"+CampaignClient.BossCount,CampaignUI.SmallLight);
+            CampaignUI.Meter(new Rect(journeyX,73,journeyWidth,10),run.Distance/(float)CampaignClient.GoalDistance,new Color(1,.85f,.5f));
+            if(CampaignUI.Button(new Rect(viewWidth-160,14,144,38),"Kết thúc",!campaignShopOpen&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now),true))client.CampaignCommand(2);
             GUI.Label(new Rect(viewWidth-158,59,142,28),"Hạ địch: "+run.Kills,CampaignUI.SmallLight);
             float footerWidth=Mathf.Min(1000,viewWidth-32),x=(viewWidth-footerWidth)/2,width=(footerWidth-24)/3;
             bool active=!campaignShopOpen&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now);

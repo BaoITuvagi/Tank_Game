@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -114,6 +114,27 @@ namespace Tank.Campaign {
         static void Sparks(Vector2 center,float cell,float t,Color color,int seed) {
             for(int i=0;i<7;i++){float angle=i*2.4f+seed;Vector2 p=center+new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*cell*t*.65f;float size=Mathf.Max(2,cell*.10f*(1-t));Fill(new Rect(p.x-size/2,p.y-size/2,size,size),color);}
         }
+        static void SmokeSprite(Vector2 center,float size,string asset,float alpha){
+            var texture=CampaignArt.Texture(asset);if(texture==null||alpha<=0)return;
+            Color previous=GUI.color;GUI.color=new Color(previous.r,previous.g,previous.b,previous.a*Mathf.Clamp01(alpha));
+            GUI.DrawTexture(new Rect(center.x-size/2,center.y-size/2,size,size),texture,ScaleMode.ScaleToFit);
+            GUI.color=previous;
+        }
+        static void DeathSmoke(Vector2 center,float cell,float age,int enemy){
+            float burst=(age-.08f)/.24f;
+            if(burst>=0&&burst<1){
+                int frame=Mathf.Min(5,(int)(burst*6));
+                SmokeSprite(center,cell*Mathf.Lerp(.4f,1.15f,burst),"death_smoke_orange"+frame,1-burst*burst);
+            }
+            float smoke=(age-.16f)/.66f;
+            if(smoke<0||smoke>=1)return;
+            for(int puff=0;puff<3;puff++){
+                float angle=puff*2.4f+enemy*.7f;
+                Vector2 drift=new Vector2(Mathf.Cos(angle)*.32f,-.22f+Mathf.Sin(angle)*.14f)*cell*smoke;
+                int frame=Mathf.Min(5,(int)(smoke*6));
+                SmokeSprite(center+drift,cell*Mathf.Lerp(.35f,.95f,smoke),"death_smoke_grey"+((frame+puff)%6),(1-smoke*smoke)*.7f);
+            }
+        }
         public void DrawEffects(Func<Vector2,Rect> tileAt,float cell,double now,GUIStyle text) {
             var labelStacks=new Dictionary<int,int>();
             foreach(var effect in effects) {
@@ -151,7 +172,7 @@ namespace Tank.Campaign {
                     style.normal.textColor=new Color(0,0,0,color.a);GUI.Label(new Rect(rect.x+1,rect.y+2,rect.width,rect.height),label,style);
                     style.normal.textColor=color;GUI.Label(rect,label,style);
                 }
-                if(v.Kind==VisualKind.Death){float t=(age-.08f)/.32f;if(t>=0&&t<1){Sparks(b,cell,t,new Color(1,.5f,.1f,1-t),v.Target);Ring(b,cell*t*.6f,new Color(1,.8f,.25f,1-t));}}
+                if(v.Kind==VisualKind.Death){if(v.Target>0)DeathSmoke(b,cell,age,v.Target);float t=(age-.08f)/.32f;if(t>=0&&t<1){Sparks(b,cell,t,new Color(1,.5f,.1f,1-t),v.Target);Ring(b,cell*t*.6f,new Color(1,.8f,.25f,1-t));}}
             }
             if(Previous!=null){
                 float age=(float)(now-Started);if(age>=0&&age<.18f&&(Previous.X!=Current.X||Previous.Y!=Current.Y)){

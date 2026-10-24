@@ -94,7 +94,7 @@ public final class CampaignMap {
             int global=index*SECTION+row,main=pathX(seed,global),previous=pathX(seed,Math.max(index*SECTION,global-1));
             horizontal(s,Math.min(main,previous),Math.max(main,previous),row,surface);
             if(row==0||row==31){for(int x=0;x<13;x++)lane(s,x,row,GRASS);lane(s,main,row,surface);}
-            if(global%500<=3||global%500>=497){
+            if(global%CampaignRun.BOSS_INTERVAL<=3||global%CampaignRun.BOSS_INTERVAL>=CampaignRun.BOSS_INTERVAL-3){
                 for(int x=0;x<13;x++){int existing=s.ground[row*13+x];set(s,x,row,OPEN,existing==ROAD||existing==BRIDGE?existing:global>10?PAVING:GRASS,0);}
                 lane(s,main,row,surface);
             }
