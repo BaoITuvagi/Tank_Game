@@ -219,6 +219,7 @@ namespace Tank  {
                 scroll=Vector2.zero;
                 if(history)client.GetHistory();
             }
+            CampaignEntryButtons();
             GUILayout.EndArea();
             GUILayout.BeginArea(new Rect(area.x+212,area.y+84,area.width-236,area.height-108));
             scroll=GUILayout.BeginScrollView(scroll);

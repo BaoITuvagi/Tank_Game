@@ -35,6 +35,7 @@ namespace Tank  {
             nextStep=ClientCore.NowUs;
             if(ArenaPreview.Enabled)ArenaPreview.Setup(client);
             SetupMenuPreview();
+            SetupCampaignPreview();
             if(UxTestDriver.Enabled)new GameObject("UX Test Driver").AddComponent<UxTestDriver>().App=this;
         }
         readonly AutoFireControl autoFire=new AutoFireControl();
@@ -62,6 +63,7 @@ namespace Tank  {
             if(skillAudio==null)skillAudio=new SkillSounds();
             arenaRenderer.UpdateEffects(client,Time.unscaledDeltaTime,skillAudio);
             ResetMenusForAccount();
+            UpdateCampaign();
             client.Smooth(Time.unscaledDeltaTime);
             autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog,client.Phase==ClientPhase.PLAYING&&Input.GetMouseButtonDown(1)&&PointerInArena());
             if(client.Phase!=ClientPhase.PLAYING) {
@@ -112,6 +114,7 @@ namespace Tank  {
             GUI.skin=menu.Skin;
             try {
                 menu.Background(viewWidth,viewHeight);
+                if(CampaignOpen){DrawCampaign();return;}
                 GUI.enabled=!AnyDialog;
                 DrawHeader();
                 if(client.Phase==ClientPhase.PLAYING)Arena();

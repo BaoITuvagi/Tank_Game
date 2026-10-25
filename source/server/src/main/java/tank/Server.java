@@ -91,6 +91,7 @@ public class Server implements AutoCloseable  {
         return false;
     }
     public final class Session implements AutoCloseable  {
+        CampaignSession campaign=new CampaignSession(this,db);
         final Socket socket;
         final ArrayBlockingQueue<byte[]> outbound=new ArrayBlockingQueue<>(128);
         final RateLimit actions=new RateLimit(10,10),udpRate=new RateLimit(120,240);
@@ -165,6 +166,10 @@ public class Server implements AutoCloseable  {
             };
             try {
                 Reader r=new Reader(p.payload());
+                if(p.op()==CampaignSession.REQUEST) {
+                    if(!actions.allow()){campaign.failure(p.sequence(),"Thao tác quá nhanh. Hãy thử lại.");return;}
+                    campaign.request(p);return;
+                }
                 if(p.op()==HEARTBEAT) {
                     long nonce=r.u64();
                     r.end();
@@ -213,6 +218,7 @@ public class Server implements AutoCloseable  {
                         send(ROOM_LIST_RESULT,p.sequence(),w.done());
                     }
                     case CREATE_ROOM-> {
+                        if(campaign.active())throw new Database.Failure(Error.INVALID_STATE);
                         String name=r.str(48);
                         int capacity=cfg.integer("max.players",8),seconds=cfg.integer("match.ticks",5400)/30;
                         boolean custom=r.b.hasRemaining();
@@ -242,6 +248,7 @@ public class Server implements AutoCloseable  {
                         }
                     }
                     case JOIN_ROOM-> {
+                        if(campaign.active())throw new Database.Failure(Error.INVALID_STATE);
                         int id=r.u32();
                         String joinPassword=r.b.hasRemaining()?r.str(128):"";
                         RoomAccess.validate(joinPassword);
@@ -421,6 +428,8 @@ public class Server implements AutoCloseable  {
             }
         }
         synchronized void logout() {
+            campaign.close();
+            campaign=new CampaignSession(this,db);
             Database.Account a=account;
             if(a!=null)accounts.remove(a.id(),this);
             if(token!=null)tokens.remove(HexFormat.of().formatHex(token),this);
