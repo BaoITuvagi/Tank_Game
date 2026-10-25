@@ -68,6 +68,7 @@ sealed class LauncherForm : Form
 
     void RefreshCurrent()
     {
+        updater.CleanupOldVersions();
         var current = updater.Current();
         version.Text = current == null ? "Chưa cài game" : "Bản đã cài: " + current.Version;
         play.Enabled = current != null;
