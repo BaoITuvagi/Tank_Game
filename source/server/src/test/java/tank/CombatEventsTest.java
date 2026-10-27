@@ -113,9 +113,11 @@ class CombatEventsTest {
         for(int i=0;i<256;i++)w.items.event(10,i%8,10,10,2,0);
         for(int i=1;i<=6;i++)new ItemCodecTest().item(w,i,i-1);
         for(int i=0;i<160;i++)add(w,SHOT);for(int i=0;i<96;i++)add(w,DEATH);
-        byte[] base=w.encode();assertEquals(25204,base.length);
+        w.battlefield.wave=new WorldBattlefield.Wave(1,3,0,60,300,List.of(0,1,2,3,4,5,6,7,8,9,0,1,2,3,4));
+        byte[] base=w.encode();assertEquals(25262,base.length);
         w.combat.events.clear();for(int i=0;i<160;i++)add(w,SHOT);for(int i=0;i<96;i++)add(w,DEATH);
         w.bullets.clear();for(int i=1000;i<1128;i++) {var b=new World.Bullet();b.id=i;w.bullets.put(i,b);}
+        w.battlefield.wave=new WorldBattlefield.Wave(2,3,60,120,360,List.of(5,6,7,8,9,0,1,2,3,4,5,6,7,8,9));
         byte[] current=w.encode(),delta=DeltaCodec.encode(base,current);assertArrayEquals(current,DeltaCodec.apply(base,delta));
         List<String> rows=new ArrayList<>();
         for(int op:new int[]{FULL,DELTA}) {

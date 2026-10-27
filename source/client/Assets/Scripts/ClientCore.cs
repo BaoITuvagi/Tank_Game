@@ -249,6 +249,7 @@ namespace Tank  {
             double now=NowUs;
             if(!open)return;
             PollRoleplay(now);
+            PollShop(now);
             if(now-lastTcpReceived>15e6) {
                 Dispose();
                 Message="TCP heartbeat quá hạn";
@@ -341,6 +342,11 @@ namespace Tank  {
                 if(effect.Tick>s.Tick)throw new System.IO.InvalidDataException("future combat event");
                 CombatEvent previous;
                 if(Latest!=null&&Latest.World.Combat.TryGetValue(effect.Id,out previous)&&!effect.SameContent(previous))throw new System.IO.InvalidDataException("combat mutation");
+            }
+            if(s.World.Battlefield!=null) {
+                s.World.Battlefield.Validate(map,s.Tick);
+                var old=Latest==null?null:Latest.World.Battlefield;
+                if(old!=null&&old.Id==s.World.Battlefield.Id&&!old.SameContent(s.World.Battlefield))throw new System.IO.InvalidDataException("battlefield mutation");
             }
             AttachLoadout(s.World);
             Decoded++;

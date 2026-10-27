@@ -18,6 +18,7 @@ final class NationSkills {
     }
     static final class Cast {
         int owner,kind,locked;
+        Effect area;
         final List<Effect> zones=new ArrayList<>();
         final Map<Integer,Integer> lives=new HashMap<>(),damage=new HashMap<>();
         final Map<Integer,Integer> targets=new HashMap<>();
@@ -30,23 +31,24 @@ final class NationSkills {
         int id,kind,owner,slot,life,end;
         boolean cleansed;
     }
+    static final int DEBUFF_KIND_COUNT=5;
     final List<Debuff> debuffs=new ArrayList<>();
     int nextDebuff=1;
     void debuff(World.Tank t,int kind,int owner,int end) {
         Debuff d=new Debuff();d.id=nextDebuff++;d.kind=kind;d.owner=owner;d.slot=t.slot;d.life=t.life;d.end=end;debuffs.add(d);refresh(t,kind);
     }
     void refresh(World.Tank t,int kind) {
-        int end=w.tick;
-        for(Debuff d:debuffs)if(d.slot==t.slot&&d.life==t.life&&d.kind==kind&&!d.cleansed)end=Math.max(end,d.end);
-        switch(kind) {case 0 -> t.confusionEndTick=end;case 1 -> t.fogEndTick=end;case 2 -> t.fireLockEndTick=end;case 3 -> t.slowEndTick=end;}
+        int end=w.tick,count=0;
+        for(Debuff d:debuffs)if(d.slot==t.slot&&d.life==t.life&&d.kind==kind&&!d.cleansed) {end=Math.max(end,d.end);count++;}
+        switch(kind) {case 0 -> t.confusionEndTick=end;case 1 -> t.fogEndTick=end;case 2 -> t.fireLockEndTick=end;case 3 -> t.slowEndTick=end;case 4 -> {t.rocketSlowEndTick=end;t.rocketSlowStacks=count;}}
     }
     void expireDebuffs() {
         Set<Integer> changed=new HashSet<>();
         for(Iterator<Debuff> it=debuffs.iterator();it.hasNext();) {
             Debuff d=it.next();World.Tank t=w.tanks.get(d.slot);
-            if(w.tick>=d.end||t==null||t.hp<=0||t.life!=d.life) {if(t!=null&&t.life==d.life)changed.add(d.slot*4+d.kind);it.remove();}
+            if(w.tick>=d.end||t==null||t.hp<=0||t.life!=d.life) {if(t!=null&&t.life==d.life)changed.add(d.slot*DEBUFF_KIND_COUNT+d.kind);it.remove();}
         }
-        for(int key:changed)refresh(w.tanks.get(key/4),key%4);
+        for(int key:changed)refresh(w.tanks.get(key/DEBUFF_KIND_COUNT),key%DEBUFF_KIND_COUNT);
     }
     void clearDebuffs(World.Tank t) {debuffs.removeIf(d->d.slot==t.slot);}
     void purify(World.Tank t) {
@@ -130,7 +132,7 @@ final class NationSkills {
         t.qReadyTick=Math.min(65535,Math.max(w.tick,t.qReadyTick)+RoleplayContent.NationCooldowns[1]);t.qPenalty=t.qReadyTick-t.qBaseReadyTick;t.qEndTick=w.tick+KatyushaDelayTicks+KatyushaRainTicks;
         if(t.qPenalty==0)t.qPenaltySources.clear();
         Cast cast=new Cast();cast.owner=t.slot;cast.kind=ROCKET;cast.locked=w.tick;
-        effect(AREA,t.slot,w.tick,t.qEndTick,t.aimX,t.aimY,KatyushaRadius,0);
+        cast.area=effect(AREA,t.slot,w.tick,t.qEndTick,t.aimX,t.aimY,KatyushaRadius,0);
         for(int i=0;i<9;i++) {
             double a=w.random.nextDouble()*Math.PI*2,r=Math.sqrt(w.random.nextDouble())*KatyushaRadius;
             int impact=w.tick+KatyushaDelayTicks+Math.round(i*KatyushaRainTicks/8f);
@@ -162,6 +164,7 @@ final class NationSkills {
             for(Iterator<Effect> zones=cast.zones.iterator();zones.hasNext();) {
                 Effect e=zones.next();
                 if(cast.kind==BOMB&&w.tick>cast.locked)trackBomb(cast,e);
+                if(cast.kind==ROCKET&&w.tick>=e.start&&!cast.targets.containsKey(e.id))lockRocket(cast,e);
                 if(w.tick<e.end)continue;
                 breakCircle(e.x,e.y,e.radius);
                 for(World.Tank t:w.tanks.values())if(t.hp>0&&circle(t,e.x,e.y,e.radius)) {
@@ -173,11 +176,26 @@ final class NationSkills {
                     else {
                         int damage=Math.min(RocketDamage,KatyushaDamageCap-cast.damage.getOrDefault(t.slot,0));
                         if(damage>0) {cast.damage.merge(t.slot,damage,Integer::sum);w.damage(t,cast.owner,damage,0,0,ROCKET,e.id);}
+                        if(t.hp>0&&w.tick<cast.area.end)debuff(t,4,cast.owner,cast.area.end);
                     }
                 }
                 zones.remove();
             }
             if(cast.zones.isEmpty())it.remove();
+        }
+    }
+    void lockRocket(Cast cast,Effect e) {
+        List<World.Tank> targets=new ArrayList<>();
+        for(World.Tank t:w.tanks.values())if(t.slot!=cast.owner&&t.hp>0&&circle(t,cast.area.x,cast.area.y,cast.area.radius))targets.add(t);
+        if(targets.isEmpty()) {
+            // Keep this rocket's random point inside the area, even if a tank enters later.
+            cast.targets.put(e.id,-1);
+        }
+        else {
+            World.Tank target=targets.get(w.random.nextInt(targets.size()));
+            e.x=target.x;e.y=target.y;
+            // The warning and falling rocket share one fixed point; never follow the tank.
+            cast.targets.put(e.id,target.slot);
         }
     }
     void trackBomb(Cast cast,Effect e) {

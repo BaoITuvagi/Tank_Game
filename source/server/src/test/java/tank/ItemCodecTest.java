@@ -9,16 +9,16 @@ class ItemCodecTest {
         World w=new World(null,0);for(int slot=0;slot<8;slot++) {var t=new World.Tank();t.slot=slot;t.life=slot+1;w.tanks.put(slot,t);}return w;
     }
     void item(World w,int id,int type) {var i=new WorldItems.Item();i.id=id;i.type=type;i.expires=450;i.x=id*5;i.y=id*7;w.items.items.put(id,i);}
-    @Test void fourRoleplayItemsStayPermanentInFullAndDeltaSnapshots() throws Exception {
+    @Test void roleplayWavesSpawnAndExpireInFullAndDeltaSnapshots() throws Exception {
         World w=new World(GameMap.load(Path.of("../../source/client/Assets/StreamingAssets/map-large.json")),31);w.items.configure(true);
-        w.add(0);w.add(1);w.arrangeInitialSpawns(null);var rows=new ArrayList<String>();byte[] base=null,spawned=null;int id=0;
-        for(int tick:new int[]{599,600,900,1200,1800}) {
+        w.add(0);w.add(1);w.arrangeInitialSpawns(null);var rows=new ArrayList<String>();byte[] base=null;int id=0;
+        for(int tick:new int[]{1199,1200,1799,1800,2399,2400,3000}) {
             while(w.tick<tick)w.step(Map.of());
-            assertEquals(Set.of(0,1),w.tanks.keySet());assertEquals(tick<600?0:4,w.items.items.size());
-            for(var i:w.items.items.values())assertEquals(0,i.expires);
-            byte[] full=w.encode();if(tick==600)spawned=full;else if(tick>600)assertArrayEquals(spawned,full);
+            assertEquals(Set.of(0,1),w.tanks.keySet());assertEquals(w.items.wave()==0?0:4,w.items.items.size());
+            for(var i:w.items.items.values())assertEquals(w.items.wave()*1200+600,i.expires);
+            byte[] full=w.encode();
             boolean delta=base!=null&&id%2==1;int baseId=id;id++;
-            Writer payload=new Writer().u64(77).u32(id).u32(tick).u64(tick*1_000_000L/30).u32(tick).u16(1800-tick);
+            Writer payload=new Writer().u64(77).u32(id).u32(tick).u64(tick*1_000_000L/30).u32(tick).u16(5400-tick);
             if(delta)payload.u32(baseId).bytes(DeltaCodec.encode(base,full));else payload.bytes(full);
             rows.add(tick+"\t"+HexFormat.of().formatHex(frame(delta?DELTA:FULL,id,payload.done()))+"\t"+HexFormat.of().formatHex(full));
             base=full;
@@ -58,7 +58,7 @@ class ItemCodecTest {
         for(int id=1;id<=6;id++) {item(w,id,id-1);if(id%2==0)w.items.items.get(id).expires=0;}
         for(int n=0;n<GameRules.MaxSkillEffects;n++)w.skills.effect(1,n%8,100,200,10,10,2,0);
         for(int n=0;n<GameRules.MaxItemEffects;n++)w.items.event(10,n%8,10,10,1.7f,0);
-        byte[] base=w.encode();assertEquals(14196,base.length);assertTrue(base.length<32768);
+        byte[] base=w.encode();assertEquals(14221,base.length);assertTrue(base.length<32768);
         for(var t:w.tanks.values()) {t.armorEndTick=180;t.invincibilityEndTick=90;t.mirrorShots=3;}
         w.bullets.clear();for(int id=1000;id<1128;id++) {var b=new World.Bullet();b.id=id;w.bullets.put(id,b);}
         byte[] current=w.encode(),delta=DeltaCodec.encode(base,current);assertArrayEquals(current,DeltaCodec.apply(base,delta));assertTrue(delta.length<32768);
@@ -104,6 +104,6 @@ class ItemCodecTest {
         byte[] full=w.encode();assertThrows(RuntimeException.class,()->World.decode(Arrays.copyOf(full,full.length-1)));
         for(int kind:new int[]{-1,6}) {var b=new World.Bullet();b.kind=kind;assertThrows(IllegalArgumentException.class,()->World.validate(b));}
         var b=new World.Bullet();b.kind=3;b.damage=20;assertThrows(IllegalArgumentException.class,()->World.validate(b));
-        for(int version:new int[]{5,6,7,8}) {byte[] old=frame(HEARTBEAT,1,new byte[0]);old[2]=(byte)version;assertThrows(IllegalArgumentException.class,()->decode(old,false));}assertEquals(9,GameRules.ProtocolVersion);
+        for(int version:new int[]{5,6,7,8,9,10,11,12,13,14,15}) {byte[] old=frame(HEARTBEAT,1,new byte[0]);old[2]=(byte)version;assertThrows(IllegalArgumentException.class,()->decode(old,false));}assertEquals(16,GameRules.ProtocolVersion);
     }
 }

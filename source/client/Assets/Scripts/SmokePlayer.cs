@@ -12,6 +12,9 @@ namespace Tank  {
         double began,lastHistory,lastSkill,nextNation;
         int expectedTicks,players,seconds,startingHp,nationOffset,qRequests,matchPlayers;
         uint change;
+        int battlefieldTypes,battlefieldWarnings,battlefieldImpacts;
+        uint lastBattlefield;
+        int battlefieldWaves;
         int buttons=17,angle;
         public static bool Enabled {
             get {
@@ -31,6 +34,12 @@ namespace Tank  {
             Application.targetFrameRate=60;
             GameMap initial;
             core=MapLoader.CreateClient(out initial);
+            core.SnapshotAccepted+=snapshot=> {
+                var wave=snapshot.World.Battlefield;if(wave==null)return;
+                int bit=1<<wave.Kind;battlefieldTypes|=bit;
+                if(wave.Id!=lastBattlefield) {lastBattlefield=wave.Id;battlefieldWaves++;}
+                if(snapshot.Tick<wave.Impact)battlefieldWarnings|=bit;else battlefieldImpacts|=bit;
+            };
             username=Arg("--account","unity000");
             output=Arg("--output",Path.Combine(Application.persistentDataPath,"smoke-result.json"));
             core.Connect(Arg("--host","127.0.0.1"),int.Parse(Arg("--tcp","20888")),int.Parse(Arg("--udp","20889")));
@@ -101,7 +110,9 @@ namespace Tank  {
                 if(core.Latest!=null&&core.Latest.Tick<expectedTicks-1&&ClientCore.NowUs-lastHistory<500000)return;
                 bool scenario=!configuredRoom||core.RoomMode==(roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL)&&core.RoomCapacity==players&&core.RoomSeconds==seconds&&core.RoomStartingHp==startingHp&&matchPlayers==players&&core.Scores.Count==players;
                 bool skills=!roleplay||core.LoadoutReady&&core.Loadouts.Count==players&&qRequests>0&&core.SkillFeedbackRevision>=1;
-                Save(SmokeAcceptance.Passed(core,expectedTicks)&&scenario&&skills);
+                int battlefieldMask=(1<<BattlefieldWave.Fire)|(1<<BattlefieldWave.Airstrike);
+                bool battlefield=!Environment.GetCommandLineArgs().Contains("--battlefield")||(battlefieldTypes==battlefieldMask&&battlefieldWarnings==battlefieldMask&&battlefieldImpacts==battlefieldMask);
+                Save(SmokeAcceptance.Passed(core,expectedTicks)&&scenario&&skills&&battlefield);
                 return;
             }
             if(ClientCore.NowUs-began>(expectedTicks/30.0+60)*1e6||(auth&&core.Phase==ClientPhase.DISCONNECTED))Save(false);
@@ -110,6 +121,7 @@ namespace Tank  {
             public bool success;
             public long decoded,invalid;
             public int historyRows,endReason,expectedTicks,qRequests,skillFeedback,nation,map,players,capacity,seconds,startingHp,expectedPlayers,expectedHp,matchPlayers,resultPlayers;
+            public int battlefieldTypes,battlefieldWarnings,battlefieldImpacts,battlefieldWaves;
             public uint observedTick;
             public ulong match;
             public string mode,message,skillNotice;
@@ -117,6 +129,7 @@ namespace Tank  {
         void Save(bool success) {
             var result=new SmokeResult {
                 success=success,decoded=core.Decoded,invalid=core.Invalid,historyRows=core.History.Count, endReason=core.EndReason,expectedTicks=expectedTicks,observedTick=core.Latest==null?0:core.Latest.Tick,match=core.Match,
+                battlefieldTypes=battlefieldTypes,battlefieldWarnings=battlefieldWarnings,battlefieldImpacts=battlefieldImpacts,battlefieldWaves=battlefieldWaves,
                 qRequests=qRequests,skillFeedback=core.SkillFeedbackRevision,mode=core.RoomMode.ToString(),message=core.Message,skillNotice=core.SkillNotice,map=core.ActiveMap.mapId,
                 nation=core.Loadouts.ContainsKey(core.Slot)?core.Loadouts[core.Slot].Nation:-1,
                 players=core.Players.Count,capacity=core.RoomCapacity,seconds=core.RoomSeconds,startingHp=core.RoomStartingHp,expectedPlayers=players,expectedHp=startingHp,matchPlayers=matchPlayers,resultPlayers=core.Scores.Count

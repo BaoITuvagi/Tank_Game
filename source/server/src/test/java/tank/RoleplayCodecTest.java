@@ -19,7 +19,7 @@ class RoleplayCodecTest {
         return w;
     }
     @Test void maximumFramedFullAndDeltaSelectionFitMtu() {
-        World w=maximum();byte[] full=w.encode();assertEquals(3354,full.length);
+        World w=maximum();byte[] full=w.encode();assertEquals(3379,full.length);
         byte[] metadata=new Writer().u64(1).u32(1).u32(18000).u64(1000).u32(18000).u16(0).done();
         for(byte[] part:SnapshotFragments.split(1,1,FULL,new Writer().bytes(metadata).bytes(full).done()))assertTrue(frame(SNAPSHOT_PART,1,part).length<=1200);
         byte[] empty=new World(null,0).encode(),delta=DeltaCodec.encode(empty,full);
@@ -43,7 +43,7 @@ class RoleplayCodecTest {
     }
     @Test void invalidStatesAndMalformedDeltaDoNotEscapeValidation() {
         World w=maximum();byte[] base=w.encode();
-        assertThrows(IllegalArgumentException.class,()->DeltaCodec.apply(base,new Writer().u8(1).u8(0).u32(1<<27).done()));
+        assertThrows(IllegalArgumentException.class,()->DeltaCodec.apply(base,new Writer().u8(1).u8(0).u32(1<<29).done()));
         assertThrows(IllegalArgumentException.class,()->DeltaCodec.apply(base,new Writer().u8(0).u8(2).u32(1).u32(1).u8(0).u8(0).done()));
         assertArrayEquals(base,w.encode());
         w.tanks.get(0).protectionFlags=4;assertThrows(IllegalArgumentException.class,w::encode);w.tanks.get(0).protectionFlags=0;
@@ -53,6 +53,15 @@ class RoleplayCodecTest {
     @Test void versionThreeCannotBeMistakenForFour() {
         byte[] old=frame(HEARTBEAT,1,new byte[0]);old[2]=3;
         assertThrows(IllegalArgumentException.class,()->decode(old,false));
+    }
+    @Test void rocketSlowDeadlinesAndCountsRoundTripAndRejectMalformedCountsAtomically() {
+        World w=maximum();var t=w.tanks.get(0);t.rocketSlowEndTick=18114;
+        byte[] base=w.encode();t.rocketSlowStacks=1;byte[] current=w.encode(),delta=DeltaCodec.encode(base,current);
+        assertEquals(1,delta[6]);assertEquals(1,World.decode(current).tanks.get(0).rocketSlowStacks);
+        assertArrayEquals(current,DeltaCodec.apply(base,delta));assertEquals(18114,t.copy().rocketSlowEndTick);
+        delta[6]=10;assertThrows(IllegalArgumentException.class,()->DeltaCodec.apply(base,delta));assertEquals(0,World.decode(base).tanks.get(0).rocketSlowStacks);
+        t.rocketSlowStacks=10;assertThrows(IllegalArgumentException.class,w::encode);
+        t.rocketSlowStacks=1;t.rocketSlowEndTick=65536;assertThrows(IllegalArgumentException.class,w::encode);
     }
     @Test void fragmentedFullAndDeltaRestoreEffectsHealthAndMaximumBullets() throws Exception {
         World w=maximum();var t=w.tanks.get(0);t.qStage=1;t.confusionEndTick=18090;t.fireLockEndTick=18075;t.fogEndTick=18150;t.aimX=6.8f;t.aimY=53.2f;

@@ -11,12 +11,12 @@ namespace Tank {
         public CombatEvent(uint id,uint tick,int kind,int sourceSlot,int targetSlot,int sourceLife,int targetLife,uint bulletId,int objectId,int surface,float x,float y,int angle,int value,int causeKind,uint causeId) {
             if(id==0||id>int.MaxValue||tick>int.MaxValue||kind<Shot||kind>BrickDestroyed||!SlotLife(sourceSlot,sourceLife)||!SlotLife(targetSlot,targetLife)
                 ||bulletId>int.MaxValue||(objectId!=65535&&(objectId<0||objectId>63))||surface<0||surface>2||float.IsNaN(x)||float.IsInfinity(x)||float.IsNaN(y)||float.IsInfinity(y)
-                ||angle<0||angle>=36000||value<0||value>65535||!(causeKind==0||causeKind>=1&&causeKind<=4||causeKind==10)
+                ||angle<0||angle>=36000||value<0||value>65535||!(causeKind==0||causeKind>=1&&causeKind<=4||causeKind==10||causeKind==11||causeKind==12)
                 ||(causeKind==0?causeId!=0:causeId==0||causeId>int.MaxValue)||kind!=Damage&&kind!=Death&&causeKind!=0)throw new InvalidDataException("combat event");
             Id=id;Tick=tick;Kind=kind;SourceSlot=sourceSlot;TargetSlot=targetSlot;SourceLife=sourceLife;TargetLife=targetLife;BulletId=bulletId;ObjectId=objectId;Surface=surface;X=x;Y=y;Angle=angle;Value=value;CauseKind=causeKind;CauseId=causeId;
         }
         static bool SlotLife(int slot,int life) {return slot==255?life==0:slot>=0&&slot<8&&life>0;}
-        public bool CauseOwnsExplosion {get {return CauseKind==1||CauseKind==2||CauseKind==3||CauseKind==10;}}
+        public bool CauseOwnsExplosion {get {return CauseKind==1||CauseKind==2||CauseKind==3||CauseKind==10||CauseKind==BattlefieldWave.AirstrikeCause;}}
         public bool SameContent(CombatEvent e) {
             return e!=null&&Id==e.Id&&Tick==e.Tick&&Kind==e.Kind&&SourceSlot==e.SourceSlot&&TargetSlot==e.TargetSlot&&SourceLife==e.SourceLife&&TargetLife==e.TargetLife
                 &&BulletId==e.BulletId&&ObjectId==e.ObjectId&&Surface==e.Surface&&X==e.X&&Y==e.Y&&Angle==e.Angle&&Value==e.Value&&CauseKind==e.CauseKind&&CauseId==e.CauseId;

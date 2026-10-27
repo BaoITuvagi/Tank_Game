@@ -32,19 +32,17 @@ class ItemGameplayTest {
     }
     @Test void modeSpecificItemCountsAppearAtExactFirstSpawnWithoutDuplicates() {
         for(boolean rp:new boolean[]{false,true}) {
-            World w=scheduledWorld(rp);int first=rp?600:300,count=rp?4:6;
+            World w=scheduledWorld(rp);int first=rp?1200:300,count=rp?4:6;
             until(w,first-1);assertTrue(w.items.items.isEmpty());w.step(Map.of());assertEquals(count,w.items.items.size());
             Set<String> positions=new HashSet<>();Set<Integer> types=new HashSet<>();
             for(var i:w.items.items.values()) {
-                assertTrue(types.add(i.type));assertEquals(0,i.expires);assertTrue(positions.add(i.x+":"+i.y));
+                assertTrue(types.add(i.type));assertEquals(rp?1800:0,i.expires);assertTrue(positions.add(i.x+":"+i.y));
             }
         }
     }
-    @Test void uncollectedItemsRemainForTheWholeMatchInBothModes() {
-        for(boolean rp:new boolean[]{false,true}) {
-            World w=scheduledWorld(rp);until(w,rp?600:300);byte[] initial=w.encode();
-            until(w,18000);assertEquals(rp?4:6,w.items.items.size());assertArrayEquals(initial,w.encode());
-        }
+    @Test void uncollectedNormalItemsRemainForTheWholeMatch() {
+        World w=scheduledWorld(false);until(w,300);byte[] initial=w.encode();
+        until(w,18000);assertEquals(6,w.items.items.size());assertArrayEquals(initial,w.encode());
     }
     @Test void normalCollectedTypesRespawnIndependentlyAtADifferentPosition() {
         World w=scheduledWorld(false);int first=300,delay=450;until(w,first);w.add(0);
@@ -58,45 +56,38 @@ class ItemGameplayTest {
         assertTrue(replacement.x!=b.x||replacement.y!=b.y);assertEquals(6,w.items.items.size());
         for(var original:selected)assertNotNull(ofType(w,original.type));
     }
-    @Test void roleplayRerollsFourUniqueItemsWithIndependentTwentySecondRespawns() {
-        World w=scheduledWorld(true);until(w,600);w.add(0);
-        for(int cycle=0;cycle<3;cycle++) {
-            var previous=new ArrayList<>(w.items.items.values());assertEquals(4,previous.size());int pickedAt=w.tick;
-            for(var old:previous)collect(w,old.type);
-            w.tanks.get(0).x=w.tanks.get(0).y=5;until(w,pickedAt+600);assertTrue(w.items.items.isEmpty());
-            for(int n=0;n<previous.size();n++) {
-                w.step(Map.of());assertEquals(n+1,w.items.items.size());var old=previous.get(n);var i=w.items.items.lastEntry().getValue();
-                assertTrue(i.id>old.id);assertTrue(i.x!=old.x||i.y!=old.y);assertEquals(0,i.expires);
-                assertEquals(n+1,w.items.items.values().stream().map(item->item.type).distinct().count());
+    @Test void roleplayUsesFortySecondCentralWavesWithTwentySecondWindows() {
+        for(int duration:new int[]{1800,5400,9000,18000}) {
+            World w=scheduledWorld(true);w.items.configure(true,duration);int interval=1200,window=600;
+            for(int wave=1;wave*interval<duration;wave++) {
+                until(w,wave*interval-1);assertTrue(w.items.items.isEmpty());w.step(Map.of());
+                assertEquals(wave,w.items.wave());assertEquals(4,w.items.items.size());
+                int end=Math.min(duration,wave*interval+window);
+                for(var i:w.items.items.values()) {
+                    assertTrue(Math.hypot(i.x-30,i.y-30)<=15);assertEquals(end,i.expires);
+                }
+                until(w,end-1);assertEquals(4,w.items.items.size());
+                w.step(Map.of());assertTrue(w.items.items.isEmpty());assertEquals(0,w.items.wave());
             }
+            until(w,duration);assertTrue(w.items.items.isEmpty());assertEquals(0,w.items.wave());
         }
     }
-    @Test void roleplayReplacementCanChooseAllAbsentTypesIncludingTheCollectedType() {
-        int[] counts=new int[6];Set<Integer> eligible=null;Random seeds=new Random(721);
-        for(int n=0;n<180;n++) {
-            World w=scheduledWorld(true);until(w,600);w.add(0);var picked=w.items.items.firstEntry().getValue();
-            var remaining=new ArrayList<>(w.items.items.values());remaining.remove(picked);collect(w,picked.type);
-            w.tanks.get(0).x=w.tanks.get(0).y=5;w.random.setSeed(seeds.nextLong());
-            Set<Integer> available=new HashSet<>(Set.of(0,1,2,3,4,5));for(var i:remaining)available.remove(i.type);eligible=available;
-            until(w,1200);assertEquals(3,w.items.items.size());w.step(Map.of());assertEquals(4,w.items.items.size());
-            var replacement=w.items.items.lastEntry().getValue();assertTrue(available.contains(replacement.type));counts[replacement.type]++;
-            assertTrue(replacement.x!=picked.x||replacement.y!=picked.y);assertEquals(4,w.items.items.values().stream().map(i->i.type).distinct().count());
-            for(var i:remaining)assertSame(i,w.items.items.get(i.id));
-        }
-        for(int type=0;type<6;type++)if(eligible.contains(type))assertTrue(counts[type]>35&&counts[type]<85,Arrays.toString(counts));else assertEquals(0,counts[type]);
+    @Test void roleplayPickupDoesNotRespawnUntilNextScheduledWave() {
+        World w=scheduledWorld(true);until(w,1200);w.add(0);int type=w.items.items.firstEntry().getValue().type;
+        collect(w,type);w.tanks.get(0).x=w.tanks.get(0).y=5;
+        until(w,1799);assertEquals(3,w.items.items.size());assertNull(ofType(w,type));
+        until(w,2399);assertTrue(w.items.items.isEmpty());w.step(Map.of());assertEquals(4,w.items.items.size());
     }
-    @Test void roleplayBlockedRespawnRetriesWithoutLosingItsRandomReplacement() {
-        World w=scheduledWorld(true);until(w,600);w.add(0);var picked=w.items.items.firstEntry().getValue();collect(w,picked.type);
-        int due=w.tick+600;w.tanks.get(0).x=w.tanks.get(0).y=5;w.map.itemSpawns=new GameMap.Point[]{point(picked.x,picked.y)};
-        until(w,due+5);assertEquals(3,w.items.items.size());
-        w.map.itemSpawns=new GameMap.Point[]{point(50,50)};w.step(Map.of());assertEquals(4,w.items.items.size());
-        var replacement=w.items.items.lastEntry().getValue();assertEquals(50,replacement.x);assertEquals(50,replacement.y);
-        assertEquals(4,w.items.items.values().stream().map(i->i.type).distinct().count());
+    @Test void roleplayNeverFallsBackOutsideBlockedCentralRegion() {
+        World w=scheduledWorld(true);w.map.water=new GameMap.Rect[]{rect(14,14,32,32,0)};
+        until(w,1200);assertTrue(w.items.items.isEmpty());
+        w.map.water=new GameMap.Rect[0];until(w,1799);assertTrue(w.items.items.isEmpty());
+        until(w,2400);assertEquals(4,w.items.items.size());
     }
     @Test void roleplayRandomSelectionCanChooseEveryFourTypeCombination() {
-        Set<Set<Integer>> combinations=new HashSet<>();Random seeds=new Random(721);var points=scheduledWorld(true).map.itemSpawns;
+        Set<Set<Integer>> combinations=new HashSet<>();Random seeds=new Random(721);
         for(int n=0;n<300;n++) {
-            World w=new World(map(),seeds.nextLong());w.items.configure(true);w.tick=600;w.map.itemSpawns=points;w.items.beginTick();
+            World w=new World(map(),seeds.nextLong());w.items.configure(true);w.tick=1200;w.items.beginTick();
             Set<Integer> types=new HashSet<>();for(var i:w.items.items.values())assertTrue(types.add(i.type));
             assertEquals(4,types.size());combinations.add(types);
         }
@@ -123,13 +114,13 @@ class ItemGameplayTest {
         assertEquals(20,ofType(w,MEDICAL).x);assertEquals(20,ofType(w,MEDICAL).y);
     }
     @Test void clearingMatchCancelsPendingRespawns() {
-        World w=scheduledWorld(true);until(w,600);w.skills.clear();until(w,1800);assertTrue(w.items.items.isEmpty());
+        World w=scheduledWorld(true);until(w,1200);w.skills.clear();until(w,2400);assertTrue(w.items.items.isEmpty());
     }
     @Test void bothRealMapsSupportModeSpecificItemCountsWithEightPlayers() throws Exception {
         for(String name:List.of("map.json","map-large.json"))for(boolean rp:new boolean[]{false,true}) {
             var m=GameMap.load(Path.of("../../source/client/Assets/StreamingAssets/"+name));
             World w=new World(m,31);w.items.configure(rp);for(int slot=0;slot<8;slot++)w.add(slot);w.arrangeInitialSpawns(null);
-            until(w,rp?600:300);assertEquals(rp?4:6,w.items.items.size(),name+" roleplay="+rp);
+            until(w,rp?1200:300);assertEquals(rp?4:6,w.items.items.size(),name+" roleplay="+rp);
             for(var i:w.items.items.values()) {
                 assertFalse(m.blocked(i.x,i.y,w.bricks));assertFalse(m.water(i.x,i.y));
                 for(var t:w.tanks.values())assertTrue(Math.hypot(t.x-i.x,t.y-i.y)>=6);

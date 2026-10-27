@@ -75,6 +75,6 @@ public class ReviewRegressionTests {
   }finally{listener.Stop();}
  }
  static IEnumerator Wait(ClientCore client,Func<bool> condition){double deadline=ClientCore.NowUs+5e6;while(!condition()){client.Poll();Assert.Less(ClientCore.NowUs,deadline,client.Message);yield return null;}}
- static Packet ReadRequest(NetworkStream stream,byte expected){while(true){var packet=Protocol.Read(stream);if(packet.Op==Op.Heartbeat||packet.Op==Op.RoomList)continue;Assert.AreEqual(expected,packet.Op);return packet;}}
+ static Packet ReadRequest(NetworkStream stream,byte expected){while(true){var packet=Protocol.Read(stream);if(packet.Op==Op.Shop){Send(stream,Op.ShopResult,packet.Sequence,new WireWriter().U16(0).U8(2).U64(0).U64(0).U8(0).U8(0).U32(0).Bytes(new byte[6]).Done());continue;}if(packet.Op==Op.Heartbeat||packet.Op==Op.RoomList)continue;Assert.AreEqual(expected,packet.Op);return packet;}}
  static void Send(NetworkStream stream,byte op,uint seq,byte[] bytes){var frame=Protocol.Frame(op,seq,bytes);stream.Write(frame,0,frame.Length);}
 }

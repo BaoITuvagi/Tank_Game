@@ -31,6 +31,7 @@ public final class GameRules {
  public static final int KatyushaDelayTicks=24;
  public static final int KatyushaRainTicks=90;
  public static final int RocketDamage=12;
+ public static final int RocketSlowSpeedPercent=90;
  public static final int KatyushaDamageCap=36;
  public static final int BombDamage=25;
  public static final int BombDelayTicks=90;
@@ -44,7 +45,7 @@ public final class GameRules {
  public static final int SabotageCooldownPenaltyTicks=300;
  public static final int BulletLifetimeTicks=150;
  public static final int SpawnShieldTicks=0;
- public static final int ProtocolVersion=9;
+ public static final int ProtocolVersion=16;
  public static final int MaxMatchTicks=18000;
  public static final int MaxTankSpeedPercent=200;
  public static final int MaxBulletSpeedPercent=150;
@@ -64,9 +65,11 @@ public final class GameRules {
  public static final int DefaultBulletBounceLimit=2;
  public static final int ItemTypeCount=6;
  public static final int ItemFirstSpawnTicks=300;
- public static final int RoleplayItemFirstSpawnTicks=600;
  public static final int ItemRespawnTicks=450;
- public static final int RoleplayItemRespawnTicks=600;
+ public static final int RoleplayItemIntervalTicks=1200;
+ public static final int RoleplayItemWindowTicks=600;
+ public static final int RoleplayItemRadiusPercent=25;
+ public static final int RoleplayItemPrice=50;
  public static final int MaxItems=6;
  public static final int RoleplayMaxItems=4;
  public static final float ItemHalfSize=0.45f;
@@ -87,4 +90,21 @@ public final class GameRules {
  public static final int MaxCombatEvents=256;
  public static final int CombatEventRetentionTicks=90;
  public static final int CombatCriticalReserve=96;
+ public static final int BattlefieldFirstTicks=300;
+ public static final int BattlefieldMinIntervalTicks=800;
+ public static final int BattlefieldMaxIntervalTicks=1200;
+ public static final int BattlefieldWarningTicks=60;
+ public static final int BattlefieldFireWarningTicks=60;
+ public static final int BattlefieldFireTicks=80;
+ public static final int BattlefieldFireDamageTicks=15;
+ public static final int BattlefieldFireDamage=5;
+ public static final int BattlefieldAirstrikeDamage=35;
+ public static final int BattlefieldAirstrikeTicks=16;
+ public static final float BattlefieldRadius=5.0f;
+ public static final float BattlefieldSpawnProtectionRadius=4.0f;
+ public static final int BattlefieldTargetsPerRound=5;
+ public static final float BattlefieldAirstrikeSpacing=13.0f;
+ public static final int BattlefieldEventTicks=240;
+ public static final int BattlefieldRounds=3;
+ public static final int BattlefieldRoundIntervalTicks=80;
 }

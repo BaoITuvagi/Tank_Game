@@ -10,10 +10,10 @@ namespace Tank  {
             var seen=new HashSet<int>();
             for(int i=0;i<n;i++) {
                 int slot=r.U8(),mask=(int)r.U32();
-                if(slot>7||(mask&~0x7ffffff)!=0||mask==0||!seen.Add(slot))throw new InvalidDataException("tank mask");
+                if(slot>7||(mask&~0x1fffffff)!=0||mask==0||!seen.Add(slot))throw new InvalidDataException("tank mask");
                 TankState old;
                 bool exists=w.Tanks.TryGetValue(slot,out old);
-                if(!exists&&mask!=0x7ffffff)throw new InvalidDataException("incomplete tank");
+                if(!exists&&mask!=0x1fffffff)throw new InvalidDataException("incomplete tank");
                 if(mask==1024) {
                     if(r.Bool())throw new InvalidDataException("presence");
                     w.Tanks.Remove(slot);
@@ -48,6 +48,8 @@ namespace Tank  {
                 if((mask&(1<<24))!=0)t.AimX=r.F32();
                 if((mask&(1<<25))!=0)t.AimY=r.F32();
                 if((mask&(1<<26))!=0)t.Life=(int)r.U32();
+                if((mask&(1<<27))!=0)t.RocketSlowEndTick=r.U16();
+                if((mask&(1<<28))!=0)t.RocketSlowStacks=r.U8();
                 if((mask&1024)!=0&&!r.Bool())throw new InvalidDataException("presence");
                 WorldState.Validate(t);
                 w.Tanks[slot]=t;
@@ -96,6 +98,7 @@ namespace Tank  {
             WorldState.ReadEffects(w,r);
             ItemCodec.Read(w,r);
             CombatCodec.Apply(w,r);
+            BattlefieldCodec.Read(w,r);
             if(w.Tanks.Count>8||w.Bullets.Count>GameRules.MaxBullets)throw new InvalidDataException("world count");
             return w;
         }

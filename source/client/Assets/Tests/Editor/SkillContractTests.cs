@@ -143,6 +143,44 @@ public class SkillContractTests {
         Assert.AreEqual(18.5,moving.X,.0001);Assert.AreEqual(10,moving.Y);Assert.AreEqual(190,repaired.Tanks[1].SlowEndTick);Assert.AreEqual(14,original.X);
         r=new WireReader(Bytes(lines[3].Split('\t')[1]));var restored=WorldState.Full(r);r.End();CollectionAssert.AreEqual(repaired.Encode(),restored.Encode());
     }
+    [Test] public void JavaTargetedRocketsRepairTheirLockedPointsAfterLossAndRejoinWithoutFollowingTheTank() {
+        var lines=File.ReadAllLines(Path.GetFullPath("../../source/server/target/interop/katyusha-targeting.tsv"));
+        var r=new WireReader(Bytes(lines[0].Split('\t')[1]));var baseline=WorldState.Full(r);r.End();
+        var originals=baseline.Effects.Where(e=>e.Kind==SkillEffect.Rocket).OrderBy(e=>e.Start).ToArray();Assert.AreEqual(9,originals.Length);
+        // Skip the snapshot that first published a targeted point; repair from the acknowledged base.
+        r=new WireReader(Bytes(lines[2].Split('\t')[1]));var repaired=DeltaCodec.Apply(baseline,r);r.End();
+        var rockets=repaired.Effects.Where(e=>e.Kind==SkillEffect.Rocket).OrderBy(e=>e.Start).ToArray();
+        Assert.AreEqual(originals[0].Id,rockets[0].Id);Assert.AreEqual(109,rockets[0].Start);Assert.AreEqual(124,rockets[0].End);
+        Assert.AreEqual(28,rockets[0].X);Assert.AreEqual(30,rockets[0].Y);
+        Assert.AreEqual(34,repaired.Tanks[1].X);Assert.AreEqual(34,rockets[1].X);Assert.AreEqual(30,rockets[1].Y);
+        Assert.AreEqual(GameRules.RocketRadius,rockets[0].Radius);
+        r=new WireReader(Bytes(lines[3].Split('\t')[1]));var restored=WorldState.Full(r);r.End();CollectionAssert.AreEqual(repaired.Encode(),restored.Encode());
+    }
+    [Test] public void JavaRocketSlowPredictionMultipliesEveryCurrentSpeedFactorAndStopsAtTheExactDeadline() {
+        var dry=new GameMap{width=60,height=60,walls=new MapRect[0],bricks=new MapRect[0],water=new MapRect[0]};
+        var wet=new GameMap{width=60,height=60,walls=new MapRect[0],bricks=new MapRect[0],water=new[]{new MapRect{x=0,y=0,w=60,h=60}}};
+        int count=0;
+        foreach(string line in File.ReadAllLines(Path.GetFullPath("../../source/server/target/interop/rocket-slow-movement.tsv"))) {
+            var fields=line.Split('\t');uint tick=uint.Parse(fields[0]);int buttons=int.Parse(fields[1]);
+            var r=new WireReader(Bytes(fields[2]));var before=WorldState.Full(r);r.End();
+            r=new WireReader(Bytes(fields[3]));var expected=WorldState.ReadTank(r);r.End();
+            var actual=before.Tanks[0].Copy();Movement.Step(actual,new InputRecord(tick,buttons,0),count<64?dry:wet,before.Bricks,before.Effects);
+            Assert.AreEqual(expected.X,actual.X,.00001);Assert.AreEqual(expected.Y,actual.Y,.00001);Assert.AreEqual(expected.Energy,actual.Energy);
+            count++;
+        }
+        Assert.AreEqual(128,count);
+    }
+    [Test] public void JavaRocketSlowStacksRepairAfterLossAndRejoinAndClearAtAreaExpiry() {
+        var lines=File.ReadAllLines(Path.GetFullPath("../../source/server/target/interop/rocket-slow-state.tsv"));
+        var r=new WireReader(Bytes(lines[0].Split('\t')[1]));var baseline=WorldState.Full(r);r.End();Assert.AreEqual(1,baseline.Tanks[1].RocketSlowStacks);
+        r=new WireReader(Bytes(lines[2].Split('\t')[1]));var repaired=DeltaCodec.Apply(baseline,r);r.End();
+        Assert.AreEqual(4,repaired.Tanks[1].RocketSlowStacks);Assert.AreEqual(214,repaired.Tanks[1].RocketSlowEndTick);Assert.AreEqual(1,baseline.Tanks[1].RocketSlowStacks);
+        r=new WireReader(Bytes(lines[3].Split('\t')[1]));var restored=WorldState.Full(r);r.End();CollectionAssert.AreEqual(repaired.Encode(),restored.Encode());
+        var tank=repaired.Tanks[1].Copy();tank.X=tank.Y=50;Movement.Step(tank,new InputRecord(200,8,0),new GameMap{width=60,height=60,walls=new MapRect[0],bricks=new MapRect[0],water=new MapRect[0]},repaired.Bricks,repaired.Effects);
+        Assert.AreEqual(.3*Math.Pow(.9,4),tank.X-50,.00001);
+        r=new WireReader(Bytes(lines[4].Split('\t')[1]));var expired=WorldState.Full(r);r.End();Assert.AreEqual(0,expired.Tanks[1].RocketSlowStacks);
+        var invalid=expired.Copy();invalid.Tanks[1].RocketSlowStacks=10;Assert.Throws<InvalidDataException>(()=>invalid.Encode());
+    }
     [Test] public void JavaBrickStagesKeepCollisionAndRepairAgainstTheSameAcknowledgedBase() {
         var lines=File.ReadAllLines(Path.GetFullPath("../../source/server/target/interop/brick-stages.tsv"));
         var r=new WireReader(Bytes(lines[0].Split('\t')[1]));var baseline=WorldState.Full(r);r.End();Assert.AreEqual(3,baseline.Bricks[0]);

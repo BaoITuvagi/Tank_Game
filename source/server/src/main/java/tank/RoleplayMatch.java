@@ -17,20 +17,27 @@ final class RoleplayMatch {
     }
     static final class Player {
         int nation=-1,highestRequest;
+        int shopWave,shopMask;
+        int inventoryRevision;
+        final int[] inventory=new int[GameRules.ItemTypeCount];
+        WalletStore.Purchase shopPending;
         final LinkedHashMap<Integer,Reply> replies=new LinkedHashMap<>();
         boolean loadoutConfirmed,awaitingLoadout,usMetricsOpen;
         long rateRejected,lastRateNotice,qUses,qAvailableTicks,aliveTicks;
         void resetMatch() {
             highestRequest=0;replies.clear();
+            shopWave=shopMask=0;shopPending=null;
+            inventoryRevision=0;Arrays.fill(inventory,0);
             loadoutConfirmed=awaitingLoadout=usMetricsOpen=false;
             rateRejected=lastRateNotice=qUses=qAvailableTicks=aliveTicks=0;
         }
     }
     final Room room;
+    final RoleplayShop shop;
     PrepStage stage=PrepStage.LOADING;
     int revision;
     byte[] loadout,loadoutHash;
-    RoleplayMatch(Room room) {this.room=room;}
+    RoleplayMatch(Room room) {this.room=room;shop=new RoleplayShop(room);}
     void selectNation(Server.Session session,int nation,int seq) {
         Room.Member m=room.member(session);
         if(m==null||room.phase!=RoomState.WAITING||m.ready) {session.error(ACTION_RESULT,seq,Error.INVALID_STATE);return;}

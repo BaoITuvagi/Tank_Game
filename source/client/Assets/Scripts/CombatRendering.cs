@@ -55,7 +55,7 @@ namespace Tank {
                 TankState t;if(!world.Tanks.TryGetValue(slot,out t)||t.Hp<=0||!Visible(observer,t.X,t.Y,tick))continue;
                 float age=combatFx.Clock;
                 if(tick<t.HeEndTick||t.MirrorShots>0)FxSprite("status/buff",t.X,t.Y,2.1f,age,new Color(1,.65f,.4f,.3f));
-                if(tick<t.SlowEndTick||SkillGeometry.KatyushaSlowEnd(t,tick,world.Effects)>tick)FxSprite("status/debuff",t.X,t.Y+1.1f,.8f,age,new Color(1,1,1,.75f));
+                if(tick<t.SlowEndTick||t.RocketSlowStacks>0&&tick<t.RocketSlowEndTick||SkillGeometry.KatyushaSlowEnd(t,tick,world.Effects)>tick)FxSprite("status/debuff",t.X,t.Y+1.1f,.8f,age,new Color(1,1,1,.75f));
                 if(tick<t.FireLockEndTick) {
                     float a=t.Turret/100f*Mathf.Deg2Rad;
                     FxSprite("magic/ice_hit_top",t.X+Mathf.Cos(a)*GameRules.TankMuzzleOffset,t.Y+Mathf.Sin(a)*GameRules.TankMuzzleOffset,TankSize*1.25f,age,Color.white,repeat:true,originalSize:true);

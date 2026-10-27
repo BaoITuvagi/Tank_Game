@@ -15,6 +15,8 @@ namespace Tank  {
             byte request=0;
             if(p.Op>=Op.RegisterResult&&p.Op!=Op.HandshakeAck&&p.Op!=Op.Pong&&p.Op!=Op.Full&&p.Op!=Op.Delta&&p.Sequence!=0&&requests.TryGetValue(p.Sequence,out request))requests.Remove(p.Sequence);
             if(p.Op==Tank.Campaign.CampaignClient.Response){Campaign.Read(r);return;}
+            if(p.Op==Op.ShopResult){ReadShop(r,p.Sequence);return;}
+            if(p.Op==Op.ActionResult&&request==Op.Shop){ReadShop(r,p.Sequence);return;}
             if(p.Op==Op.ActionResult&&request==Tank.Campaign.CampaignClient.Request){Campaign.Pending=false;Campaign.Error="Server chưa hỗ trợ chiến dịch. Hãy cập nhật server và client cùng phiên bản.";return;}
             switch(p.Op) {
                 case Op.RegisterResult:case Op.LoginResult:case Op.LogoutResult:case Op.ActionResult:case Op.RoomListResult:case Op.HistoryResult:case Op.HistoryDetailResult:case Op.DisplayNameResult: {
@@ -66,6 +68,7 @@ namespace Tank  {
                         AccountName=r.Remaining>0?r.Str(24):Nickname;
                         Phase=ClientPhase.LOBBY;
                         Message="Đăng nhập thành công";
+                        RefreshWallet();
                     }
                     else if(p.Op==Op.DisplayNameResult) {
                         Nickname=r.Str(96);

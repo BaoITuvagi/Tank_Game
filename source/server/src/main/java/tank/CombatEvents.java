@@ -12,7 +12,7 @@ final class CombatEvents {
             if(id<=0||tick<0||kind<SHOT||kind>BRICK_DESTROYED||!slotLife(sourceSlot,sourceLife)||!slotLife(targetSlot,targetLife)
                 ||bulletId<0||(objectId!=65535&&(objectId<0||objectId>63))||surface<0||surface>2
                 ||!Float.isFinite(x)||!Float.isFinite(y)||angle<0||angle>=36000||value<0||value>65535
-                ||!(causeKind==0||causeKind>=1&&causeKind<=4||causeKind==10)||(causeKind==0?causeId!=0:causeId<=0)
+                ||!(causeKind==0||causeKind>=1&&causeKind<=4||causeKind==10||causeKind==11||causeKind==12)||(causeKind==0?causeId!=0:causeId<=0)
                 ||kind!=DAMAGE&&kind!=DEATH&&causeKind!=0)throw new IllegalArgumentException("combat event");
         }
         static boolean slotLife(int slot,int life) {return slot==255?life==0:slot>=0&&slot<8&&life>0;}

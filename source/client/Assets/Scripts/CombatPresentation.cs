@@ -107,9 +107,10 @@ namespace Tank {
             }
             return false;
         }
-        void Explosion(float x,float y,float width,float start,bool originalSize=false,bool smoke=true,bool fitSmoke=false) {
-            Spawn(Transients,"combat/explosion_top",x,y,width,start,.75f,Color.white,critical:true,originalSize:originalSize);
-            if(smoke)Spawn(Transients,"nature/smoke_top",x,y,width*.55f,start,.75f,new Color(.6f,.6f,.6f,.25f),originalSize:fitSmoke);
+        void Explosion(float x,float y,float width,float start,bool originalSize=false,bool smoke=true,bool fitSmoke=false,float duration=.75f) {
+            float speed=.75f/duration;
+            Spawn(Transients,"combat/explosion_top",x,y,width,start,duration,Color.white,speed:speed,critical:true,originalSize:originalSize);
+            if(smoke)Spawn(Transients,"nature/smoke_top",x,y,width*.55f,start,duration,new Color(.6f,.6f,.6f,.25f),speed:speed,originalSize:fitSmoke);
         }
         void AddWreck(CombatEvent e,WorldState world) {
             if(latestTick>=e.Tick&&latestTick-e.Tick>=60)return;
@@ -126,6 +127,7 @@ namespace Tank {
             latestTick=snapshot.Tick;Clock=Math.Max(Clock,latestTick/30f);Prune();
             bool first=!initialized;if(first) {watermark=latestTick;initialized=true;}
             var world=snapshot.World;TankState observer;world.Tanks.TryGetValue(localSlot,out observer);
+            AcceptBattlefield(world,observer,map);
             TrailBulletCount=0;
             foreach(var bullet in world.Bullets.Values)if(ItemCodec.HasMirror(bullet.Kind)&&TrailBulletCount<TrailBullets.Length)TrailBullets[TrailBulletCount++]=bullet.Id;
             Age(Transients,world,observer);Age(Smoke,world,observer);Age(Dust,world,observer);
@@ -245,6 +247,20 @@ namespace Tank {
                     nextDust[t.Slot]=Clock+1f/6;float angle=t.Body*(float)Math.PI/18000;
                     bool water=map!=null&&map.Water(t.X,t.Y);
                     Spawn(Dust,water?null:"movement/dust_top",t.X-(float)Math.Cos(angle)*.8f,t.Y-(float)Math.Sin(angle)*.8f,.9f,Clock,.5f,water?new Color(.6f,.9f,1,.5f):Brown);
+                }
+            }
+        }
+        void AcceptBattlefield(WorldState world,TankState observer,GameMap map) {
+            var wave=world.Battlefield;
+            if(wave==null||wave.Kind!=BattlefieldWave.Airstrike||latestTick<wave.Impact||map==null||map.battlefield==null)return;
+            for(int round=0;round<wave.Rounds;round++) {
+                uint impact=wave.RoundImpact(round);if(latestTick<impact)continue;
+                for(int i=0;i<wave.TargetsPerRound;i++) {
+                    var z=map.battlefield.Zone(wave.Kind,wave.Target(round,i));
+                    int phase=round*GameRules.BattlefieldTargetsPerRound+i;
+                    if(!Take(3,wave.Id,phase,impact,wave.End,Visible(observer,z.x,z.y,latestTick)))continue;
+                    Explosion(z.x,z.y,GameRules.BattlefieldRadius*2,At(impact),originalSize:true,fitSmoke:true,duration:GameRules.BattlefieldAirstrikeTicks/30f);
+                    Cue(25,3,z.x,z.y,impact,observer,explosion:true);
                 }
             }
         }

@@ -38,6 +38,7 @@ public class Database implements AutoCloseable  {
     final Path spool;
     final Connection db;
     final CampaignStore campaigns;
+    final WalletStore wallet;
     final Gson gson=new Gson();
     final Map<Long,Result> pending=new ConcurrentHashMap<>();
     public volatile long failures;
@@ -55,6 +56,8 @@ public class Database implements AutoCloseable  {
             }
         }
         CampaignStore.schema(db);
+        WalletStore.schema(db);
+        wallet=new WalletStore(this);
         migrateDurationColumn();
         migrateColumn("matches","room_mode","TEXT");
         migrateColumn("matches","content_version","TEXT");
@@ -70,7 +73,7 @@ public class Database implements AutoCloseable  {
             });
         }
         campaigns=new CampaignStore(this);
-        retry.scheduleWithFixedDelay(()->{retryPending();campaigns.retry();},0,5,TimeUnit.SECONDS);
+        retry.scheduleWithFixedDelay(()->{retryPending();campaigns.retry();wallet.retry();},0,5,TimeUnit.SECONDS);
     }
     void migrateDurationColumn() throws SQLException {
         try (Statement statement=db.createStatement();ResultSet columns=statement.executeQuery("PRAGMA table_info(matches)")) {
@@ -323,6 +326,7 @@ public class Database implements AutoCloseable  {
         retry.shutdownNow();
         for(Result r:pending.values())spoolOnly(r);
         retryPending();
+        wallet.retry();
         worker.shutdown();
         try {
             worker.awaitTermination(15,TimeUnit.SECONDS);

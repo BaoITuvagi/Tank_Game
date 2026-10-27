@@ -9,6 +9,7 @@ public class GameMap  {
     public Rect[] walls,bricks,water;
     public Point[] spawns;
     public Point[] itemSpawns;
+    public BattlefieldMap battlefield;
     public static class Point  {
         public float x,y;
     }
@@ -35,6 +36,7 @@ public class GameMap  {
         Arrays.fill(hp,(byte)GameRules.BrickMaxHp);
         for(Point s:spawns)if(!Float.isFinite(s.x+s.y)||s.x<.4||s.y<.4||s.x>width-.4||s.y>height-.4||blocked(s.x,s.y,hp))throw new IllegalArgumentException("spawn");
         if(itemSpawns==null||itemSpawns.length<3||itemSpawns.length>64)throw new IllegalArgumentException("item spawns");
+        if(battlefield!=null)battlefield.validate(this);
         Set<String> points=new HashSet<>();
         for(Point p:itemSpawns) {
             if(!Float.isFinite(p.x+p.y)||blocked(p.x,p.y,hp)||water(p.x,p.y)||!points.add(p.x+":"+p.y))throw new IllegalArgumentException("item spawn");

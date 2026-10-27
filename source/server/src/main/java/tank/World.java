@@ -10,6 +10,7 @@ public class World  {
     public static class Tank  {
         public int slot,body,turret,hp=DEFAULT_HP,maxHp=DEFAULT_HP,energy=MAX_ENERGY,energyRecovery,kills,deaths,status=1,respawn,shield,lastKill=-1,cooldown;
         public int qReadyTick,qEndTick,slowEndTick,protectionFlags;
+        public int rocketSlowEndTick,rocketSlowStacks;
         public int qStartTick,confusionEndTick,fireLockEndTick,fogEndTick,qStage,life;
         public int armorEndTick,heEndTick,invincibilityEndTick,mirrorShots,qBaseReadyTick;
         int qPenalty;
@@ -39,6 +40,7 @@ public class World  {
             t.qReadyTick=qReadyTick;
             t.qEndTick=qEndTick;
             t.slowEndTick=slowEndTick;
+            t.rocketSlowEndTick=rocketSlowEndTick;t.rocketSlowStacks=rocketSlowStacks;
             t.protectionFlags=protectionFlags;
             t.nation=nation;
             t.qStartTick=qStartTick;t.confusionEndTick=confusionEndTick;t.fireLockEndTick=fireLockEndTick;t.fogEndTick=fogEndTick;t.qStage=qStage;t.life=life;t.aimX=aimX;t.aimY=aimY;
@@ -79,6 +81,7 @@ public class World  {
     final NationSkills skills=new NationSkills(this);
     final WorldItems items=new WorldItems(this);
     final CombatEvents combat=new CombatEvents();
+    final WorldBattlefield battlefield;
     final byte[] combatBrickHp=new byte[64];
     public long contactsExceeded,bulletCap;
     final GameMap map;
@@ -94,6 +97,7 @@ public class World  {
         if(hp<1||hp>MAX_START_HP)throw new IllegalArgumentException("starting HP");
         map=m;
         random=new Random(seed);
+        battlefield=new WorldBattlefield(this,seed);
         startingHp=hp;
         if(m!=null)for(var r:m.bricks)bricks[r.id]=(byte)GameRules.BrickMaxHp;
     }
@@ -214,6 +218,7 @@ public class World  {
         float water=m.water(t.x,t.y)?.5f:1;
         float slow=simulationTick<t.slowEndTick?GameRules.SlowSpeedPercent/100f:1;
         if(NationSkills.katyushaSlowEnd(t,simulationTick,effects)>simulationTick)slow*=GameRules.KatyushaSlowSpeedPercent/100f;
+        if(simulationTick<t.rocketSlowEndTick)for(int hit=0;hit<t.rocketSlowStacks;hit++)slow*=GameRules.RocketSlowSpeedPercent/100f;
         float speed=TANK_SPEED*water*multiplier*slow/30;
         float x=t.x+dx*norm*speed,y=t.y+dy*norm*speed;
         int desired=dx!=0||dy!=0?Math.floorMod((int)Math.round(Math.toDegrees(Math.atan2(dy,dx))*100),36000):t.body;
@@ -227,6 +232,7 @@ public class World  {
         tick++;
         combat.prune(tick);
         System.arraycopy(bricks,0,combatBrickHp,0,64);
+        battlefield.beginTick();
         items.beginTick();
         skills.expireDebuffs();
         for(Tank t:tanks.values()) {Input input=inputs.get(t.slot);t.desiredAim=input==null?t.turret:input.angle;t.desiredButtons=input==null?0:input.buttons;}
@@ -247,6 +253,7 @@ public class World  {
             items.path(t,oldX,oldY,t.x,oldY);items.path(t,t.x,oldY,t.x,t.y);
         }
         items.pickup();
+        battlefield.damage();
         for(Tank t:tanks.values()) {
             if(t.hp<=0||!previousTanks.containsKey(t.slot))continue;
             Input in=inputs.get(t.slot);
@@ -470,6 +477,7 @@ public class World  {
         skills.clearDebuffs(t);
         t.armorEndTick=t.heEndTick=t.invincibilityEndTick=tick;t.mirrorShots=0;
         t.qEndTick=t.slowEndTick=tick;
+        t.rocketSlowEndTick=tick;t.rocketSlowStacks=0;
         t.protectionFlags=0;
         t.qStage=0;t.qStartTick=tick;t.confusionEndTick=t.fireLockEndTick=t.fogEndTick=tick;
     }
@@ -532,7 +540,7 @@ public class World  {
     }
     public static void writeTank(Writer w,Tank t) {
         validate(t);
-        w.u8(t.slot).f32(t.x).f32(t.y).u16(t.body).u16(t.turret).u16(t.hp).u16(t.kills).u16(t.deaths).u8(t.status).u32(t.respawn).u32(t.shield).u16(t.maxHp).u8(t.energy).u8(t.energyRecovery).u32(t.lastKill).u16(t.qReadyTick).u16(t.qEndTick).u16(t.slowEndTick).u8(t.protectionFlags).u16(t.qStartTick).u16(t.confusionEndTick).u16(t.fireLockEndTick).u16(t.fogEndTick).u8(t.qStage).f32(t.aimX).f32(t.aimY).u32(t.life);
+        w.u8(t.slot).f32(t.x).f32(t.y).u16(t.body).u16(t.turret).u16(t.hp).u16(t.kills).u16(t.deaths).u8(t.status).u32(t.respawn).u32(t.shield).u16(t.maxHp).u8(t.energy).u8(t.energyRecovery).u32(t.lastKill).u16(t.qReadyTick).u16(t.qEndTick).u16(t.slowEndTick).u8(t.protectionFlags).u16(t.qStartTick).u16(t.confusionEndTick).u16(t.fireLockEndTick).u16(t.fogEndTick).u8(t.qStage).f32(t.aimX).f32(t.aimY).u32(t.life).u16(t.rocketSlowEndTick).u8(t.rocketSlowStacks);
     }
     public static Tank readTank(Reader r) {
         Tank t=new Tank();
@@ -556,12 +564,14 @@ public class World  {
         t.slowEndTick=r.u16();
         t.protectionFlags=r.u8();
         t.qStartTick=r.u16();t.confusionEndTick=r.u16();t.fireLockEndTick=r.u16();t.fogEndTick=r.u16();t.qStage=r.u8();t.aimX=r.f32();t.aimY=r.f32();t.life=r.u32();
+        t.rocketSlowEndTick=r.u16();t.rocketSlowStacks=r.u8();
         validate(t);
         return t;
     }
     public static void validate(Tank t) {
         if(t.slot<0||t.slot>7||t.body<0||t.body>=36000||t.turret<0||t.turret>=36000||t.maxHp<1||t.maxHp>MAX_START_HP||t.hp<0||t.hp>t.maxHp||t.energy<0||t.energy>MAX_ENERGY||t.energyRecovery<0||t.energyRecovery>ENERGY_RECOVERY_DELAY||t.status<0||t.status>1||!Float.isFinite(t.x)||!Float.isFinite(t.y))throw new IllegalArgumentException("tank");
-        for(int deadline:new int[]{t.qReadyTick,t.qEndTick,t.slowEndTick,t.qStartTick,t.confusionEndTick,t.fireLockEndTick,t.fogEndTick})if(deadline<0||deadline>65535)throw new IllegalArgumentException("skill deadline");
+        for(int deadline:new int[]{t.qReadyTick,t.qEndTick,t.slowEndTick,t.qStartTick,t.confusionEndTick,t.fireLockEndTick,t.fogEndTick,t.rocketSlowEndTick})if(deadline<0||deadline>65535)throw new IllegalArgumentException("skill deadline");
+        if(t.rocketSlowStacks<0||t.rocketSlowStacks>9)throw new IllegalArgumentException("rocket slow stacks");
         if(t.qStage<0||t.qStage>1||t.life<0||!Float.isFinite(t.aimX)||!Float.isFinite(t.aimY))throw new IllegalArgumentException("skill state");
         if((t.protectionFlags&~1)!=0)throw new IllegalArgumentException("protection flags");
     }
@@ -591,7 +601,7 @@ public class World  {
         tanks.values().forEach(t->writeTank(w,t));
         w.u8(bullets.size());
         bullets.values().forEach(b->writeBullet(w,b));
-        return w.bytes(bricks).bytes(skills.encode()).bytes(items.encode()).bytes(combat.encode()).done();
+        return w.bytes(bricks).bytes(skills.encode()).bytes(items.encode()).bytes(combat.encode()).bytes(battlefield.encode()).done();
     }
     public static World decode(byte[] data) {
         World s=new World(null,0);
@@ -613,6 +623,7 @@ public class World  {
         s.skills.read(r);
         s.items.read(r);
         s.combat.read(r);
+        s.battlefield.read(r);
         r.end();
         return s;
     }

@@ -4,6 +4,14 @@
 /tmp/
 /.local-archive/
 /plan/
+
+# Local agent configuration and original asset copies
+/.agents/
+/.codex/
+/anh_nen.png
+/logo.png
+/cartoon_ui_pack.zip
+
 **/[Tt]arget/
 **/[Bb]in/
 **/[Oo]bj/

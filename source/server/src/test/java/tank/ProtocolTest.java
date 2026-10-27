@@ -4,7 +4,7 @@ import java.io.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 class ProtocolTest {
- @Test void golden(){byte[] f=Protocol.frame(1,0x01020304,new Protocol.Writer().str("tank").str("password").done());assertEquals("544209010102030400100000000474616e6b000870617373776f7264",HexFormat.of().formatHex(f));assertEquals(1,Protocol.decode(f,false).op());}
+ @Test void golden(){byte[] f=Protocol.frame(1,0x01020304,new Protocol.Writer().str("tank").str("password").done());assertEquals("544210010102030400100000000474616e6b000870617373776f7264",HexFormat.of().formatHex(f));assertEquals(1,Protocol.decode(f,false).op());}
  @Test void threeItemClientsAreRejectedBeforeLogin() {
   byte[] login=Protocol.frame(Protocol.LOGIN,1,new Protocol.Writer().str("tank").str("password").done());login[2]=6;
   assertThrows(IllegalArgumentException.class,()->Protocol.read(new ByteArrayInputStream(login)));

@@ -35,7 +35,7 @@ namespace Tank {
                 }
             }
         }
-        void ItemHud(TankState t,uint tick,float left,float top,float width) {
+        static string ItemHudText(TankState t,uint tick) {
             string text="";
             if(t.Hp>0) {
                 if(tick<t.ArmorEndTick)text+="Giáp "+((t.ArmorEndTick-tick)/30f).ToString("0.0")+"s  ";
@@ -43,7 +43,25 @@ namespace Tank {
                 if(tick<t.HeEndTick)text+="HE "+((t.HeEndTick-tick)/30f).ToString("0.0")+"s  ";
                 if(t.MirrorShots>0)text+="Mirror ×"+t.MirrorShots;
             }
-            GUI.Label(new Rect(left,top,width,43),text.Length>0?text:"Vật phẩm: chạm để nhặt",body);
+            return text.Length>0?text:"Vật phẩm: chạm để nhặt";
+        }
+        void ItemHud(TankState t,uint tick,float left,float top,float width,float height) {
+            GUI.Label(new Rect(left,top,width,height),ItemHudText(t,tick),body);
+        }
+        void InventoryHud(ClientCore client,float left,float top,float width) {
+            float side=(width-5*4)/6;
+            for(int type=0;type<GameRules.ItemTypeCount;type++) {
+                Rect cell=new Rect(left+type*(side+4),top,side,34);
+                int count=client.ItemCount(type);
+                bool enabled=GUI.enabled;GUI.enabled=enabled&&client.CanUseItem(type);
+                CartoonUi.Panel(cell,CartoonUi.PanelDark,6,1);
+                if(GUI.Button(cell,GUIContent.none,GUIStyle.none))client.UseItem(type);
+                if(count>0) {
+                    Color old=GUI.color;GUI.color=new Color(1,1,1,GUI.enabled?1:.5f);ItemIcon(new Rect(cell.x+2,cell.y+2,cell.width-4,cell.height-4),type);GUI.color=old;
+                }
+                else GUI.Label(cell,"—",small);
+                GUI.enabled=enabled;
+            }
         }
     }
 }

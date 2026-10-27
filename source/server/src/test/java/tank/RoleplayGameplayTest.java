@@ -96,6 +96,104 @@ class RoleplayGameplayTest {
         }
         Path path=Path.of("target/interop/katyusha-movement.tsv");Files.createDirectories(path.getParent());Files.write(path,rows);
     }
+    World targetedKatyusha() {
+        World w=world(500);var caller=w.tanks.get(0);caller.nation=1;caller.x=caller.y=5;
+        w.tanks.get(1).x=26;w.tanks.get(1).y=30;
+        w.skillAim(0,30,30);w.useSkill(0,0);w.useSkill(0,0);return w;
+    }
+    @Test void eachRocketHitMultipliesSpeedEvenAfterTheDamageCapAndAllStacksExpireWithTheArea() {
+        World w=targetedKatyusha();var cast=w.skills.casts.getFirst();var rockets=new ArrayList<>(cast.zones);var target=w.tanks.get(1);
+        for(int hit=1;hit<9;hit++) {
+            until(w,rockets.get(hit-1).end);
+            assertEquals(hit,target.rocketSlowStacks);assertEquals(cast.area.end,target.rocketSlowEndTick);
+            assertEquals(500-Math.min(hit*GameRules.RocketDamage,GameRules.KatyushaDamageCap),target.hp);
+            var moving=target.copy();float x=moving.x;
+            World.movement(moving,new World.Input(w.tick+1,8,0),w.map,w.bricks,w.tick+1,w.skills.effects);
+            assertEquals(.3*.5*Math.pow(.9,hit),moving.x-x,.00001);
+        }
+        until(w,cast.area.end);assertEquals(0,target.rocketSlowStacks);
+        var moving=target.copy();float x=moving.x;
+        World.movement(moving,new World.Input(w.tick,8,0),w.map,w.bricks,w.tick,w.skills.effects);
+        assertEquals(.3,moving.x-x,.00001);
+        until(w,cast.area.end+24);assertEquals(0,target.rocketSlowStacks,"Afterglows must not reapply hit slow.");
+    }
+    @Test void rocketHitSlowPersistsOutsideTheAreaAndPurificationAndDeathClearOnlyTheCurrentLife() {
+        World w=targetedKatyusha();var rockets=new ArrayList<>(w.skills.casts.getFirst().zones);var target=w.tanks.get(1);
+        until(w,rockets.getFirst().end);target.x=target.y=50;
+        var moving=target.copy();World.movement(moving,new World.Input(w.tick+1,8,0),w.map,w.bricks,w.tick+1,w.skills.effects);
+        assertEquals(.3*.9,moving.x-50,.00001);
+        w.items.apply(target,WorldItems.PURIFICATION);assertEquals(0,target.rocketSlowStacks);
+        target.x=26;target.y=30;until(w,rockets.get(1).end);assertEquals(1,target.rocketSlowStacks,"New hits must not restore cleansed stacks.");
+        until(w,rockets.get(2).end);assertEquals(2,target.rocketSlowStacks);
+        int life=target.life;w.damage(target,0,500,2);assertEquals(0,target.rocketSlowStacks);
+        w.spawn(target);assertNotEquals(life,target.life);assertEquals(0,target.rocketSlowStacks);
+        target.x=target.y=50;until(w,rockets.getLast().end);assertEquals(0,target.rocketSlowStacks);
+    }
+    @Test void rocketSlowMatchesTerrainSprintBombAndAreaFactorsUntilTheExactDeadline() throws Exception {
+        List<String> rows=new ArrayList<>();
+        for(boolean wet:new boolean[]{false,true})for(boolean bomb:new boolean[]{false,true})for(boolean inside:new boolean[]{false,true})for(int hits:new int[]{0,1,2,8})for(int tick:new int[]{199,200})for(int buttons:new int[]{8,40}) {
+            GameMap map=open();if(wet)map.water=new GameMap.Rect[]{rect(0,0,60,60,2)};
+            World w=new World(map,1,500);w.add(0);var t=w.tanks.get(0);t.x=t.y=inside?20:50;t.energy=77;
+            t.slowEndTick=bomb?300:0;t.rocketSlowEndTick=200;t.rocketSlowStacks=hits;
+            w.skills.effect(NationSkills.AREA,1,100,200,20,20,GameRules.KatyushaRadius,0);
+            byte[] before=w.encode();float x=t.x;
+            World.movement(t,new World.Input(tick,buttons,0),map,w.bricks,tick,w.skills.effects);
+            double expected=.3*(wet?.5:1)*(buttons==40?1.5:1)*(bomb?.7:1)*(inside&&tick<200?.5:1)*(tick<200?Math.pow(.9,hits):1);
+            assertEquals(expected,t.x-x,.00001);
+            var after=new Protocol.Writer();World.writeTank(after,t);
+            rows.add(tick+"\t"+buttons+"\t"+HexFormat.of().formatHex(before)+"\t"+HexFormat.of().formatHex(after.done()));
+        }
+        Path path=Path.of("target/interop/rocket-slow-movement.tsv");Files.createDirectories(path.getParent());Files.write(path,rows);
+    }
+    @Test void rocketSlowStacksRepairAfterDroppedSnapshotsAndExpireInFullState() throws Exception {
+        World w=targetedKatyusha();var cast=w.skills.casts.getFirst();var rockets=new ArrayList<>(cast.zones);var target=w.tanks.get(1);
+        until(w,rockets.getFirst().end);byte[] base=w.encode();assertEquals(1,target.rocketSlowStacks);
+        until(w,rockets.get(1).end);byte[] dropped=DeltaCodec.encode(base,w.encode());
+        until(w,rockets.get(3).end);byte[] current=w.encode(),delta=DeltaCodec.encode(base,current);assertEquals(4,target.rocketSlowStacks);
+        assertArrayEquals(current,DeltaCodec.apply(base,delta));assertEquals(4,World.decode(current).tanks.get(1).rocketSlowStacks);
+        until(w,cast.area.end);assertEquals(0,target.rocketSlowStacks);
+        var hex=HexFormat.of();Path path=Path.of("target/interop/rocket-slow-state.tsv");Files.createDirectories(path.getParent());
+        Files.write(path,List.of("BASE\t"+hex.formatHex(base),"DROPPED\t"+hex.formatHex(dropped),"DELTA\t"+hex.formatHex(delta),"REJOIN\t"+hex.formatHex(current),"EXPIRED\t"+hex.formatHex(w.encode())));
+    }
+    @Test void katyushaLocksEachRocketAtLaunchAndRepairsFrozenPointsAfterPacketLoss() throws Exception {
+        World w=targetedKatyusha();var cast=w.skills.casts.getFirst();var target=w.tanks.get(1);
+        var first=cast.zones.get(0);var second=cast.zones.get(1);byte[] base=w.encode();
+        target.x=28;until(w,first.start-1);assertFalse(cast.targets.containsKey(first.id));
+        until(w,first.start);assertEquals(28,first.x);assertEquals(30,first.y);assertEquals(1,cast.targets.get(first.id));
+        byte[] dropped=w.encode();target.x=34;
+        until(w,second.start);assertEquals(28,first.x);assertEquals(34,second.x);assertEquals(30,second.y);
+        byte[] current=w.encode(),delta=DeltaCodec.encode(base,current);assertArrayEquals(current,DeltaCodec.apply(base,delta));
+        var hex=HexFormat.of();Path path=Path.of("target/interop/katyusha-targeting.tsv");Files.createDirectories(path.getParent());
+        Files.write(path,List.of("BASE\t"+hex.formatHex(base),"DROPPED\t"+hex.formatHex(DeltaCodec.encode(base,dropped)),"DELTA\t"+hex.formatHex(delta),"REJOIN\t"+hex.formatHex(current)));
+        until(w,first.end);assertEquals(28,first.x);assertEquals(500,target.hp,"Moving away dodges the locked point.");
+        until(w,second.end);assertEquals(488,target.hp,"The next rocket uses the position sampled at its own launch.");
+    }
+    @Test void katyushaFallsBackToRandomForEveryRemainingRocketWhenEnemyLeavesEvenAfterCallerDeath() {
+        World w=targetedKatyusha();var cast=w.skills.casts.getFirst();var rockets=new ArrayList<>(cast.zones);var target=w.tanks.get(1);
+        target.x=30;until(w,rockets.getFirst().start);assertEquals(30,rockets.getFirst().x);
+        target.x=target.y=55;w.damage(w.tanks.get(0),1,500);
+        for(var e:rockets.subList(1,rockets.size())) {
+            float x=e.x,y=e.y;until(w,e.start);
+            assertEquals(-1,cast.targets.get(e.id));assertEquals(x,e.x);assertEquals(y,e.y);
+            assertTrue(Math.hypot(e.x-30,e.y-30)<=GameRules.KatyushaRadius+.00001);
+        }
+        until(w,rockets.getLast().end);assertEquals(9,cast.targets.size());assertFalse(w.skills.casts.contains(cast));assertEquals(500,target.hp);
+    }
+    @Test void katyushaSamplesRandomLivingEnemiesAndCanAcquireNewArrivalsOnlyOnLaterLaunches() {
+        World w=targetedKatyusha();w.add(2);w.add(3);var cast=w.skills.casts.getFirst();
+        w.tanks.get(0).x=w.tanks.get(0).y=30;
+        w.tanks.get(2).x=34;w.tanks.get(2).y=30;
+        w.tanks.get(3).x=w.tanks.get(3).y=30;w.tanks.get(3).hp=0;w.tanks.get(3).respawn=1000;
+        w.random.setSeed(1234);var expected=new Random(1234);
+        for(var e:new ArrayList<>(cast.zones)) {
+            until(w,e.start);int slot=1+expected.nextInt(2);
+            assertEquals(slot,cast.targets.get(e.id));assertEquals(w.tanks.get(slot).x,e.x);assertEquals(30,e.y);
+        }
+        World empty=targetedKatyusha();var emptyCast=empty.skills.casts.getFirst();var first=emptyCast.zones.getFirst();var second=emptyCast.zones.get(1);
+        var target=empty.tanks.get(1);target.x=target.y=55;until(empty,first.start);assertEquals(-1,emptyCast.targets.get(first.id));
+        float x=first.x,y=first.y;target.x=target.y=30;until(empty,second.start);
+        assertEquals(x,first.x);assertEquals(y,first.y);assertEquals(1,emptyCast.targets.get(second.id));assertEquals(30,second.x);assertEquals(30,second.y);
+    }
     @Test void katyushaSlowRequiresLockedActiveAreaAndStopsOutsideOrAfterDeath() {
         World w=world(500);var caller=w.tanks.get(0);caller.nation=1;caller.x=caller.y=20;
         w.skillAim(0,20,20);w.useSkill(0,0);

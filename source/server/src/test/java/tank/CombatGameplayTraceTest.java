@@ -5,7 +5,7 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Approved rectangular layout/hitbox baseline. The pre-layout trace remains archived separately. */
+/** Rectangular layout/hitboxes and fixed central roleplay item waves. The pre-layout trace remains archived separately. */
 class CombatGameplayTraceTest {
     List<String> trace(boolean recording)throws Exception {
         List<String> rows=new ArrayList<>();

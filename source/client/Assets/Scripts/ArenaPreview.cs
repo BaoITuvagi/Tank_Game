@@ -84,6 +84,13 @@ namespace Tank  {
                 if(index>=0&&index+1<args.Length&&int.TryParse(args[index+1],out slot)&&world.Tanks.ContainsKey(slot))client.Slot=slot;
             }
             foreach(var tank in world.Tanks.Values)tank.Life=tank.Slot+1;
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-wide-names")>=0)foreach(var player in client.Players)player.Name=new string('M',24);
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-large-scores")>=0)foreach(var tank in world.Tanks.Values){tank.Kills=65535-tank.Slot;tank.Deaths=65535;}
+            var localPlayer=client.Players.Find(player=>player.Slot==client.Slot);if(localPlayer!=null)client.Nickname=localPlayer.Name;
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-respawn")>=0) {
+                var local=world.Tanks[client.Slot];local.Hp=0;local.Respawn=client.Latest.Tick+150;
+                client.Predicted=local.Copy();
+            }
         }
         public static void Animate(ClientCore client)  {
             client.LastArrivalUs=ClientCore.NowUs;
@@ -95,7 +102,29 @@ namespace Tank  {
                 client.Latest.World.Tanks[2].Hp=25;
             }
             if(client.RoomMode==RoomMode.ROLEPLAY)AnimateSkills(client);
+            AnimateBattlefield(client);
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-shop-items")>=0) {
+                bool opening=Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-shop-opening")>=0;
+                client.Latest.Tick=opening&&Time.timeSinceLevelLoad<4?1190u:1260u;
+                client.Latest.Remaining=5400-(int)client.Latest.Tick;
+            }
             client.Latest.Id=client.Latest.Tick+1;
+        }
+        static void AnimateBattlefield(ClientCore client) {
+            var args=Environment.GetCommandLineArgs();int index=Array.IndexOf(args,"--preview-battlefield");
+            if(index<0||index+1>=args.Length)return;
+            string type=args[index+1];if(type!="fire"&&type!="airstrike")return;
+            int kind=type=="airstrike"?BattlefieldWave.Airstrike:BattlefieldWave.Fire;
+            int tick=Mathf.FloorToInt(Time.unscaledTime*30),cycle=tick/GameRules.BattlefieldMinIntervalTicks,start=cycle*GameRules.BattlefieldMinIntervalTicks;
+            uint impact=(uint)(start+(kind==BattlefieldWave.Fire?GameRules.BattlefieldFireWarningTicks:GameRules.BattlefieldWarningTicks));
+            var world=client.Latest.World;
+            for(int i=0;i<client.ActiveMap.bricks.Length;i++)world.Bricks[i]=(byte)GameRules.BrickMaxHp;
+            var targets=new int[GameRules.BattlefieldTargetsPerRound*GameRules.BattlefieldRounds];
+            for(int round=0;round<GameRules.BattlefieldRounds;round++)for(int i=0;i<GameRules.BattlefieldTargetsPerRound;i++)targets[round*GameRules.BattlefieldTargetsPerRound+i]=(kind==BattlefieldWave.Airstrike?16:0)+round*GameRules.BattlefieldTargetsPerRound+i;
+            world.Battlefield=new BattlefieldWave((uint)cycle+1,kind,(uint)start,impact,impact+(uint)GameRules.BattlefieldEventTicks,targets);
+            if(tick>=world.Battlefield.End)world.Battlefield=null;
+            client.Latest.Tick=(uint)tick;client.Latest.Time=(ulong)ClientCore.NowUs;
+            if(Array.IndexOf(args,"--preview-fog")>=0)world.Tanks[client.Slot].FogEndTick=tick+300;
         }
         static void AnimateSkills(ClientCore client) {
             var world=client.Latest.World;int tick=100+Mathf.FloorToInt(Time.unscaledTime*30),start=100+(tick-100)/180*180;

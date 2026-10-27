@@ -7,7 +7,7 @@ using UnityEngine;
 public class ItemTests {
     static byte[] Bytes(string hex) {var b=new byte[hex.Length/2];for(int i=0;i<b.Length;i++)b[i]=Convert.ToByte(hex.Substring(i*2,2),16);return b;}
     [TestCase("item-first-spawn.tsv",300,6)]
-    [TestCase("roleplay-item-first-spawn.tsv",600,4)]
+    [TestCase("roleplay-item-first-spawn.tsv",1200,4)]
     public void ItemSpawnsKeepRemotePlayerAndRoomMembership(string fixture,int firstSpawn,int count) {
         using(var client=new ClientCore(null,new byte[32])) {
             client.Match=77;client.Slot=0;client.Phase=ClientPhase.PLAYING;
@@ -18,7 +18,8 @@ public class ItemTests {
                 Assert.DoesNotThrow(()=>handle.Invoke(client,new object[]{packet}));
                 Assert.AreEqual(ClientPhase.PLAYING,client.Phase);Assert.AreEqual(2,client.Players.Count);
                 Assert.AreEqual(tick,client.Latest.Tick);CollectionAssert.AreEquivalent(new[]{0,1},client.Latest.World.Tanks.Keys);
-                Assert.AreEqual(tick<firstSpawn?0:count,client.Latest.World.Items.Count);Assert.Greater(client.Latest.World.Tanks[1].Hp,0);
+                bool present=fixture=="roleplay-item-first-spawn.tsv"?RoleplayItemSchedule.Wave(5400,tick)>0:tick>=firstSpawn;
+                Assert.AreEqual(present?count:0,client.Latest.World.Items.Count);Assert.Greater(client.Latest.World.Tanks[1].Hp,0);
                 CollectionAssert.AreEqual(Bytes(fields[2]),client.Latest.World.Encode());
                 var rendered=Rendering.Interpolate(client.Snapshots,client.Latest.Time);
                 Assert.AreEqual(2,rendered.Tanks.Count);Assert.Greater(rendered.Tanks[1].Hp,0);
@@ -135,8 +136,8 @@ public class ItemTests {
         }
     }
     [Test] public void OlderPeersAndTruncatedExtensionsAreRejected() {
-        Assert.AreEqual(9,GameRules.ProtocolVersion);
-        foreach(byte version in new byte[]{5,6,7,8}) {
+        Assert.AreEqual(16,GameRules.ProtocolVersion);
+        foreach(byte version in new byte[]{5,6,7,8,9,10,11,12,13,14,15}) {
             var old=Protocol.Frame(Op.Heartbeat,1,new byte[0]);old[2]=version;
             Assert.Throws<InvalidDataException>(()=>Protocol.Decode(old));
             Assert.Throws<InvalidDataException>(()=>Protocol.Read(new MemoryStream(old)));

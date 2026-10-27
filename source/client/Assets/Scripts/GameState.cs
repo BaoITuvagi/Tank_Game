@@ -21,7 +21,9 @@ namespace Tank  {
         public MapRect[] walls,bricks,water;
         public MapPoint[] spawns;
         public MapPoint[] itemSpawns;
+        public BattlefieldMap battlefield;
         public void ValidateItemSpawns() {
+            if(battlefield!=null)battlefield.Validate(this);
             if(itemSpawns==null||itemSpawns.Length<3||itemSpawns.Length>64)throw new InvalidDataException("item spawns");
             var hp=new byte[64];for(int i=0;i<hp.Length;i++)hp[i]=(byte)GameRules.BrickMaxHp;
             var points=new HashSet<string>();
@@ -56,6 +58,7 @@ namespace Tank  {
         public int Slot,Body,Turret,Hp,MaxHp=GameRules.DefaultHp,Energy=150,EnergyRecovery,Kills,Deaths,Status;
         public uint Respawn,Shield,LastKill=uint.MaxValue;
         public int QReadyTick,QEndTick,SlowEndTick,ProtectionFlags;
+        public int RocketSlowEndTick,RocketSlowStacks;
         public int QStartTick,ConfusionEndTick,FireLockEndTick,FogEndTick,QStage,Life;
         public int ArmorEndTick,HeEndTick,InvincibilityEndTick,MirrorShots,QBaseReadyTick;
         public float AimX,AimY;
@@ -79,6 +82,7 @@ namespace Tank  {
         public SortedDictionary<int,TankState> Tanks=new SortedDictionary<int,TankState>();
         public SortedDictionary<uint,BulletState> Bullets=new SortedDictionary<uint,BulletState>();
         public byte[] Bricks=new byte[64];
+        public BattlefieldWave Battlefield;
         public readonly List<SkillEffect> Effects=new List<SkillEffect>();
         public readonly SortedDictionary<uint,ItemState> Items=new SortedDictionary<uint,ItemState>();
         public readonly List<SkillEffect> ItemEffects=new List<SkillEffect>();
@@ -88,6 +92,7 @@ namespace Tank  {
             foreach(var p in Tanks)w.Tanks.Add(p.Key,p.Value.Copy());
             foreach(var p in Bullets)w.Bullets.Add(p.Key,p.Value.Copy());
             w.Bricks=(byte[])Bricks.Clone();
+            w.Battlefield=Battlefield;
             w.Effects.AddRange(Effects);
             foreach(var p in Items)w.Items.Add(p.Key,p.Value.Copy());
             w.ItemEffects.AddRange(ItemEffects);
@@ -96,7 +101,7 @@ namespace Tank  {
         }
         public static TankState ReadTank(WireReader r) {
             var t=new TankState {
-                Slot=r.U8(),X=r.F32(),Y=r.F32(),Body=r.U16(),Turret=r.U16(),Hp=r.U16(),Kills=r.U16(),Deaths=r.U16(),Status=r.U8(),Respawn=r.U32(),Shield=r.U32(),MaxHp=r.U16(),Energy=r.U8(),EnergyRecovery=r.U8(),LastKill=r.U32(),QReadyTick=r.U16(),QEndTick=r.U16(),SlowEndTick=r.U16(),ProtectionFlags=r.U8(),QStartTick=r.U16(),ConfusionEndTick=r.U16(),FireLockEndTick=r.U16(),FogEndTick=r.U16(),QStage=r.U8(),AimX=r.F32(),AimY=r.F32(),Life=(int)r.U32()
+                Slot=r.U8(),X=r.F32(),Y=r.F32(),Body=r.U16(),Turret=r.U16(),Hp=r.U16(),Kills=r.U16(),Deaths=r.U16(),Status=r.U8(),Respawn=r.U32(),Shield=r.U32(),MaxHp=r.U16(),Energy=r.U8(),EnergyRecovery=r.U8(),LastKill=r.U32(),QReadyTick=r.U16(),QEndTick=r.U16(),SlowEndTick=r.U16(),ProtectionFlags=r.U8(),QStartTick=r.U16(),ConfusionEndTick=r.U16(),FireLockEndTick=r.U16(),FogEndTick=r.U16(),QStage=r.U8(),AimX=r.F32(),AimY=r.F32(),Life=(int)r.U32(),RocketSlowEndTick=r.U16(),RocketSlowStacks=r.U8()
             };
             Validate(t);
             return t;
@@ -106,6 +111,7 @@ namespace Tank  {
             if(t.QStage<0||t.QStage>1||t.Life<0||float.IsNaN(t.AimX)||float.IsInfinity(t.AimX)||float.IsNaN(t.AimY)||float.IsInfinity(t.AimY))throw new InvalidDataException("skill state");
             foreach(int deadline in new[]{t.QStartTick,t.ConfusionEndTick,t.FireLockEndTick,t.FogEndTick})if(deadline<0||deadline>65535)throw new InvalidDataException("skill deadline");
             if(t.QReadyTick<0||t.QReadyTick>65535||t.QEndTick<0||t.QEndTick>65535||t.SlowEndTick<0||t.SlowEndTick>65535||(t.ProtectionFlags&~1)!=0)throw new InvalidDataException("skill state");
+            if(t.RocketSlowEndTick<0||t.RocketSlowEndTick>65535||t.RocketSlowStacks<0||t.RocketSlowStacks>9)throw new InvalidDataException("rocket slow state");
         }
         public static BulletState ReadBullet(WireReader r) {
             var b=new BulletState {
@@ -136,6 +142,7 @@ namespace Tank  {
             ReadEffects(w,r);
             ItemCodec.Read(w,r);
             CombatCodec.Read(w,r);
+            BattlefieldCodec.Read(w,r);
             return w;
         }
         public static void ReadEffects(WorldState w,WireReader r) {
@@ -148,7 +155,7 @@ namespace Tank  {
             var w=new WireWriter().U8(Tanks.Count);
             foreach(var t in Tanks.Values) {
                 Validate(t);
-                w.U8(t.Slot).F32(t.X).F32(t.Y).U16(t.Body).U16(t.Turret).U16(t.Hp).U16(t.Kills).U16(t.Deaths).U8(t.Status).U32(t.Respawn).U32(t.Shield).U16(t.MaxHp).U8(t.Energy).U8(t.EnergyRecovery).U32(t.LastKill).U16(t.QReadyTick).U16(t.QEndTick).U16(t.SlowEndTick).U8(t.ProtectionFlags).U16(t.QStartTick).U16(t.ConfusionEndTick).U16(t.FireLockEndTick).U16(t.FogEndTick).U8(t.QStage).F32(t.AimX).F32(t.AimY).U32((uint)t.Life);
+                w.U8(t.Slot).F32(t.X).F32(t.Y).U16(t.Body).U16(t.Turret).U16(t.Hp).U16(t.Kills).U16(t.Deaths).U8(t.Status).U32(t.Respawn).U32(t.Shield).U16(t.MaxHp).U8(t.Energy).U8(t.EnergyRecovery).U32(t.LastKill).U16(t.QReadyTick).U16(t.QEndTick).U16(t.SlowEndTick).U8(t.ProtectionFlags).U16(t.QStartTick).U16(t.ConfusionEndTick).U16(t.FireLockEndTick).U16(t.FogEndTick).U8(t.QStage).F32(t.AimX).F32(t.AimY).U32((uint)t.Life).U16(t.RocketSlowEndTick).U8(t.RocketSlowStacks);
             }
             w.U8(Bullets.Count);
             foreach(var b in Bullets.Values) {
@@ -158,6 +165,7 @@ namespace Tank  {
             w.Bytes(Bricks).U16(Effects.Count);foreach(var e in Effects)e.Write(w);
             ItemCodec.Write(this,w);
             CombatCodec.Write(this,w);
+            BattlefieldCodec.Write(this,w);
             return w.Done();
         }
     }
@@ -209,6 +217,7 @@ namespace Tank  {
             float water=map.Water(t.X,t.Y)?.5f:1;
             float slow=input.Tick<t.SlowEndTick?GameRules.SlowSpeedPercent/100f:1;
             if(SkillGeometry.KatyushaSlowEnd(t,input.Tick,effects)>input.Tick)slow*=GameRules.KatyushaSlowSpeedPercent/100f;
+            if(input.Tick<t.RocketSlowEndTick)for(int hit=0;hit<t.RocketSlowStacks;hit++)slow*=GameRules.RocketSlowSpeedPercent/100f;
             float speed=TankSpeed*water*multiplier*slow/30;
             float x=t.X+dx*norm*speed,y=t.Y+dy*norm*speed;
             int desired=dx!=0||dy!=0?((int)Math.Round(Math.Atan2(dy,dx)*180/Math.PI*100)+36000)%36000:t.Body;

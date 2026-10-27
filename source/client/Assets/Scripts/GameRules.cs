@@ -30,6 +30,7 @@ namespace Tank {
   public const int KatyushaDelayTicks=24;
   public const int KatyushaRainTicks=90;
   public const int RocketDamage=12;
+  public const int RocketSlowSpeedPercent=90;
   public const int KatyushaDamageCap=36;
   public const int BombDamage=25;
   public const int BombDelayTicks=90;
@@ -43,7 +44,7 @@ namespace Tank {
   public const int SabotageCooldownPenaltyTicks=300;
   public const int BulletLifetimeTicks=150;
   public const int SpawnShieldTicks=0;
-  public const int ProtocolVersion=9;
+  public const int ProtocolVersion=16;
   public const int MaxMatchTicks=18000;
   public const int MaxTankSpeedPercent=200;
   public const int MaxBulletSpeedPercent=150;
@@ -63,9 +64,11 @@ namespace Tank {
   public const int DefaultBulletBounceLimit=2;
   public const int ItemTypeCount=6;
   public const int ItemFirstSpawnTicks=300;
-  public const int RoleplayItemFirstSpawnTicks=600;
   public const int ItemRespawnTicks=450;
-  public const int RoleplayItemRespawnTicks=600;
+  public const int RoleplayItemIntervalTicks=1200;
+  public const int RoleplayItemWindowTicks=600;
+  public const int RoleplayItemRadiusPercent=25;
+  public const int RoleplayItemPrice=50;
   public const int MaxItems=6;
   public const int RoleplayMaxItems=4;
   public const float ItemHalfSize=0.45f;
@@ -86,5 +89,22 @@ namespace Tank {
   public const int MaxCombatEvents=256;
   public const int CombatEventRetentionTicks=90;
   public const int CombatCriticalReserve=96;
+  public const int BattlefieldFirstTicks=300;
+  public const int BattlefieldMinIntervalTicks=800;
+  public const int BattlefieldMaxIntervalTicks=1200;
+  public const int BattlefieldWarningTicks=60;
+  public const int BattlefieldFireWarningTicks=60;
+  public const int BattlefieldFireTicks=80;
+  public const int BattlefieldFireDamageTicks=15;
+  public const int BattlefieldFireDamage=5;
+  public const int BattlefieldAirstrikeDamage=35;
+  public const int BattlefieldAirstrikeTicks=16;
+  public const float BattlefieldRadius=5.0f;
+  public const float BattlefieldSpawnProtectionRadius=4.0f;
+  public const int BattlefieldTargetsPerRound=5;
+  public const float BattlefieldAirstrikeSpacing=13.0f;
+  public const int BattlefieldEventTicks=240;
+  public const int BattlefieldRounds=3;
+  public const int BattlefieldRoundIntervalTicks=80;
  }
 }

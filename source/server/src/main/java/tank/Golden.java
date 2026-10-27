@@ -12,6 +12,8 @@ public final class Golden  {
         byte[] contentHash=HexFormat.of().parseHex(RoleplayContent.Hash);
         v.put(SELECT_NATION,new Writer().u8(0).done());
         v.put(USE_SKILL,new Writer().u64(1).u32(8).u8(0).f32(6.8f).f32(53.2f).done());
+        v.put(SHOP,new Writer().u8(0).u64(0).done());
+        v.put(SHOP_RESULT,new Writer().u16(0).u8(2).u64(150).u64(1).u8(1).u8(3).u32(2).bytes(new byte[]{1,1,0,0,0,0}).done());
         byte[] loadout=new Writer().u64(1).u32(1).bytes(contentHash).u8(1).u8(0).u8(0).done();
         try {
             v.put(MATCH_LOADOUT,new Writer().bytes(loadout).bytes(java.security.MessageDigest.getInstance("SHA-256").digest(loadout)).done());
@@ -71,6 +73,9 @@ public final class Golden  {
         add(vectors,PREPARED,"_roleplay_loading",new Writer().u64(1).u8(PrepStage.LOADING.ordinal()).u32(RoleplayContent.Version).bytes(contentHash).done());
         add(vectors,PREPARED,"_roleplay_loadout",new Writer().u64(1).u8(PrepStage.SYNC_LOADOUT.ordinal()).u32(1).bytes(Arrays.copyOfRange(v.get(MATCH_LOADOUT),loadout.length,loadout.length+32)).done());
         add(vectors,ACTION_RESULT,"_skill",new Writer().u16(0).u64(1).u32(8).u8(USE_SKILL).u8(0).u32(100).u16(850).done());
+        add(vectors,SHOP,"_buy",new Writer().u8(1).u64(1).u8(1).u8(2).done());
+        add(vectors,SHOP,"_use",new Writer().u8(2).u64(1).u32(2).u8(1).done());
+        add(vectors,SHOP_RESULT,"_error",new Writer().u16(1).str("Không đủ vàng.").done());
         add(vectors,ACTION_RESULT,"_skill_rejected",new Writer().u16(Protocol.Error.COOLDOWN.ordinal()).str("COOLDOWN").u64(1).u32(9).u8(USE_SKILL).u8(0).u32(101).u16(850).done());
         add(vectors,HISTORY_DETAIL_RESULT,"_duration",new Writer().bytes(v.get(HISTORY_DETAIL_RESULT)).u32(5400).done());
         add(vectors,CREATE_ROOM,"_legacy",new Writer().str("Phòng").done());
@@ -108,7 +113,7 @@ public final class Golden  {
             if(!seen.add(parts[0])||!Arrays.equals(expected.get(parts[0]),HexFormat.of().parseHex(parts[1])))throw new IllegalArgumentException("Golden mismatch: "+parts[0]);
         }
         if(!seen.equals(expected.keySet()))throw new IllegalArgumentException("Missing golden variants");
-        System.out.println("Java verified all C# golden frames: "+seen.size()+" variants / 44 opcodes");
+        System.out.println("Java verified all C# golden frames: "+seen.size()+" variants / 46 opcodes");
     }
     public static void main(String[] args)throws Exception {
         if(args.length==2&&args[0].equals("--verify"))verify(Path.of(args[1]));

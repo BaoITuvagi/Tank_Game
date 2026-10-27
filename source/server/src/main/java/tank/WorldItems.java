@@ -25,17 +25,34 @@ final class WorldItems {
     int nextId=1,nextEffect=1;
     final int[] nextSpawn=new int[ItemTypeCount];
     final GameMap.Point[] previousSpawns=new GameMap.Point[ItemTypeCount];
-    static final class Respawn {
-        final int due;
-        final GameMap.Point previous;
-        Respawn(int tick,GameMap.Point point) {due=tick;previous=point;}
-    }
-    final List<Respawn> roleplaySpawns=new ArrayList<>();
+    int matchTicks=5400,lastWave;
     boolean roleplay;
     WorldItems(World world) {w=world;configure(false);}
     void configure(boolean value) {
-        roleplay=value;Arrays.fill(nextSpawn,value?Integer.MAX_VALUE:ItemFirstSpawnTicks);roleplaySpawns.clear();
-        if(value)for(int n=0;n<RoleplayMaxItems;n++)roleplaySpawns.add(new Respawn(RoleplayItemFirstSpawnTicks,null));
+        configure(value,5400);
+    }
+    void configure(boolean value,int duration) {
+        roleplay=value;matchTicks=duration;lastWave=0;Arrays.fill(nextSpawn,value?Integer.MAX_VALUE:ItemFirstSpawnTicks);
+    }
+    int interval() {return RoleplayItemIntervalTicks;}
+    int window() {return RoleplayItemWindowTicks;}
+    int wave() {
+        int wave=w.tick/interval();
+        return roleplay&&wave>0&&w.tick<matchTicks&&w.tick-wave*interval()<window()?wave:0;
+    }
+    float spawnRadius() {return Math.min(w.map.width,w.map.height)*RoleplayItemRadiusPercent/100f;}
+    void spawnWave(int wave) {
+        items.clear();
+        List<Integer> types=new ArrayList<>();for(int type=0;type<ItemTypeCount;type++)types.add(type);
+        Collections.shuffle(types,w.random);
+        for(int n=0;n<RoleplayMaxItems;n++) {
+            for(int attempt=0;attempt<512;attempt++) {
+                double angle=w.random.nextDouble()*Math.PI*2,radius=Math.sqrt(w.random.nextDouble())*spawnRadius();
+                GameMap.Point p=new GameMap.Point();p.x=w.map.width/2f+(float)(Math.cos(angle)*radius);p.y=w.map.height/2f+(float)(Math.sin(angle)*radius);
+                if(!available(p,null))continue;
+                Item i=place(types.get(n),p);i.expires=Math.min(matchTicks,wave*interval()+window());break;
+            }
+        }
     }
     void path(World.Tank t,float x,float y,float endX,float endY) {paths.computeIfAbsent(t.slot,key->new ArrayList<>()).add(new float[]{x,y,endX,endY});}
     void beginTick() {
@@ -46,40 +63,39 @@ final class WorldItems {
             if(i.expires>0&&w.tick>=i.expires) {scheduleRespawn(i);it.remove();}
             else present[i.type]=true;
         }
-        if(w.map.itemSpawns==null)return;
         if(roleplay) {
-            for(Iterator<Respawn> it=roleplaySpawns.iterator();it.hasNext();) {
-                Respawn pending=it.next();if(w.tick<pending.due||items.size()>=RoleplayMaxItems)continue;
-                List<Integer> types=new ArrayList<>();for(int type=0;type<ItemTypeCount;type++)if(!present[type])types.add(type);
-                if(types.isEmpty())break;
-                int type=types.get(w.random.nextInt(types.size()));
-                if(spawn(type,pending.previous)!=null) {present[type]=true;it.remove();}
-            }
+            int wave=wave();
+            if(wave>0&&wave!=lastWave) {lastWave=wave;spawnWave(wave);}
             return;
         }
+        if(w.map.itemSpawns==null)return;
         for(int type=0;type<ItemTypeCount;type++) {
             if(present[type]||w.tick<nextSpawn[type]||items.size()>=MaxItems)continue;
             spawn(type,previousSpawns[type]);
         }
     }
     void scheduleRespawn(Item i) {
+        if(roleplay)return;
         GameMap.Point p=new GameMap.Point();p.x=i.x;p.y=i.y;
-        if(roleplay)roleplaySpawns.add(new Respawn(w.tick+RoleplayItemRespawnTicks,p));
-        else {nextSpawn[i.type]=w.tick+ItemRespawnTicks;previousSpawns[i.type]=p;}
+        nextSpawn[i.type]=w.tick+ItemRespawnTicks;previousSpawns[i.type]=p;
     }
     Item spawn(int type,GameMap.Point previous) {
         List<GameMap.Point> candidates=new ArrayList<>();
         for(GameMap.Point p:w.map.itemSpawns) {
-            if(w.map.blocked(p.x,p.y,w.bricks)||w.map.water(p.x,p.y))continue;
-            if(previous!=null&&p.x==previous.x&&p.y==previous.y)continue;
-            boolean occupied=false;
-            for(World.Tank t:w.tanks.values())if(t.hp>0&&Math.hypot(t.x-p.x,t.y-p.y)<ItemTankClearance) {occupied=true;break;}
-            for(Item i:items.values())if(Math.abs(i.x-p.x)<2*ItemHalfSize&&Math.abs(i.y-p.y)<2*ItemHalfSize) {occupied=true;break;}
-            if(!occupied)candidates.add(p);
+            if(available(p,previous))candidates.add(p);
         }
         if(candidates.isEmpty())return null;
         GameMap.Point p=candidates.get(w.random.nextInt(candidates.size()));
-        Item i=new Item();i.id=nextId++;i.type=type;i.x=p.x;i.y=p.y;i.expires=0;items.put(i.id,i);return i;
+        return place(type,p);
+    }
+    boolean available(GameMap.Point p,GameMap.Point previous) {
+        if(w.map.blocked(p.x,p.y,w.bricks)||w.map.water(p.x,p.y)||previous!=null&&p.x==previous.x&&p.y==previous.y)return false;
+        for(World.Tank t:w.tanks.values())if(t.hp>0&&Math.hypot(t.x-p.x,t.y-p.y)<ItemTankClearance)return false;
+        for(Item i:items.values())if(Math.abs(i.x-p.x)<2*ItemHalfSize&&Math.abs(i.y-p.y)<2*ItemHalfSize)return false;
+        return true;
+    }
+    Item place(int type,GameMap.Point p) {
+        Item i=new Item();i.id=nextId++;i.type=type;i.x=p.x;i.y=p.y;items.put(i.id,i);return i;
     }
     boolean touches(World.Tank t,Item i) {
         if(NationSkills.circle(t,i.x,i.y,ItemHalfSize))return true;
@@ -155,7 +171,7 @@ final class WorldItems {
             child.x+=nx*(ex+.001f);child.y+=ny*(ey+.001f);w.bullets.put(child.id,child);
         }
     }
-    void clear() {items.clear();effects.clear();paths.clear();roleplaySpawns.clear();Arrays.fill(nextSpawn,Integer.MAX_VALUE);Arrays.fill(previousSpawns,null);}
+    void clear() {items.clear();effects.clear();paths.clear();roleplay=false;Arrays.fill(nextSpawn,Integer.MAX_VALUE);Arrays.fill(previousSpawns,null);}
     byte[] encode() {
         if(items.size()>MaxItems||effects.size()>MaxItemEffects)throw new IllegalArgumentException("item count");
         Writer out=new Writer().u8(w.tanks.size());
