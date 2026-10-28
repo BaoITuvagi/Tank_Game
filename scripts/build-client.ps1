@@ -1,6 +1,8 @@
 param([string]$Unity=$env:UNITY_EDITOR_PATH)
 $ErrorActionPreference='Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
+& python scripts/check-admin-integration.py --client
+if($LASTEXITCODE -ne 0){throw 'Admin notification integration is missing; see check output before rebuilding the client'}
 $Unity=& ./scripts/resolve-unity-editor.ps1 -Unity $Unity
 New-Item -ItemType Directory -Force runtime | Out-Null
 $project=(Resolve-Path source/client).Path

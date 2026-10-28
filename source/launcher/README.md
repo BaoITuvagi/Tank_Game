@@ -4,17 +4,17 @@ Launcher Windows x64 viết bằng C#/WinForms, tách khỏi client Unity. Ngư�
 
 ## Build launcher
 
-Cần .NET SDK 9.x (máy hiện tại có SDK 9.0.305). Build mặc định tải runtime pack từ NuGet lần đầu và tạo bản độc lập, người chơi **không cần cài .NET, Java hay Unity**.
+Cần .NET SDK 9.x. Build mặc định tải runtime pack từ NuGet lần đầu và tạo bản độc lập, người chơi **không cần cài .NET, Java hay Unity**.
 
-Chạy tại thư mục gốc `Tank_Game`:
+Launcher là tùy chọn phát hành client, không cần để chạy website. Các ví dụ dùng CMD tại `Tank_Game_updated` trong source đã clone/giải nén. Trước tiên hoàn tất [hướng dẫn chạy server/web](../../../README.md).
 
-```powershell
+```cmd
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1
 ```
 
 Kết quả: `build/launcher/Launcher.exe`, `build/launcher/launcher.json` và `build/launcher-win64.zip` để gửi người chơi. Giải nén ZIP trước khi chạy. Giữ `launcher.json` cạnh file EXE. Cờ ExecutionPolicy chỉ áp dụng cho tiến trình lệnh này.
 
-URL mặc định:
+URL mặc định trong script trỏ tới repository game gốc bên dưới. Nếu phát hành từ repository của bạn, phải truyền -ManifestUrl tương ứng; clone source không tự tạo release hay cập nhật URL này:
 
 ```text
 https://github.com/BaoITuvagi/Tank_Game/releases/latest/download/manifest.json
@@ -22,8 +22,8 @@ https://github.com/BaoITuvagi/Tank_Game/releases/latest/download/manifest.json
 
 Nếu phát hành ở repository khác hoặc máy chủ HTTPS riêng:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1 -ManifestUrl 'https://example.com/tank/manifest.json'
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1 -ManifestUrl "https://example.com/tank/manifest.json"
 ```
 
 Build thành công không đồng nghĩa đã có bản phát hành online. Trước khi có `manifest.json` ở URL cấu hình, launcher sẽ báo lỗi kiểm tra cập nhật; đây không phải lỗi cài game.
@@ -32,14 +32,14 @@ Build thành công không đồng nghĩa đã có bản phát hành online. Trư
 
 1. Đồng bộ luật và build client (đóng Unity Editor đang mở cùng project):
 
-   ```powershell
+   ```cmd
    python scripts/sync-contracts.py
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-client.ps1
    ```
 
 2. Đóng gói **toàn bộ** `build/client`, chọn số phiên bản mới và URL đúng với tag định tạo:
 
-   ```powershell
+   ```cmd
    python scripts/package-client.py --version 1.0.0 --base-url https://github.com/BaoITuvagi/Tank_Game/releases/download/v1.0.0
    ```
 
@@ -71,10 +71,10 @@ Server Java tiếp tục dùng script hiện tại và database riêng; cập nh
 
 ## Kiểm thử
 
-```powershell
+```cmd
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-launcher.ps1
 python scripts/test-package-client.py
-# Khi đã đóng gói bản thật: kiểm tra tải và cài cả bản Unity đó qua HTTP loopback.
+rem Khi da dong goi ban that: kiểm tra tải và cài cả bản Unity đó qua HTTP loopback.
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-launcher.ps1 -ReleaseDirectory build/releases/1.0.0
 ```
 
@@ -82,10 +82,10 @@ Test C# dùng HTTP loopback thực, ZIP và thư mục cài đặt riêng trong 
 
 Có thể thử launcher với kho cập nhật localhost (không dùng chế độ này khi phát hành):
 
-```powershell
+```cmd
 python scripts/package-client.py --version 1.0.0 --base-url http://127.0.0.1:8090 --allow-loopback-http
 python -m http.server 8090 --bind 127.0.0.1 --directory build/releases/1.0.0
-# Trong cửa sổ PowerShell khác:
+rem Trong mot cua so CMD khac:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1 -ManifestUrl http://127.0.0.1:8090/manifest.json -AllowLoopbackHttp
 ```
 

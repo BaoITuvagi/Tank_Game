@@ -1,5 +1,17 @@
 # Tank Battle Multiplayer
 
+**Website quản trị mạng:** xem [ADMIN_WEB.md](ADMIN_WEB.md) để đăng nhập admin, theo dõi IP/kết nối thật, ban/ngắt và gửi thông báo tại `http://127.0.0.1:8080`.
+
+Đây là bản source chính đã tích hợp quản trị. Hướng dẫn tổng quan và đưa lên GitHub nằm ở [README gốc](../README.md) và [GITHUB.md](../GITHUB.md). Build server tự tìm Maven trong PATH, MAVEN_HOME/M2_HOME hoặc Maven Wrapper cache nếu có.
+
+Các lệnh bên dưới dùng **Command Prompt (CMD)**, chạy tại thư mục gốc dự án:
+
+```cmd
+cd Tank_Game_updated
+```
+
+Trước lệnh trên, mở CMD tại thư mục repository đã clone/giải nén (thư mục có README gốc). Nếu đã ở Tank_Game_updated thì không cần chạy cd lần nữa. Các file `.cmd` gọi lại script PowerShell có sẵn trong Windows; bạn không cần mở PowerShell.
+
 Muốn gửi game một lần và tự cập nhật cho người chơi: xem [hướng dẫn launcher và phát hành client](source/launcher/README.md).
 
 Tank Battle là game xe tăng nhiều người chơi, gồm server Java và client Unity. Người chơi có thể đăng ký tài khoản, tạo hoặc tham gia phòng, đấu với nhau và xem lịch sử trận đấu.
@@ -17,6 +29,7 @@ Dự án đang được phát triển. Repository cung cấp **mã nguồn**, kh
 | Tự build và chạy server từ repository | JDK 21, Maven 3.9.x, Python 3 |
 | Mở hoặc build client từ repository | Unity Hub, Unity Editor **6000.3.24f1**, module **Windows Build Support** và license Unity đã kích hoạt |
 | Chạy server đã được build sẵn | JDK 21 |
+| Build/test client bằng script `.cmd` | Môi trường Unity như trên và Python 3 để kiểm tra tích hợp quản trị |
 | Chơi bằng client đã được build sẵn | Không cần Java, Maven, Python hoặc Unity Editor |
 
 Người chỉ chạy server không cần Unity. Người chỉ chơi bản client đã build có thể chuyển thẳng đến mục **Chạy client và kết nối**.
@@ -25,30 +38,30 @@ Người chỉ chạy server không cần Unity. Người chỉ chơi bản clie
 
 ### Java và công cụ build server
 
-Cài **JDK 21**, sau đó kiểm tra trong PowerShell:
+Cài **JDK 21**, sau đó kiểm tra trong CMD:
 
-```powershell
+```cmd
 java -version
 ```
 
 Kết quả cần hiển thị phiên bản 21. Nếu không tìm thấy Java, đang dùng phiên bản khác hoặc `JAVA_HOME` đang trỏ tới JDK khác, chọn rõ JDK 21 cho cửa sổ hiện tại:
 
-```powershell
-$env:JAVA_HOME='<DUONG_DAN_THU_MUC_JDK_21>'
-$env:Path=(Join-Path $env:JAVA_HOME 'bin')+';'+$env:Path
+```cmd
+set "JAVA_HOME=C:\duong-dan\jdk-21"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
 java -version
 ```
 
-Thay phần `<...>` bằng thư mục JDK trên máy bạn, giữ dấu nháy. Chọn thư mục chứa thư mục con `bin`, không chọn trực tiếp file `java.exe`. Khi mở PowerShell mới, cần đặt lại nếu chưa lưu biến môi trường trong Windows.
+Thay đường dẫn ví dụ bằng thư mục JDK thật trên máy bạn, giữ dấu nháy kép. Chọn thư mục chứa thư mục con `bin`, không chọn trực tiếp file `java.exe`. Khi mở CMD mới, cần đặt lại nếu chưa lưu biến môi trường trong Windows.
 
 Nếu tự build server từ mã nguồn, cài thêm:
 
 - **Python 3:** bật tùy chọn thêm Python vào `PATH` khi cài. Dự án không cần thêm thư viện Python.
-- **Maven 3.9.x:** giải nén Maven và thêm thư mục `bin` của Maven vào biến `Path` của Windows. Tìm “environment variables” trong Windows, mở phần biến môi trường của người dùng, chọn `Path` → `Edit` → `New` để thêm đường dẫn. Mở lại PowerShell sau khi lưu.
+- **Maven 3.9.x:** giải nén Maven và thêm thư mục `bin` của Maven vào biến `Path` của Windows. Tìm “environment variables” trong Windows, mở phần biến môi trường của người dùng, chọn `Path` → `Edit` → `New` để thêm đường dẫn. Mở lại CMD sau khi lưu.
 
 Kiểm tra trước khi build:
 
-```powershell
+```cmd
 python --version
 mvn -version
 ```
@@ -61,31 +74,39 @@ Cài Unity Hub, đăng nhập và kích hoạt license trên máy. Trong Hub, c�
 
 Script tự tìm đúng Editor tại vị trí cài Unity Hub thông thường. Nếu script báo không tìm thấy Editor, chọn đường dẫn riêng:
 
-```powershell
-$env:UNITY_EDITOR_PATH='<DUONG_DAN_DEN_EDITOR_UNITY_EXE>'
+```cmd
+set "UNITY_EDITOR_PATH=C:\duong-dan\Editor\Unity.exe"
 ```
 
-Thay phần `<...>` bằng đường dẫn file `Editor/Unity.exe` trên máy bạn, giữ dấu nháy. Không chọn file chạy Unity Hub.
+Thay đường dẫn ví dụ bằng đường dẫn file `Editor\Unity.exe` thật trên máy bạn, giữ dấu nháy kép. Không chọn file chạy Unity Hub.
 
 ## Build và chạy server
 
 Từ mã nguồn vừa tải về, tạo bản server bằng:
 
-```powershell
-./scripts/build-server.ps1
+```cmd
+scripts\build-server.cmd
 ```
 
 Chờ lệnh hoàn tất và báo build thành công. File server được tạo tại `build/server/tank-server-1.0.0.jar`.
 
 Nếu đã có server build sẵn từ dự án này, đặt file `.jar` vào đúng vị trí trên trong thư mục dự án và bỏ qua bước build.
 
-Khởi động server:
+Nếu mới tải từ GitHub, sau khi build hãy tạo admin một lần khi server chưa chạy:
 
-```powershell
-./scripts/start-server.ps1
+```cmd
+scripts\init-admin.cmd -Name admin
 ```
 
-Giữ cửa sổ này mở trong lúc chơi. Server dùng thiết lập mặc định trong `config/server.properties`. Nếu cần đổi cổng hoặc nơi lưu database, xem [hướng dẫn cấu hình](config/README.md).
+Nhập/xác nhận mật khẩu tối thiểu 12 ký tự. Không có mật khẩu mặc định. Tài khoản admin riêng với tài khoản game. Những lần chạy sau không cần khởi tạo lại.
+
+Khởi động server:
+
+```cmd
+scripts\start-server.cmd
+```
+
+Giữ cửa sổ này mở trong lúc chơi. Website quản trị trên cùng máy là **http://127.0.0.1:8080**; đăng nhập admin vừa tạo. Tài khoản game được đăng ký trong client. Server dùng thiết lập mặc định trong `config/server.properties`. Nếu cần đổi cổng hoặc nơi lưu database, xem [hướng dẫn cấu hình](config/README.md).
 
 **Database nằm trên máy chạy server:** tất cả tài khoản và lịch sử được lưu tại `runtime/tank.db`. Khi chưa có database, server tự tạo một database rỗng; các lần chạy sau dùng lại dữ liệu đã lưu. Máy chỉ chạy client không giữ database tài khoản.
 
@@ -101,10 +122,10 @@ Trong Unity Hub, thêm project ở thư mục **`source/client`**, mở bằng E
 
 ### Build thành ứng dụng Windows
 
-Đóng Unity Editor đang mở cùng project, rồi chạy trong PowerShell tại thư mục gốc dự án:
+Đóng Unity Editor đang mở cùng project, rồi chạy trong CMD tại thư mục gốc dự án:
 
-```powershell
-./scripts/build-client.ps1
+```cmd
+scripts\build-client.cmd
 ```
 
 Bản client nằm trong `build/client`. Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, sao chép **toàn bộ thư mục client**, gồm file `.exe`, thư mục Data và các file đi kèm; chỉ chép file `.exe` sẽ không đủ.
@@ -127,12 +148,6 @@ Khi tạo phòng, chọn **Thường** (mặc định) hoặc **Nhập vai**. Ch
 
 Nhập vai có kỹ năng Q theo quốc gia. Chết xóa hiệu ứng nhưng giữ hồi chiêu. Người đứng hạng nhất giành Hộp Đen trên màn hình kết quả; đây là phần thưởng kể chuyện trong trận. Các thông số kỹ năng vẫn cần được đánh giá qua playtest về công dụng và cân bằng.
 
-### Demo cục bộ với bảy xe mô phỏng
-
-Sau khi build server và client, mở `DemoRoleplay.bat` ở thư mục gốc. Cần JDK 21 trong `JAVA_HOME` hoặc `PATH`. Script mở server loopback TCP 23888/UDP 23889, một cửa sổ game và bảy client mô phỏng. Demo tự tạo tài khoản thử, chọn quốc gia và sẵn sàng; bạn chơi bằng WASD, chuột, Space, Shift, Q. Mỗi trận kéo dài ba phút, HP 3 và dùng map tám người.
-
-Dữ liệu demo nằm riêng trong `runtime/demo/`, cấu hình ở `config/demo.properties`; không dùng `runtime/tank.db` hoặc ghi đè thiết lập kết nối đã lưu của client. Bảy client mô phỏng tự thoát sau trận; đóng cửa sổ server khi xong. Không mở lại launcher khi server demo cũ còn chạy. Đây là đối thủ theo kịch bản phục vụ trình diễn và kiểm thử, chưa phải bằng chứng về cân bằng hoặc cảm giác chơi với người thật.
-
 ## Điều khiển
 
 | Phím/thao tác | Chức năng |
@@ -149,7 +164,7 @@ Dữ liệu demo nằm riêng trong `runtime/demo/`, cấu hình ở `config/dem
 
 | Thông báo hoặc hiện tượng | Việc cần kiểm tra |
 |---|---|
-| Không tìm thấy Java/Maven/Python | Kiểm tra mục Cài đặt môi trường; mở lại PowerShell nếu vừa đổi biến môi trường |
+| Không tìm thấy Java/Maven/Python | Kiểm tra mục Cài đặt môi trường; mở lại CMD nếu vừa đổi biến môi trường |
 | Không tìm thấy file server `.jar` | Build server trước hoặc đặt bản build sẵn vào đúng đường dẫn |
 | Không tìm thấy Unity | Cài đúng phiên bản hoặc đặt `UNITY_EDITOR_PATH` |
 | Unity báo thiếu license | Đăng nhập/kích hoạt license trong Unity Hub, mở Editor một lần rồi thử lại |
@@ -169,9 +184,9 @@ Log được tạo khi chạy để giúp tìm lỗi. Log server/build/test Unit
 | `config` | Thiết lập server và mẫu thiết lập môi trường riêng |
 | `scripts` | Các lệnh build, chạy và kiểm thử |
 
-Client và server cần dùng cùng đợt build (giao thức v5, nội dung v5). Phòng mặc định 100 HP, cho phép 1–500 HP; đạn thường gây 20 HP và thanh máu xe chỉ hiển thị độ đầy, không có con số. Mọi trận dùng map lớn 80 × 80 với vị trí xuất phát ngẫu nhiên, phân bố cân đối; có thể sẵn sàng và bắt đầu trận tiếp theo ngay trong cùng phòng. Bộ kỹ năng Q và hồi chiêu được đồng bộ từ `source/shared/roleplay-content.json`; luật nền ở `source/shared/game-rules.json`. Sau khi thay đổi nội dung, đồng bộ Java/C# và content hash bằng:
+Client và server cần dùng cùng đợt build (giao thức v5, nội dung v6). Phòng mặc định 100 HP, cho phép 1–500 HP; đạn thường gây 20 HP và thanh máu xe chỉ hiển thị độ đầy, không có con số. Mọi trận dùng map lớn 80 × 80 với vị trí xuất phát ngẫu nhiên, phân bố cân đối; có thể sẵn sàng và bắt đầu trận tiếp theo ngay trong cùng phòng. Bộ kỹ năng Q và hồi chiêu được đồng bộ từ `source/shared/roleplay-content.json`; luật nền ở `source/shared/game-rules.json`. Sau khi thay đổi nội dung, đồng bộ Java/C# và content hash bằng:
 
-```powershell
+```cmd
 python scripts/sync-contracts.py
 ```
 
@@ -179,8 +194,8 @@ Chi tiết contract và kiểm thử packet ở [source/shared/README.md](source
 
 Sau đó build lại cả server và client. Build server tự chạy test Java. Muốn chạy test Unity, build server trước để tạo dữ liệu kiểm thử cần thiết, đóng Editor đang mở cùng project rồi chạy:
 
-```powershell
-./scripts/test-client.ps1
+```cmd
+scripts\test-client.cmd
 ```
 
 Database, bản build, cache, log và cấu hình riêng được `.gitignore` bỏ qua. Khi thay đổi tài nguyên Unity, giữ file `.meta` đi kèm để bảo toàn tham chiếu.

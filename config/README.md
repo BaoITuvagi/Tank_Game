@@ -2,6 +2,8 @@
 
 Cách cài phần mềm, build và chạy nằm trong [README chính](../README.md). File này giải thích những thiết lập bạn có thể cần thay đổi; nếu thiết lập mặc định phù hợp, cứ dùng nguyên bản.
 
+Người mới clone/tải ZIP nên hoàn tất [hướng dẫn lần đầu](../../README.md). Các lệnh ở đây dùng CMD tại thư mục `Tank_Game_updated` của source đã giải nén, không phụ thuộc ổ đĩa hoặc tên máy.
+
 ## Cấu hình server
 
 | File | Dùng để làm gì? |
@@ -11,7 +13,11 @@ Cách cài phần mềm, build và chạy nằm trong [README chính](../README.
 
 **`server.local.properties` hiện chưa có sẵn.** Nếu cần, sao chép `server.properties` ngay trong thư mục `config`, rồi đặt tên bản sao là `server.local.properties`. Hai file sẽ nằm cạnh nhau.
 
-Script `start-server.ps1` tự chọn bản local nếu file đó tồn tại. Bản local phải chứa đầy đủ thiết lập của bản gốc; script không tự ghép hai file. Nếu muốn chọn rõ bản dùng chung, truyền thêm `-Config config/server.properties` khi chạy script.
+Script `start-server.cmd` tự chọn bản local nếu file đó tồn tại. Bản local phải chứa đầy đủ thiết lập của bản gốc; script không tự ghép hai file. Nếu muốn chọn rõ bản dùng chung, truyền thêm `-Config config/server.properties` khi chạy script:
+
+```cmd
+scripts\start-server.cmd -Config "config\server.properties"
+```
 
 Những mục có thể cần chỉnh trong bản local:
 
@@ -22,6 +28,10 @@ Những mục có thể cần chỉnh trong bản local:
 | `database.path` | Nơi lưu tài khoản và lịch sử trên máy server | `runtime/tank.db` |
 | `log.path` | Nơi ghi thông tin hoạt động/lỗi của server | `runtime/server.log` |
 | `bind` | Địa chỉ mạng server nhận kết nối | `0.0.0.0`: nhận trên các địa chỉ mạng của máy |
+| `admin.enabled` | Bật website quản trị cùng server | `true` |
+| `admin.bind` / `admin.port` | Địa chỉ và cổng web | `127.0.0.1` / `8080` |
+| `admin.database.path` | Admin, ban, lịch sử kết nối và audit | `runtime/admin.db` |
+| `admin.session.minutes` | Thời hạn phiên đăng nhập web | `60` |
 
 Nếu đổi cổng, thông báo cổng mới cho người chơi và mở cổng tương ứng trên firewall. Các đường dẫn như `runtime/tank.db` được tính từ thư mục gốc dự án. Giữ nguyên những mục còn lại nếu chưa cần thay đổi.
 
@@ -36,4 +46,14 @@ Nếu đổi cổng, thông báo cổng mới cho người chơi và mở cổng
 
 Người chỉ chơi bản client đã build không cần hai thiết lập này. Người chỉ chạy server không cần Unity. Các lệnh thiết lập và kiểm tra nằm ở mục **Cài đặt môi trường** trong README chính.
 
-`config/tools.example.ps1` là mẫu tùy chọn để lưu đường dẫn phần mềm trên máy phát triển. Nếu dùng mẫu, tạo bản sao tên `tools.local.ps1` trong cùng thư mục và thay các giá trị `REPLACE_WITH_...` bằng đường dẫn thật. File riêng không tự được nạp; muốn áp dụng cho cửa sổ PowerShell hiện tại, chạy `. ./config/tools.local.ps1`.
+`config\tools.example.cmd` là mẫu tùy chọn lưu đường dẫn công cụ. Sao chép thành `config\tools.local.cmd`, sửa đường dẫn thật rồi nạp vào CMD hiện tại bằng:
+
+```cmd
+call config\tools.local.cmd
+```
+
+File riêng được gitignore, không tự được nạp và không dùng để lưu mật khẩu.
+
+## Website quản trị
+
+Server chuẩn bật web tại `127.0.0.1:8080` bằng `admin.enabled=true` trong `server.properties`. File local là cấu hình đầy đủ, không tự kế thừa bản gốc; nếu đã có `server.local.properties` cũ thì cần thêm các khóa `admin.*` theo [ADMIN_WEB.md](../ADMIN_WEB.md). Khởi tạo admin và chạy server phải trỏ cùng file cấu hình, cùng `admin.database.path`.

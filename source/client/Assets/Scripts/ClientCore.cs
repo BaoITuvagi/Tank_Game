@@ -11,6 +11,8 @@ namespace Tank  {
     public partial class ClientCore : IDisposable  {
         public ClientPhase Phase=ClientPhase.DISCONNECTED;
         public string Message="",Nickname="";
+        public string AdminNotice="";
+        public int AdminNoticeCode;
         public ulong Account,Match,StartUs;
         public uint RoomId,LastSnapshot;
         public int Slot=-1,Host=-1,LeadTicks=2;

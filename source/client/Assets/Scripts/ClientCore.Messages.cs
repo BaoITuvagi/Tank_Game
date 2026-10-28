@@ -285,8 +285,15 @@ namespace Tank  {
                     break;
                 }
                 case Op.Notice:int noticeCode=r.U16();
-                Message=r.Str();
+                string noticeText=r.Str();
                 r.End();
+                if(noticeCode>=200&&noticeCode<=202) {
+                    AdminNotice=noticeText;
+                    AdminNoticeCode=noticeCode;
+                    AdminNoticeChannel.Publish(noticeCode,noticeText);
+                    break;
+                }
+                Message=noticeText;
                 if(noticeCode==100) {
                     AfkWarning=true;
                     AfkWarnedAt=NowUs;

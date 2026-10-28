@@ -14,7 +14,7 @@ Ngày thực hiện: **15/10/2026**, múi giờ Asia/Saigon. Người dùng đã
 | Failures / Errors / Skipped | 0 / 0 / 0 |
 | Thời gian Maven báo | 01:14 phút; không phải thời gian thuần test hoặc benchmark |
 | Hoàn tất | 15:44:39, 15/10/2026, UTC+07:00 |
-| Artifact | [tank-server-1.0.0.jar](../build/server/tank-server-1.0.0.jar) |
+| Artifact | tank-server-1.0.0.jar (`../build/server/tank-server-1.0.0.jar`; tài liệu/artifact cục bộ không kèm source GitHub) |
 | Kích thước JAR | 14.598.385 byte |
 | SHA-256 JAR | `6E646F06F6AB75FF7561F95BA6B0840AC559E672384BC8AAF2BBDC41883D8BE7` |
 
@@ -65,12 +65,12 @@ Số liệu đọc lại từ các tệp `TEST-*.xml` của Surefire sau lượt
 
 ## Bằng chứng và tệp sinh ra
 
-- [Log build/test của lượt thành công](../runtime/server-build-test.log).
-- [Thư mục XML và TXT Surefire](../source/server/target/surefire-reports).
-- [JAR đã đóng gói](../build/server/tank-server-1.0.0.jar).
-- [golden.tsv](../source/server/target/interop/golden.tsv): 4.366 byte.
-- [delta-trace.tsv](../source/server/target/interop/delta-trace.tsv): 530.791 byte.
-- [movement-trace.tsv](../source/server/target/interop/movement-trace.tsv): 88.558 byte.
+- Log build/test của lượt thành công (`../runtime/server-build-test.log`; tài liệu/artifact cục bộ không kèm source GitHub).
+- Thư mục XML và TXT Surefire (`../source/server/target/surefire-reports`; tài liệu/artifact cục bộ không kèm source GitHub).
+- JAR đã đóng gói (`../build/server/tank-server-1.0.0.jar`; tài liệu/artifact cục bộ không kèm source GitHub).
+- golden.tsv (`../source/server/target/interop/golden.tsv`; tài liệu/artifact cục bộ không kèm source GitHub): 4.366 byte.
+- delta-trace.tsv (`../source/server/target/interop/delta-trace.tsv`; tài liệu/artifact cục bộ không kèm source GitHub): 530.791 byte.
+- movement-trace.tsv (`../source/server/target/interop/movement-trace.tsv`; tài liệu/artifact cục bộ không kèm source GitHub): 88.558 byte.
 
 build/, runtime/ và target/ là các thư mục sinh ra đang được .gitignore bỏ qua. Bản tổng hợp này được lưu trong report/ để giữ nội dung báo cáo; nếu đóng gói bằng chứng cần lấy thêm log/XML trước khi clean hoặc build lại vì chúng có thể bị thay thế.
 

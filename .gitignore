@@ -67,6 +67,7 @@ Desktop.ini
 /config/client-lan.json
 /config/client-radmin.json
 /config/tools.local.ps1
+/config/tools.local.cmd
 *.keystore
 *.jks
 *.p12

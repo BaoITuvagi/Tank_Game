@@ -1,5 +1,7 @@
 # Benchmark socket Tank Battle
 
+Đây là công cụ/số liệu benchmark lịch sử, không cần để chạy website quản trị. Khi giao thức game thay đổi, cần xác minh công cụ tương thích trước khi đo lại.
+
 `NetworkBenchmark.java` là bộ phát tải độc lập, dùng class Protocol/World/DeltaCodec từ JAR đã build. Server thật chạy trong JVM con riêng; 4 client Java headless giao tiếp TCP/UDP qua loopback. Công cụ không gọi Room.tick trực tiếp, không giả lập kết quả và không sửa game/server JAR.
 
 ## Phạm vi
@@ -23,13 +25,13 @@ Các client thực hiện REGISTER/LOGIN, CREATE/JOIN, READY, UDP handshake, PIN
 
 ## Cách chạy
 
-Từ thư mục Tank_Game, dùng JDK 21 và JAR đã build:
+Chạy CMD tại Tank_Game_updated của repository đã clone/giải nén, với JDK 21 trong PATH và JAR đã build. Chỉ chạy java sau khi javac báo thành công:
 
-```powershell
-New-Item -ItemType Directory -Force runtime/benchmark-tools | Out-Null
-& "$env:JAVA_HOME/bin/javac.exe" -encoding UTF-8 -cp build/server/tank-server-1.0.0.jar -d runtime/benchmark-tools scripts/benchmark/NetworkBenchmark.java
-& "$env:JAVA_HOME/bin/java.exe" -cp 'runtime/benchmark-tools;build/server/tank-server-1.0.0.jar' tank.NetworkBenchmark report/benchmarks/new-output-directory 30 3
-python scripts/benchmark/analyze.py report/benchmarks/new-output-directory
+```cmd
+if not exist runtime\benchmark-tools mkdir runtime\benchmark-tools
+javac -encoding UTF-8 -cp "build\server\tank-server-1.0.0.jar" -d runtime\benchmark-tools scripts\benchmark\NetworkBenchmark.java
+java -cp "runtime\benchmark-tools;build\server\tank-server-1.0.0.jar" tank.NetworkBenchmark report/benchmarks/new-output-directory 30 3
+python scripts\benchmark\analyze.py report/benchmarks/new-output-directory
 ```
 
 Phải kiểm tra exit code biên dịch trước khi chạy. Thư mục đầu ra phải chưa tồn tại; công cụ từ chối ghi đè. Với pilot, dùng một thư mục khác và tham số `6 1 pilot`. Trong môi trường JDK nhận sai đường dẫn tiếng Việt, dùng junction tạm không dấu trỏ tới project như đã ghi trong report/server_test_results.md.
