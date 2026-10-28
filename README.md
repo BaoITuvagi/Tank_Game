@@ -1,6 +1,6 @@
 # Tank Battle Multiplayer
 
-Bản tích hợp quản trị mạng này dựa trên tag **v1.0.3**: giao thức **16**, nội dung **7**, khớp client 1.0.3 do Launcher tải. Phần gameplay, map, item, shop và chiến dịch giữ theo bản phát hành; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
+Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3): giao thức **16**, nội dung **7**, khớp client 1.0.3 do Launcher tải. Phần gameplay, đồ họa, map, item, shop và chiến dịch giữ theo bản của Bảo; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
 
 Các lệnh CMD chạy tại thư mục gốc repository:
 

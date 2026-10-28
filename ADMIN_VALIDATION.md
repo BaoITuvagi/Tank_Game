@@ -1,5 +1,12 @@
 # Kết quả kiểm chứng và giới hạn
 
+## Đồng bộ branch Bao — 28/10/2026
+
+- Đã đối chiếu 707 file của bản tải tại `C:\Users\Admin\Downloads\Tank_Game-Bao\Tank_Game-Bao` với branch Bao commit ec3221e: nội dung khớp; 10 file chỉ khác CRLF/LF. Không sửa thư mục tham khảo.
+- So với tag v1.0.3, branch Bao chỉ bỏ ảnh tham khảo UI và cập nhật .gitignore/tài liệu; code game và giao thức không thay đổi. Đã nhận các thay đổi này vào branch tung, giữ phần quản trị mạng.
+- Không cần đổi số giao thức: client/server vẫn dùng protocol 16, content 7. Sau khi cập nhật phải build lại và khởi động lại server để nạp JAR mới.
+- Đã build trực tiếp tại `D:\Tank_Game_tung` bằng `scripts\build-server.cmd`: **239 test đạt, 0 failures/errors/skipped**, gồm 6 AdminWebTest; JAR đã xuất ra `build/server/tank-server-1.0.0.jar`.
+
 ## Nâng nền server lên Launcher 1.0.3 — 28/10/2026
 
 - Nền source là tag v1.0.3 (cf8a700), protocol 16, content 7. Chỉ các adapter quản trị/NOTICE, cấu hình, build và tài liệu khác nền game; giữ nguyên gameplay/map/item/shop/chiến dịch của tag.

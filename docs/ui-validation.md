@@ -25,7 +25,7 @@ Chạy từ PowerShell ở gốc repo, Unity **6000.3.24f1**, Windows Build Supp
 | Resize/fullscreen HUD | `TankBattle.exe --arena-preview --preview-eight --preview-roleplay --window-qa runtime/ui-revision/window-arena` | `window-qa.json`: **passed=true**, cùng bốn bước; đã xem ảnh fullscreen. Test tọa độ ngắm sau resize pass trong EditMode. |
 | Hai client có UI kết nối thật | Host `--ui-test --ui-auto --roleplay --players 2 --seconds 60 --hp 100 --room ui-style-review --tcp 25888 --udp 25889`; peer thêm `--ui-peer`; mỗi client có `--ui-output`, `--capture` riêng | Cả hai exit **0**. Host chụp ở `PLAYING`, 2 người, loadout=true, `decoded=297`, `invalid=0`; peer chụp ở `RESULTS`, `decoded=329`, `invalid=0` sau khi host thoát. JSON/PNG/log tại `runtime/ui-revision/live/`. Đây là kiểm tra vào trận/hiển thị và chuyển kết quả, không phải smoke đủ 60 giây. |
 
-14 màn menu: `login`, `register`, `settings`, `lobby`, `create`, `room`, `roleplay-room`, `room-settings`, `history`, `history-detail`, `results`, `profile`, `join-password`, `afk-lobby`. Ảnh tham khảo trong `docs/UI_Reference/` chỉ dùng đối chiếu, không đưa vào game.
+14 màn menu: `login`, `register`, `settings`, `lobby`, `create`, `room`, `roleplay-room`, `room-settings`, `history`, `history-detail`, `results`, `profile`, `join-password`, `afk-lobby`. Ảnh tham khảo chỉ dùng đối chiếu, không đưa vào game và không lưu trong repository.
 
 Server thử bind loopback, dùng `runtime/ui-revision/server.properties`, database/spool/log và tài khoản thử riêng. Server/client do harness khởi chạy đã dừng sau kiểm tra. Không ghi cấu hình kết nối người dùng.
 

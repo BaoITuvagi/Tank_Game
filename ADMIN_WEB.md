@@ -4,6 +4,8 @@ Nếu mới clone hoặc tải ZIP từ GitHub, bắt đầu từ [README chính
 
 Website nằm trong server Java, chạy cục bộ tại **http://127.0.0.1:8080**. Dữ liệu đến từ socket thật của game. Không cần Node.js, dịch vụ web riêng hay database trên máy người chơi.
 
+Nền game đã đồng bộ branch Bao commit `ec3221e` (v1.0.3), protocol **16**, content **7**. Dùng client tương ứng; không đổi riêng số protocol để ép client cũ kết nối. Khi cập nhật source, dừng server bằng Ctrl+C, chạy `scripts\build-server.cmd`, rồi `scripts\start-server.cmd`; tài khoản và lịch sử trong runtime được giữ lại.
+
 ## Khởi chạy trên Windows
 
 Chọn branch tung khi clone/tải ZIP theo README. Mở thư mục gốc đã giải nén (nơi có source, scripts, config), gõ `cmd` vào thanh địa chỉ File Explorer. Không chạy `cd Tank_Game_updated`; repository này không có folder đó. Bản tải từ GitHub cần build trước. Nếu đã có `build\server\tank-server-1.0.0.jar`, chỉ cần JDK 21 để chạy. Chỉ khi build lại source mới cần thêm Maven 3.9 và Python 3.
