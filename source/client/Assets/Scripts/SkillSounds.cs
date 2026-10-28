@@ -33,10 +33,17 @@ namespace Tank {
                 if(waveOutOpen(out handle,uint.MaxValue,ref format,IntPtr.Zero,IntPtr.Zero,0)!=0)continue;
                 voices[i]=new Voice{Handle=handle,Header=Marshal.AllocHGlobal((int)headerSize)};
             }
-            for(int i=0;i<24;i++)clips[i]=Synthesize(i);
+            for(int kind=0;kind<32;kind++) {
+                byte[] original=Synthesize(kind);
+                for(int level=0;level<8;level++) {
+                    var data=new byte[original.Length];float gain=(level+1)/8f;
+                    for(int i=0;i<data.Length;i+=2) {short sample=(short)(original[i]|original[i+1]<<8);sample=(short)(sample*gain);data[i]=(byte)sample;data[i+1]=(byte)(sample>>8);}
+                    clips[(kind<<3)|level]=data;
+                }
+            }
         }
         static byte[] Synthesize(int kind) {
-            double duration=kind==0?.035:kind<3?.08:kind==3||kind==4||kind==8?.65:kind==13?.55:kind<15?.35:.18;
+            double duration=kind==0?.035:kind<3?.08:kind==3||kind==4||kind==8?.65:kind==13||kind==25?.55:kind<15?.35:.18;
             int count=(int)(22050*duration);var data=new byte[count*2];var noise=new Random(901+kind);
             for(int i=0;i<count;i++) {
                 double t=i/22050.0,p=i/(double)count,frequency=kind==0?440:kind==1?660:kind==2?180:180+(kind%8)*77;
@@ -55,6 +62,12 @@ namespace Tank {
                 if(kind==10)tone=(.6*grain+.4*Math.Sin(2*Math.PI*1600*t))*(Math.Sin(2*Math.PI*32*t)>0?1:.15);
                 if(kind==12||kind==13)tone=.6*grain*Math.Exp(-p*3)+.4*Math.Sin(2*Math.PI*(kind==13?42:65)*t);
                 if(kind==14)tone=.7*Math.Sin(2*Math.PI*(1500*t-1200*t*t))+.3*grain*Math.Exp(-p*5);
+                if(kind==24)tone=.7*grain*Math.Exp(-p*8)+.3*Math.Sin(2*Math.PI*(140*t-200*t*t));
+                if(kind==25||kind==29)tone=.7*grain*Math.Exp(-p*3)+.3*Math.Sin(2*Math.PI*(kind==25?48:90)*t);
+                if(kind==26)tone=Math.Sin(2*Math.PI*2100*t)*Math.Exp(-p*8)+.2*grain;
+                if(kind==27||kind==28)tone=(.65*grain+.35*Math.Sin(2*Math.PI*130*t))*Math.Exp(-p*5);
+                if(kind==30)tone=Math.Sin(2*Math.PI*(400*t+700*t*t))*Math.Exp(-p*3);
+                if(kind==31)tone=.65*Math.Sin(2*Math.PI*(700*t+1800*t*t))+.25*Math.Sin(2*Math.PI*1400*t);
                 double envelope=Math.Min(1,p*18)*Math.Pow(1-p,kind>=11&&kind<15?2:1);
                 short sample=(short)(short.MaxValue*amplitude*tone*envelope);data[i*2]=(byte)sample;data[i*2+1]=(byte)(sample>>8);
             }
@@ -68,15 +81,16 @@ namespace Tank {
         }
         public void Poll() {
             if(disposed)return;
-            foreach(var v in voices)if(v!=null&&v.Prepared&&(((WaveHeader)Marshal.PtrToStructure(v.Header,typeof(WaveHeader))).Flags&1)!=0)Release(v,false);
+            foreach(var v in voices)if(v!=null&&v.Prepared&&(Marshal.PtrToStructure<WaveHeader>(v.Header).Flags&1)!=0)Release(v,false);
         }
-        void Play(int kind,bool priority=false) {
+        void Play(int kind,bool priority=false,float gain=1) {
             if(disposed)return;Poll();Voice voice=null;
             for(int i=priority?0:2;i<(priority?2:voices.Length);i++)if(voices[i]!=null&&!voices[i].Prepared) {voice=voices[i];break;}
             if(voice==null&&priority) {voice=voices[0]??voices[1];if(voice!=null&&!Release(voice,true))voice=null;}
             if(voice==null)return;
-            voice.Buffer=GCHandle.Alloc(clips[kind],GCHandleType.Pinned);
-            var header=new WaveHeader{Data=voice.Buffer.AddrOfPinnedObject(),Length=(uint)clips[kind].Length};
+            int key=(kind<<3)|Math.Max(0,Math.Min(7,(int)Math.Ceiling(gain*8)-1));
+            voice.Buffer=GCHandle.Alloc(clips[key],GCHandleType.Pinned);
+            var header=new WaveHeader{Data=voice.Buffer.AddrOfPinnedObject(),Length=(uint)clips[key].Length};
             Marshal.StructureToPtr(header,voice.Header,false);
             if(waveOutPrepareHeader(voice.Handle,voice.Header,headerSize)!=0) {voice.Buffer.Free();return;}
             voice.Prepared=true;
@@ -89,6 +103,8 @@ namespace Tank {
         public void Countdown(int nation,int seconds) {Play(nation==5?16:seconds==1?17:15,true);}
         public void Fog(bool start) {Play(start?19:20,true);}
         public void Barrage() {Play(21);}
+        public void PlayWorld(int clip,float gain,bool priority) {if(clip>=0&&clip<32&&gain>0)Play(clip,priority,gain);}
+        public void Stop() {foreach(var voice in voices)if(voice!=null)Release(voice,true);}
         public void Dispose() {
             if(disposed)return;disposed=true;
             foreach(var voice in voices)if(voice!=null) {
@@ -105,6 +121,8 @@ namespace Tank {
         public void Countdown(int nation,int seconds) {}
         public void Fog(bool start) {}
         public void Barrage() {}
+        public void PlayWorld(int clip,float gain,bool priority) {}
+        public void Stop() {}
         public void Poll() {}
         public void Dispose() {}
 #endif

@@ -106,7 +106,7 @@ class AfkRejoinAndHitTest {
  }
  @Test void rotatedCornerHitsAndNearMissDoesNotDamage(){
   var w=new World(open(),1);var t=target(w,1,10,10,4500);var b=shot(w,9.5f,11.3f,0);w.advance(b);assertEquals(80,t.hp);
-  t.hp=100;b=shot(w,9.5f,11.5f,0);w.advance(b);assertEquals(100,t.hp);assertTrue(w.bullets.containsKey(1));
+  t.hp=100;b=shot(w,9.5f,10+GameRules.TankHalfSize*(float)Math.sqrt(2)+GameRules.BulletHalfWidth+.02f,0);w.advance(b);assertEquals(100,t.hp);assertTrue(w.bullets.containsKey(1));
  }
  @Test void relativeSweepCatchesFastMovingTargetCrossingBulletPath(){
   var w=new World(open(),1);var t=target(w,1,10,11.2f,9000);var b=shot(w,9.8f,10,0);
@@ -114,7 +114,7 @@ class AfkRejoinAndHitTest {
  }
  @Test void steelOccludesTargetAndFirstContactDoesNotDamageTwoTargets(){
   var m=open();var wall=new GameMap.Rect();wall.x=9;wall.y=0;wall.w=1;wall.h=20;m.walls=new GameMap.Rect[]{wall};
-  var w=new World(m,1);var behind=target(w,1,10.4f,10,0);var b=shot(w,8.3f,10,0);w.advance(b);assertEquals(100,behind.hp);assertEquals(1,b.bounces);
+  var w=new World(m,1);var behind=target(w,1,10+GameRules.TankHalfSize+.4f,10,0);var b=shot(w,8.3f,10,0);w.advance(b);assertEquals(100,behind.hp);assertEquals(1,b.bounces);
   w=new World(open(),1);var near=target(w,1,10,10,0);var far=target(w,2,11,10,0);b=shot(w,8.5f,10,0);w.advance(b);assertEquals(80,near.hp);assertEquals(100,far.hp);assertFalse(w.bullets.containsKey(1));
  }
  @Test void hitKillsOnceAndRespawnHasNoInvulnerability()throws Exception{

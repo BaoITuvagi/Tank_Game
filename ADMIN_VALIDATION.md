@@ -1,5 +1,15 @@
 # Kết quả kiểm chứng và giới hạn
 
+## Nâng nền server lên Launcher 1.0.3 — 28/10/2026
+
+- Nền source là tag v1.0.3 (cf8a700), protocol 16, content 7. Chỉ các adapter quản trị/NOTICE, cấu hình, build và tài liệu khác nền game; giữ nguyên gameplay/map/item/shop/chiến dịch của tag.
+- Build server: **239 test Java đạt, 0 failures/errors/skipped**. Sáu AdminWebTest gồm multiplayer thường/Nhập vai và giám sát/thông báo/kick chiến dịch.
+- Đã chạy **hai client Unity EXE công khai 1.0.3 do Launcher tải**, ở batchmode/nographics, với server/database/cổng thử riêng. Cả hai đăng ký, đăng nhập, vào phòng, ready, UDP handshake, nhận snapshot giao thức 16, kết thúc trận và truy vấn lịch sử thành công; invalid=0, observedTick=30, END reason=0, historyRows=1.
+- Giữ nguyên tiến trình server v5 đang vận hành và database thật trong lần thử. Các tiến trình thử đã được dừng.
+- Hộp nổi trong source mới đã đổi sang CartoonUi/MenuTheme 1.0.3; chưa build lại client chứa overlay vì chưa có Unity Editor. Kiểm tra EXE công khai chứng minh tương thích game/server, không chứng minh overlay mới đã có trong EXE đó.
+
+Các kết quả v5 dưới đây được giữ làm lịch sử kiểm chứng trước nâng cấp.
+
 Tài liệu này ghi nhận kết quả ở môi trường phát triển, không khẳng định mọi máy tải source sẽ có sẵn các công cụ hoặc artifact. Cách chạy cho người mới nằm trong [README chính](README.md).
 
 ## Server và website

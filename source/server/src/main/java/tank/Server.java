@@ -106,6 +106,7 @@ public class Server implements AutoCloseable  {
         final String id=UUID.randomUUID().toString();
         final long connectedAt=System.currentTimeMillis();
         volatile String historyKey;
+        CampaignSession campaign=new CampaignSession(this,db);
         final Socket socket;
         final ArrayBlockingQueue<byte[]> outbound=new ArrayBlockingQueue<>(128);
         final RateLimit actions=new RateLimit(10,10),udpRate=new RateLimit(120,240);
@@ -176,10 +177,15 @@ public class Server implements AutoCloseable  {
                 case HISTORY->HISTORY_RESULT;
                 case HISTORY_DETAIL->HISTORY_DETAIL_RESULT;
                 case SET_DISPLAY_NAME->DISPLAY_NAME_RESULT;
+                case SHOP->SHOP_RESULT;
                 default->ACTION_RESULT;
             };
             try {
                 Reader r=new Reader(p.payload());
+                if(p.op()==CampaignSession.REQUEST) {
+                    if(!actions.allow()){campaign.failure(p.sequence(),"Thao tác quá nhanh. Hãy thử lại.");return;}
+                    campaign.request(p);return;
+                }
                 if(p.op()==HEARTBEAT) {
                     long nonce=r.u64();
                     r.end();
@@ -194,6 +200,26 @@ public class Server implements AutoCloseable  {
                 boolean matchAction=p.op()==USE_SKILL;
                 if(!(matchAction&&room!=null&&room.roleplay!=null)&&!actions.allow())throw new Database.Failure(Error.RATE_LIMITED);
                 switch(p.op()) {
+                    case SHOP-> {
+                        int command=r.u8();long match=r.u64();
+                        if(command==0) {
+                            r.end();
+                            if(match==0)RoleplayShop.wallet(this,db,p.sequence(),0,0,0,0,new int[GameRules.ItemTypeCount]);
+                            else {
+                                Room target=requireRoom();
+                                if(target.roleplay==null)throw new Database.Failure(Error.INVALID_STATE);
+                                target.enqueue(()->target.roleplay.shop.query(this,match,p.sequence()));
+                            }
+                        }else if(command==1) {
+                            int wave=r.u8(),item=r.u8();r.end();Room target=requireRoom();
+                            if(target.roleplay==null)throw new Database.Failure(Error.INVALID_STATE);
+                            target.enqueue(()->target.roleplay.shop.buy(this,match,wave,item,p.sequence()));
+                        }else if(command==2) {
+                            int revision=r.u32(),item=r.u8();r.end();Room target=requireRoom();
+                            if(target.roleplay==null)throw new Database.Failure(Error.INVALID_STATE);
+                            target.enqueue(()->target.roleplay.shop.use(this,match,revision,item,p.sequence()));
+                        }else throw new IllegalArgumentException("shop command");
+                    }
                     case LOGOUT-> {
                         r.end();
                         Room target=room;
@@ -228,6 +254,7 @@ public class Server implements AutoCloseable  {
                         send(ROOM_LIST_RESULT,p.sequence(),w.done());
                     }
                     case CREATE_ROOM-> {
+                        if(campaign.active())throw new Database.Failure(Error.INVALID_STATE);
                         String name=r.str(48);
                         int capacity=cfg.integer("max.players",8),seconds=cfg.integer("match.ticks",5400)/30;
                         boolean custom=r.b.hasRemaining();
@@ -257,6 +284,7 @@ public class Server implements AutoCloseable  {
                         }
                     }
                     case JOIN_ROOM-> {
+                        if(campaign.active())throw new Database.Failure(Error.INVALID_STATE);
                         int id=r.u32();
                         String joinPassword=r.b.hasRemaining()?r.str(128):"";
                         RoomAccess.validate(joinPassword);
@@ -438,6 +466,8 @@ public class Server implements AutoCloseable  {
             }
         }
         synchronized void logout() {
+            campaign.close();
+            campaign=new CampaignSession(this,db);
             Database.Account a=account;
             if(a!=null)accounts.remove(a.id(),this);
             if(token!=null)tokens.remove(HexFormat.of().formatHex(token),this);

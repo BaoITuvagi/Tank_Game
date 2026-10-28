@@ -1,5 +1,5 @@
 'use strict';
-const $=id=>document.getElementById(id), labels={UNAUTHENTICATED:'Chưa đăng nhập',LOBBY:'Ở sảnh',WAITING:'Trong phòng chờ',PREPARING:'Chuẩn bị trận',RUNNING:'Đang chơi',RESULTS:'Xem kết quả',DISCONNECTED:'Đã ngắt kết nối'};
+const $=id=>document.getElementById(id), labels={UNAUTHENTICATED:'Chưa đăng nhập',LOBBY:'Ở sảnh',WAITING:'Trong phòng chờ',PREPARING:'Chuẩn bị trận',RUNNING:'Đang chơi',CAMPAIGN:'Chiến dịch',RESULTS:'Xem kết quả',DISCONNECTED:'Đã ngắt kết nối'};
 const titles={connections:'Kết nối trực tiếp',bans:'Quy tắc ban IP',history:'Lịch sử IP–tài khoản',notice:'Gửi thông báo',audit:'Nhật ký quản trị'};
 let csrf='',data=null,lastSuccess=0,tab='connections',page=0,historyPage=0,auditPage=0,bans=[],action=null,polling=false,authenticated=false,toastTimer;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

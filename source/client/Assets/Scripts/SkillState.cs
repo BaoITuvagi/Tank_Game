@@ -9,7 +9,7 @@ namespace Tank {
         public float X,Y,Radius;
         public static SkillEffect Read(WireReader r) {
             var e=new SkillEffect{Id=r.U32(),Kind=r.U8(),Owner=r.U8(),Start=r.U16(),End=r.U16(),X=r.F32(),Y=r.F32(),Radius=r.F32(),Angle=r.U16()};
-            if(e.Id==0||e.Kind<1||e.Kind>8||e.Owner>7||e.End<e.Start||e.Radius<0||float.IsNaN(e.Radius)||float.IsInfinity(e.Radius)||e.Angle>=36000)throw new InvalidDataException("skill effect");
+            if(e.Id==0||e.Id>int.MaxValue||e.Kind<1||e.Kind>11||e.Owner>7||e.End<e.Start||e.Radius<0||float.IsNaN(e.Radius)||float.IsInfinity(e.Radius)||float.IsNaN(e.X)||float.IsInfinity(e.X)||float.IsNaN(e.Y)||float.IsInfinity(e.Y)||e.Angle>=36000)throw new InvalidDataException("skill effect");
             return e;
         }
         public void Write(WireWriter w) {w.U32(Id).U8(Kind).U8(Owner).U16(Start).U16(End).F32(X).F32(Y).F32(Radius).U16(Angle);}
@@ -50,6 +50,17 @@ namespace Tank {
         }
     }
     public static class SkillGeometry {
+        public static int KatyushaSlowEnd(TankState tank,uint tick,IEnumerable<SkillEffect> effects) {
+            int end=0;
+            if(tank.Hp<=0||effects==null)return end;
+            double a=tank.Body/100.0*Math.PI/180,c=Math.Cos(a),s=Math.Sin(a);
+            foreach(var e in effects)if(e.Kind==SkillEffect.Area&&tick>=e.Start&&tick<e.End) {
+                double dx=e.X-tank.X,dy=e.Y-tank.Y;
+                double lx=Math.Max(0,Math.Abs(dx*c+dy*s)-GameRules.TankHalfSize),ly=Math.Max(0,Math.Abs(-dx*s+dy*c)-GameRules.TankHalfSize);
+                if(lx*lx+ly*ly<=e.Radius*e.Radius+1e-6)end=Math.Max(end,e.End);
+            }
+            return end;
+        }
         // The arena is clipped to its panel; shake moves the map inside that panel.
         public static bool TryAim(float px,float py,float left,float top,float scale,float width,float height,float shakeX,float shakeY,ref float aimX,ref float aimY) {
             if(scale<=0||px<left||py<top||px>left+width*scale||py>top+height*scale)return false;

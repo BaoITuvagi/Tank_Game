@@ -1,0 +1,193 @@
+{
+    "clips": [
+        {
+            "key": "combat/muzzle",
+            "view": "any",
+            "faces": "right",
+            "frames": 8,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "combat/hit_top",
+            "view": "top",
+            "faces": "",
+            "frames": 12,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "combat/explosion_top",
+            "view": "top",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "movement/dust_top",
+            "view": "top",
+            "faces": "",
+            "frames": 12,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "movement/dash",
+            "view": "any",
+            "faces": "right",
+            "frames": 12,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "nature/smoke_top",
+            "view": "top",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "nature/rocks_top",
+            "view": "top",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "nature/fire_top",
+            "view": "top",
+            "faces": "",
+            "frames": 12,
+            "fps": 24,
+            "cell": 128,
+            "loop": true
+        },
+        {
+            "key": "magic/magic_burst",
+            "view": "any",
+            "faces": "",
+            "frames": 12,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "magic/lightning_top",
+            "view": "top",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "magic/heal_top",
+            "view": "top",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "magic/shield",
+            "view": "any",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "status/debuff",
+            "view": "any",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": true
+        },
+        {
+            "key": "status/buff",
+            "view": "any",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": true
+        },
+        {
+            "key": "status/stun",
+            "view": "any",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": true
+        },
+        {
+            "key": "pickup_ui/pickup",
+            "view": "any",
+            "faces": "",
+            "frames": 12,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "pickup_ui/item_glow",
+            "view": "any",
+            "faces": "",
+            "frames": 24,
+            "fps": 24,
+            "cell": 128,
+            "loop": true
+        },
+        {
+            "key": "pickup_ui/heart",
+            "view": "any",
+            "faces": "",
+            "frames": 12,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "nature/portal",
+            "view": "any",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": true
+        },
+        {
+            "key": "combat/ground_slam_top",
+            "view": "top",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        },
+        {
+            "key": "magic/ice_hit_top",
+            "view": "top",
+            "faces": "",
+            "frames": 18,
+            "fps": 24,
+            "cell": 128,
+            "loop": false
+        }
+    ]
+}

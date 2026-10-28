@@ -120,13 +120,13 @@ final class AdminWeb implements AutoCloseable {
         return store.submit(()->audit?store.rows("SELECT * FROM audit WHERE time BETWEEN ? AND ? AND (target LIKE ? OR detail LIKE ? OR admin LIKE ?) AND (?='' OR action=?) ORDER BY id DESC LIMIT 51 OFFSET ?",from,to,like,like,like,action,action,page*50):store.rows("SELECT * FROM sessions WHERE connected BETWEEN ? AND ? AND (ip LIKE ? OR account LIKE ? OR session LIKE ?) AND (?='' OR account=?) ORDER BY connected DESC LIMIT 51 OFFSET ?",from,to,like,like,like,exactAccount,exactAccount,page*50)).get(5,TimeUnit.SECONDS);
     }
     Map<String,Object> session(Server.Session s){
-        Room r=s.room;Database.Account account=s.account;String state=!s.open?"DISCONNECTED":account==null?"UNAUTHENTICATED":r==null?"LOBBY":r.view.state().name();
+        Room r=s.room;Database.Account account=s.account;String state=!s.open?"DISCONNECTED":account==null?"UNAUTHENTICATED":r==null?(s.campaign.active()?"CAMPAIGN":"LOBBY"):r.view.state().name();
         long now=System.nanoTime(),last=Math.max(s.lastTcp,s.lastUdp);
         var row=new LinkedHashMap<String,Object>();row.put("id",s.id);row.put("ip",s.ip());row.put("port",s.socket.getPort());row.put("account",account==null?"":account.name());row.put("connected",s.connectedAt);row.put("lastActivity",System.currentTimeMillis()-Math.max(0,(now-last)/1000000));row.put("state",state);row.put("tcp",s.open);row.put("udp",s.endpoint!=null&&s.lastUdp>0&&now-s.lastUdp<Room.UDP_TIMEOUT_NANOS);row.put("room",r==null?null:r.id);row.put("match",r==null||r.match==0?null:Long.toString(r.match));row.put("rtt",null);return row;
     }
     Object snapshot(){
         var sessions=game.connections.stream().filter(s->s.open).map(this::session).toList();
-        return Map.of("time",System.currentTimeMillis(),"sessions",sessions,"stats",Map.of("sessions",sessions.size(),"ips",sessions.stream().map(s->s.get("ip")).distinct().count(),"accounts",sessions.stream().map(s->s.get("account")).filter(a->!a.equals("")).distinct().count(),"playing",sessions.stream().filter(s->s.get("state").equals("RUNNING")).count(),"bans",banned.size()),"storageFailures",store.failures.get(),"tcpPort",game.tcp.getLocalPort(),"udpPort",game.udp.getLocalPort());
+        return Map.of("time",System.currentTimeMillis(),"sessions",sessions,"stats",Map.of("sessions",sessions.size(),"ips",sessions.stream().map(s->s.get("ip")).distinct().count(),"accounts",sessions.stream().map(s->s.get("account")).filter(a->!a.equals("")).distinct().count(),"playing",sessions.stream().filter(s->Set.of("RUNNING","CAMPAIGN").contains(s.get("state"))).count(),"bans",banned.size()),"storageFailures",store.failures.get(),"tcpPort",game.tcp.getLocalPort(),"udpPort",game.udp.getLocalPort());
     }
     List<Server.Session> targets(JsonObject b){
         String scope=text(b,"scope",16),target=text(b,"target",128);

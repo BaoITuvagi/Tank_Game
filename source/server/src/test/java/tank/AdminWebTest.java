@@ -123,6 +123,24 @@ class AdminWebTest {
     @Test void roleplayMatchCanBeMonitoredNotifiedAndKicked()throws Exception {
         inMatchKick(RoomMode.ROLEPLAY);
     }
+    @Test void campaignCanBeMonitoredNotifiedAndDisconnected()throws Exception {
+        try(Server s=new Server(new Config(config()))) {
+            s.start();login(s);
+            try(Socket player=socket(s)) {
+                BaselineTest.auth(player,"campaign_admin_test");
+                BaselineTest.send(player,CampaignSession.REQUEST,new Writer().u8(8).u8(0).u8(0).done());
+                assertEquals(0,new Reader(BaselineTest.waitFor(player,CampaignSession.RESPONSE).payload()).u16());
+                var row=state(s).getAsJsonArray("sessions").get(0).getAsJsonObject();
+                assertEquals("CAMPAIGN",row.get("state").getAsString());
+                assertEquals(1,state(s).getAsJsonObject("stats").get("playing").getAsInt());
+                String id=row.get("id").getAsString();
+                post(s,"/api/notice",Map.of("scope","session","target",id,"type","info","message","Campaign notice"));
+                assertEquals(200,new Reader(BaselineTest.waitFor(player,NOTICE).payload()).u16());
+                post(s,"/api/kick",Map.of("scope","session","target",id,"message","campaign kick"));
+                eventually(()->s.connections.isEmpty()&&s.accounts.isEmpty()&&s.tokens.isEmpty());
+            }
+        }
+    }
     void inMatchKick(RoomMode mode)throws Exception {
         try(Server s=new Server(new Config(config()))) {
             s.start();login(s);

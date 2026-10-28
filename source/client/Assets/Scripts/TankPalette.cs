@@ -8,6 +8,17 @@ namespace Tank  {
             new Color(.2f,.64f,1),new Color(1,.27f,.3f),new Color(.28f,.87f,.4f),new Color(1,.83f,.25f),new Color(.67f,.4f,1),new Color(1,.52f,.18f),new Color(.15f,.88f,.85f),new Color(1,.41f,.72f)
         };
         static Texture2D[] bodies=new Texture2D[8],barrels=new Texture2D[8];
+        static Texture2D flashBody,flashBarrel;
+        public static void PreloadCombatMasks() {Flash(false);Flash(true);}
+        public static Texture2D Flash(bool barrel) {
+            var cached=barrel?flashBarrel:flashBody;if(cached!=null)return cached;
+            var source=Resources.Load<Texture2D>("ArenaArt/"+(barrel?"tankDark_barrel2_outline":"tankBody_dark_outline"));
+            if(source==null||!source.isReadable)return null;
+            var pixels=source.GetPixels();for(int i=0;i<pixels.Length;i++)pixels[i]=new Color(1,1,1,pixels[i].a);
+            var texture=new Texture2D(source.width,source.height,TextureFormat.RGBA32,false){filterMode=FilterMode.Bilinear,hideFlags=HideFlags.HideAndDontSave};
+            texture.SetPixels(pixels);texture.Apply(false,true);
+            if(barrel)flashBarrel=texture;else flashBody=texture;return texture;
+        }
         public static Texture2D Body(int slot) {
             return Texture(slot,false);
         }

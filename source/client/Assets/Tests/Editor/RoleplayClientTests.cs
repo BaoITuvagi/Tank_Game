@@ -26,7 +26,7 @@ public class RoleplayClientTests {
             yield return Wait(Core,()=>Core.Phase==ClientPhase.LOBBY);
         }
         public Packet Read(byte opcode) {
-            while(true) {var p=Protocol.Read(Peer.GetStream());if(p.Op==Op.Heartbeat||p.Op==Op.RoomList)continue;Assert.AreEqual(opcode,p.Op);return p;}
+            while(true) {var p=Protocol.Read(Peer.GetStream());if(p.Op==Op.Shop){Send(Op.ShopResult,p.Sequence,new WireWriter().U16(0).U8(2).U64(0).U64(0).U8(0).U8(0).U32(0).Bytes(new byte[6]).Done());continue;}if(p.Op==Op.Heartbeat||p.Op==Op.RoomList)continue;Assert.AreEqual(opcode,p.Op);return p;}
         }
         public void Send(byte opcode,uint sequence,byte[] payload) {var bytes=Protocol.Frame(opcode,sequence,payload);Peer.GetStream().Write(bytes,0,bytes.Length);Peer.GetStream().Flush();}
         public void Prepare() {
@@ -57,7 +57,8 @@ public class RoleplayClientTests {
             h.Send(Op.Full,0,Snapshot(1,100,world.Encode()));yield return Wait(h.Core,()=>h.Core.Latest!=null&&h.Core.Latest.Tick==100);
             Assert.AreEqual(1,h.Core.Latest.World.Tanks[0].Nation);Assert.AreEqual(0,h.Core.SkillFeedbackRevision);
             // Snapshot 2 is lost. Snapshot 3 repairs the early end against acknowledged base 1.
-            byte[] delta=new WireWriter().U8(1).U8(0).U32((1u<<16)|(1u<<18)).U16(101).U8(0).U8(0).U8(0).U8(0).U16(0).Done();
+            var deltaWriter=new WireWriter().U8(1).U8(0).U32((1u<<16)|(1u<<18)).U16(101).U8(0).U8(0).U8(0).U8(0).U16(0);
+            ItemCodec.Write(world,deltaWriter);deltaWriter.U16(0).U16(0);BattlefieldCodec.Write(world,deltaWriter);byte[] delta=deltaWriter.Done();
             h.Send(Op.Delta,0,Snapshot(3,102,delta,1));yield return Wait(h.Core,()=>h.Core.Latest.Tick==102);
             Assert.AreEqual(101,h.Core.Latest.World.Tanks[0].QEndTick);Assert.AreEqual(0,h.Core.Latest.World.Tanks[0].ProtectionFlags);
             h.Send(Op.Full,0,Snapshot(4,99,world.Encode()));h.Send(Op.Notice,0,new WireWriter().U16(0).Str("barrier").Done());yield return Wait(h.Core,()=>h.Core.Message=="barrier");Assert.AreEqual(102,h.Core.Latest.Tick);

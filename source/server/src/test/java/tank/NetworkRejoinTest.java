@@ -18,6 +18,8 @@ class NetworkRejoinTest {
     if(mode==RoomMode.ROLEPLAY){var rp=new RoleplayRoomTest();rp.tmp=h.tmp;r=rp.room(s,3);rp.running(r);}
     else {r=h.directRoom(s,3,3,180);r.prepare(r.members.get(0).session,1);r.phase=RoomState.RUNNING;r.broadcast();}
     var member=r.members.get(2);var tank=r.world.tanks.get(2);tank.kills=7;tank.deaths=4;tank.lastKill=90;tank.qReadyTick=1200;
+    tank.qBaseReadyTick=900;tank.qPenalty=300;tank.qPenaltySources.add(0);
+    tank.armorEndTick=1000;tank.invincibilityEndTick=900;tank.mirrorShots=3;
     long match=r.match;r.world.bricks[0]=0;byte[] bricks=r.world.bricks.clone();
     if(reason==1){member.session.close();for(var m:r.members.values())m.session.lastUdp=System.nanoTime();r.tick();}
     else if(reason==2){for(var m:r.members.values())m.session.lastUdp=System.nanoTime();member.session.lastUdp-=11_000_000_000L;r.tick();}
@@ -34,7 +36,11 @@ class NetworkRejoinTest {
     else r.prepared(replacement,match,21);
     assertFalse(member.rejoining);tank=r.world.tanks.get(2);assertNotNull(tank);
     assertEquals(7,tank.kills);assertEquals(4,tank.deaths);assertEquals(90,tank.lastKill);assertEquals(match,r.match);assertArrayEquals(bricks,r.world.bricks);
-    if(mode==RoomMode.ROLEPLAY){assertEquals(2,tank.nation);assertEquals(1200,tank.qReadyTick);}
+    assertEquals(1000,tank.armorEndTick);assertEquals(900,tank.invincibilityEndTick);assertEquals(3,tank.mirrorShots);
+    if(mode==RoomMode.ROLEPLAY){
+     assertEquals(2,tank.nation);assertEquals(1200,tank.qReadyTick);assertEquals(900,tank.qBaseReadyTick);assertEquals(Set.of(0),tank.qPenaltySources);
+     r.world.items.apply(tank,WorldItems.PURIFICATION);assertEquals(900,tank.qReadyTick);assertEquals(0,tank.qPenalty);assertEquals(3,tank.mirrorShots);
+    }
     r.leave(replacement,0);assertTrue(r.canRejoin(replacement));assertEquals(7,member.resultTank.kills);
    }
   }

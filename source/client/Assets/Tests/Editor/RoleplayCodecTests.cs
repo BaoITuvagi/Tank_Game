@@ -17,18 +17,18 @@ public class RoleplayCodecTests {
         Assert.AreEqual(19000,state.Tanks[0].QReadyTick);Assert.AreEqual(140,state.Bullets[1].SpeedPercent);Assert.AreEqual(70,state.Bullets[1].RemainingLifetime);
         Assert.AreEqual(19000,state.Tanks[0].Copy().QReadyTick);
     }
-    [Test] public void JavaGoldenFramesCoverV5AndAllRoleplayOpcodes() {
+    [Test] public void JavaGoldenFramesCoverV8AndAllRoleplayOpcodes() {
         var seen=new System.Collections.Generic.HashSet<byte>();
         foreach(string line in File.ReadAllLines(Path.GetFullPath("../../source/server/target/interop/golden.tsv"))) {
             byte[] bytes=Bytes(line.Split('\t')[1]);var packet=Protocol.Decode(bytes);
             CollectionAssert.AreEqual(bytes,Protocol.Frame(packet.Op,packet.Sequence,packet.Payload));seen.Add(packet.Op);
         }
-        Assert.AreEqual(44,seen.Count);foreach(byte op in new byte[]{80,84,85})Assert.IsTrue(seen.Contains(op));
+        Assert.AreEqual(46,seen.Count);foreach(byte op in new byte[]{80,84,85,86,87})Assert.IsTrue(seen.Contains(op));
         var old=Protocol.Frame(Op.Heartbeat,1,new byte[0]);old[2]=3;Assert.Throws<InvalidDataException>(()=>Protocol.Decode(old));
     }
     [Test] public void InvalidEffectMaskLeavesBaseUntouched() {
         var world=new WorldState();world.Tanks[0]=new TankState();var before=world.Encode();
-        Assert.Throws<InvalidDataException>(()=>DeltaCodec.Apply(world,new WireReader(new WireWriter().U8(1).U8(0).U32(1u<<27).Done())));
+        Assert.Throws<InvalidDataException>(()=>DeltaCodec.Apply(world,new WireReader(new WireWriter().U8(1).U8(0).U32(1u<<29).Done())));
         CollectionAssert.AreEqual(before,world.Encode());world.Tanks[0].ProtectionFlags=4;Assert.Throws<InvalidDataException>(()=>world.Encode());
     }
     [Test] public void JavaMovementTraceMatchesBuffAndDeadlinePrediction() {

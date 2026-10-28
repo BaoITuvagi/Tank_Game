@@ -88,7 +88,7 @@ scripts\build-client.cmd
 - **Thông báo:** chọn phiên, IP, phòng hoặc tất cả; chọn thông tin/cảnh báo/lỗi. Giới hạn 500 ký tự và 1.000 byte UTF-8. Kết quả là số phiên đã đưa vào hàng đợi gửi, không phải số người đọc.
 - **Nhật ký:** tìm theo IP, tài khoản, admin, nội dung, loại thao tác và khoảng ngày. Ghi yêu cầu và kết quả thao tác ngắt/gửi riêng để không nhầm đã tiếp nhận với đã thực hiện.
 
-Client Unity cần build lại để có hộp nổi thông báo admin ở giữa màn hình, cả trong menu và trận. Hộp dùng màu giấy/viền xanh/kiểu chữ của MenuTheme, phân biệt thông tin/cảnh báo/lỗi bằng màu, có vùng cuộn cho tin dài và nút Đóng hoặc Tin tiếp theo. Tin admin không còn đẩy vào dòng trạng thái chung ở góc. Nhiều tin được giữ theo thứ tự; tối đa 32 tin kể cả tin đang xem. Khi quá tải, giữ nguyên tin đang xem, bỏ tin chờ cũ nhất và hiện số tin đã lược bớt. Hộp không tạm dừng trận, thay đổi điều khiển, tự ngắt kết nối hoặc gửi xác nhận đã đọc. Client cũ chỉ có cách hiển thị đã được build sẵn; cập nhật web đơn lẻ không thay đổi được giao diện của client cũ.
+Client Unity cần build lại để có hộp nổi thông báo admin ở giữa màn hình, cả trong menu và trận. Hộp dùng panel tối, màu vàng/xanh và kiểu chữ CartoonUi/MenuTheme của bản 1.0.3, phân biệt thông tin/cảnh báo/lỗi bằng màu, có vùng cuộn cho tin dài và nút Đóng hoặc Tin tiếp theo. Tin admin không còn đẩy vào dòng trạng thái chung ở góc. Nhiều tin được giữ theo thứ tự; tối đa 32 tin kể cả tin đang xem. Khi quá tải, giữ nguyên tin đang xem, bỏ tin chờ cũ nhất và hiện số tin đã lược bớt. Hộp không tạm dừng trận, thay đổi điều khiển, tự ngắt kết nối hoặc gửi xác nhận đã đọc. Client cũ chỉ có cách hiển thị đã được build sẵn; cập nhật web đơn lẻ không thay đổi được giao diện của client cũ.
 
 ## Kiến trúc phục vụ báo cáo
 
@@ -105,7 +105,7 @@ flowchart LR
 
 `AdminWeb` dùng HTTP server có sẵn của JDK. Giao diện HTML/CSS/JS thuần được đóng gói trong JAR. Gson đã có trong dự án được dùng cho API web; giao thức game vẫn là nhị phân big-endian hiện có.
 
-`SYSTEM_PROMPT.md` mô tả thiết kế cũ có header 8 byte. Source hiện tại thực tế dùng header **12 byte**, magic `0x5442`, version 5 (GameRules.ProtocolVersion) và token game 16 byte. Phần quản trị và kiểm thử đi theo `Protocol.java`/`Protocol.cs` hiện tại, không xây dựng lại game theo bản mô tả cũ.
+`SYSTEM_PROMPT.md` mô tả thiết kế cũ có header 8 byte. Source hiện tại thực tế dùng header **12 byte**, magic `0x5442`, version 16 (GameRules.ProtocolVersion) và token game 16 byte. Phần quản trị và kiểm thử đi theo `Protocol.java`/`Protocol.cs` hiện tại, không xây dựng lại game theo bản mô tả cũ.
 
 Mỗi kết nối TCP có UUID, IP quan sát từ socket và thời gian kết nối. Khi kết nối, đăng nhập, đăng xuất hoặc đóng phiên, server đẩy sự kiện lịch sử vào worker riêng. Mỗi thay đổi danh tính đóng một giai đoạn cũ và mở giai đoạn mới, giữ đầy đủ quan hệ nhiều IP–nhiều tài khoản. Khi server khởi động lại, các giai đoạn còn mở được đánh dấu kết thúc do server khởi động lại.
 
@@ -134,7 +134,7 @@ Kết quả và giới hạn kiểm chứng được ghi trong [ADMIN_VALIDATION
 
 ## Build và khởi động lại sau cập nhật
 
-Client/server phải cùng phiên bản giao thức (source hiện tại v5, nội dung Nhập vai v6). Giữ phần quản trị khi cập nhật source; chỉ giữ các file AdminWeb/AdminStore riêng lẻ là chưa đủ.
+Client/server phải cùng phiên bản giao thức (source hiện tại v16, nội dung Nhập vai v7). Giữ phần quản trị khi cập nhật source; chỉ giữ các file AdminWeb/AdminStore riêng lẻ là chưa đủ.
 
 Sau END, server chuyển phòng về WAITING ngay để chơi trận tiếp theo. Web hiện “Trong phòng chờ” dù client còn xem bảng kết quả; đây là trạng thái thật của server.
 
@@ -184,3 +184,11 @@ scripts\build-client.cmd
 ```
 
 Trong Unity Editor, chờ biên dịch lại và Play. Để test: gửi riêng một IP, thử đủ ba loại tin, tin dài có xuống dòng, gửi liên tiếp nhiều tin, đổi menu/vào trận rồi đóng từng tin. Người chơi ở IP khác không thuộc đích gửi sẽ không nhận tin. Web vẫn báo số phiên đã xếp hàng gửi, không báo số người đã đọc hoặc đã đóng hộp.
+
+## Tương thích Launcher 1.0.3
+
+Server này lấy toàn bộ nền game từ tag v1.0.3 (protocol 16, content 7), không chỉ thay số version trên server v5. Quản trị dùng lại Session, hàng đợi phòng và đường close/logout của server mới; thoát chiến dịch đi qua CampaignSession.close có sẵn. Web nhận thêm trạng thái CAMPAIGN và tính người đang chơi chiến dịch vào tổng người chơi.
+
+Client Launcher 1.0.3 nguyên bản đăng ký, đăng nhập và chơi được, nhưng chỉ có cách hiển thị NOTICE gốc. Muốn hộp nổi admin mới xuất hiện cần build/phát hành client có AdminNoticeOverlay đã ghép theo CartoonUi. Phát hành client/manifest Launcher là thao tác riêng, không tự thực hiện khi build server.
+
+Sau khi áp dụng bản cập nhật vào thư mục đang vận hành: dừng server v5 bằng Ctrl+C, build server mới rồi start lại. Tiếp tục dùng runtime/config hiện tại để giữ admin và dữ liệu; không cần khởi tạo admin lại. Source cũ v5 không thể chơi cùng server v16.

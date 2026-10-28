@@ -10,10 +10,10 @@ namespace Tank  {
             var seen=new HashSet<int>();
             for(int i=0;i<n;i++) {
                 int slot=r.U8(),mask=(int)r.U32();
-                if(slot>7||(mask&~0x7ffffff)!=0||mask==0||!seen.Add(slot))throw new InvalidDataException("tank mask");
+                if(slot>7||(mask&~0x1fffffff)!=0||mask==0||!seen.Add(slot))throw new InvalidDataException("tank mask");
                 TankState old;
                 bool exists=w.Tanks.TryGetValue(slot,out old);
-                if(!exists&&mask!=0x7ffffff)throw new InvalidDataException("incomplete tank");
+                if(!exists&&mask!=0x1fffffff)throw new InvalidDataException("incomplete tank");
                 if(mask==1024) {
                     if(r.Bool())throw new InvalidDataException("presence");
                     w.Tanks.Remove(slot);
@@ -48,6 +48,8 @@ namespace Tank  {
                 if((mask&(1<<24))!=0)t.AimX=r.F32();
                 if((mask&(1<<25))!=0)t.AimY=r.F32();
                 if((mask&(1<<26))!=0)t.Life=(int)r.U32();
+                if((mask&(1<<27))!=0)t.RocketSlowEndTick=r.U16();
+                if((mask&(1<<28))!=0)t.RocketSlowStacks=r.U8();
                 if((mask&1024)!=0&&!r.Bool())throw new InvalidDataException("presence");
                 WorldState.Validate(t);
                 w.Tanks[slot]=t;
@@ -65,11 +67,11 @@ namespace Tank  {
             var ids=new HashSet<uint>();
             for(int i=0;i<n;i++) {
                 uint id=r.U32();
-                int mask=r.U8();
-                if((mask&~255)!=0||mask==0||!ids.Add(id))throw new InvalidDataException("bullet mask");
+                int mask=r.U16();
+                if((mask&~511)!=0||mask==0||!ids.Add(id))throw new InvalidDataException("bullet mask");
                 BulletState old;
                 bool exists=w.Bullets.TryGetValue(id,out old);
-                if(!exists&&mask!=255)throw new InvalidDataException("incomplete bullet");
+                if(!exists&&mask!=511)throw new InvalidDataException("incomplete bullet");
                 var b=exists?old.Copy():new BulletState {
                     Id=id
                 };
@@ -81,6 +83,7 @@ namespace Tank  {
                 if((mask&32)!=0)b.SpeedPercent=r.U8();
                 if((mask&64)!=0)b.RemainingLifetime=r.U16();
                 if((mask&128)!=0)b.Damage=r.U8();
+                if((mask&256)!=0)b.Kind=r.U8();
                 WorldState.Validate(b);
                 w.Bullets[id]=b;
             }
@@ -89,10 +92,13 @@ namespace Tank  {
             seen.Clear();
             for(int i=0;i<n;i++) {
                 int id=r.U8(),hp=r.U8();
-                if(id>63||hp>5||!seen.Add(id))throw new InvalidDataException("brick");
+                if(id>63||hp>GameRules.BrickMaxHp||!seen.Add(id))throw new InvalidDataException("brick");
                 w.Bricks[id]=(byte)hp;
             }
             WorldState.ReadEffects(w,r);
+            ItemCodec.Read(w,r);
+            CombatCodec.Apply(w,r);
+            BattlefieldCodec.Read(w,r);
             if(w.Tanks.Count>8||w.Bullets.Count>GameRules.MaxBullets)throw new InvalidDataException("world count");
             return w;
         }

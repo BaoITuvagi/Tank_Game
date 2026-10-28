@@ -102,6 +102,7 @@ public class Room  {
     }
     long lastEncode,lastSend;
     void tick() {
+        if(roleplay!=null)roleplay.shop.tick();
         if(stopRequested) {
             if(phase==RoomState.RUNNING)finish(2);
             alive=false;
@@ -359,6 +360,8 @@ public class Room  {
         seed=Long.parseLong(server.cfg.value("match.seed","20261007"))^id^Long.rotateLeft(match,21);
         arenaMap=server.largeMap;
         world=new World(arenaMap,seed,startingHp);
+        world.items.configure(roleplay!=null,matchTicks);
+        world.battlefield.configure(matchTicks);
         if(roleplay!=null)world.telemetry=message->System.out.println("ROLEPLAY_EFFECT match="+match+" map="+arenaMap.mapId+" hp="+startingHp+" "+message);
         participants.clear();
         rejoinableAccounts=Set.of();
@@ -401,8 +404,18 @@ public class Room  {
                 tank.kills=m.resultTank.kills;
                 tank.deaths=m.resultTank.deaths;
                 tank.lastKill=m.resultTank.lastKill;
+                // Disconnect is not a death: retain item deadlines without extending them.
+                if(m.resultTank.hp>0) {
+                    tank.armorEndTick=m.resultTank.armorEndTick;
+                    tank.heEndTick=m.resultTank.heEndTick;
+                    tank.invincibilityEndTick=m.resultTank.invincibilityEndTick;
+                    tank.mirrorShots=m.resultTank.mirrorShots;
+                }
                 if(roleplay!=null) {
                     tank.qReadyTick=m.resultTank.qReadyTick;
+                    tank.qBaseReadyTick=m.resultTank.qBaseReadyTick;
+                    tank.qPenalty=m.resultTank.qPenalty;
+                    tank.qPenaltySources.addAll(m.resultTank.qPenaltySources);
                 }
             }
             if(roleplay!=null) {tank.nation=m.roleplay.nation;}
@@ -539,7 +552,7 @@ public class Room  {
     void finish(int reason) {
         if(phase!=RoomState.RUNNING)return;
         if(roleplay!=null)roleplay.summary();
-        if(world!=null)world.skills.clear();
+        if(world!=null) {world.skills.clear();world.battlefield.clear();}
         phase=RoomState.RESULTS;
         rejoinableAccounts=Set.of();
         List<Member> sorted=new ArrayList<>(participants);

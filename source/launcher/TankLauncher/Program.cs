@@ -51,6 +51,7 @@ sealed class LauncherForm : Form
         buttons.Controls.AddRange([check, play, cancel]);
         layout.Controls.Add(buttons, 0, 4);
         Controls.Add(layout);
+        RefreshCurrentSafely();
         check.Click += async (_, _) => await UpdateAsync();
         cancel.Click += (_, _) => operation?.Cancel();
         play.Click += (_, _) => Play();
@@ -67,16 +68,23 @@ sealed class LauncherForm : Form
 
     void RefreshCurrent()
     {
+        updater.CleanupOldVersions();
         var current = updater.Current();
         version.Text = current == null ? "Chưa cài game" : "Bản đã cài: " + current.Version;
         play.Enabled = current != null;
+    }
+
+    void RefreshCurrentSafely()
+    {
+        try { RefreshCurrent(); }
+        catch (Exception e) { play.Enabled = false; version.Text = e.Message; }
     }
 
     async Task UpdateAsync()
     {
         if (busy) return;
         busy = true;
-        check.Enabled = play.Enabled = false;
+        check.Enabled = false;
         cancel.Enabled = true;
         operation = new CancellationTokenSource();
         progress.Value = 0;
@@ -101,7 +109,7 @@ sealed class LauncherForm : Form
             operation = null;
             check.Enabled = true;
             cancel.Enabled = false;
-            try { RefreshCurrent(); } catch (Exception e) { play.Enabled = false; version.Text = e.Message; }
+            RefreshCurrentSafely();
         }
     }
 

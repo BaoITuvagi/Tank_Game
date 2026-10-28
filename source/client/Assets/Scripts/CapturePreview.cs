@@ -9,7 +9,9 @@ namespace Tank  {
         IEnumerator Start() {
             var args=Environment.GetCommandLineArgs();
             int index=Array.IndexOf(args,"--capture");
-            yield return new WaitForSecondsRealtime(3);
+            int delayIndex=Array.IndexOf(args,"--capture-delay");float delay=3,requested;
+            if(delayIndex>=0&&delayIndex+1<args.Length&&float.TryParse(args[delayIndex+1],System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out requested)&&requested>=0&&requested<=60)delay=requested;
+            yield return new WaitForSecondsRealtime(delay);
             // A helper launched with a hidden window can have a black initial swap chain.
             // Recreate it through Unity's resize path, then capture at the requested size.
             if(!Screen.fullScreen) {

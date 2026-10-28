@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -24,7 +25,7 @@ public sealed class Updater : IDisposable
         root = Path.GetFullPath(installRoot);
         this.allowLoopbackHttp = allowLoopbackHttp;
         http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromMinutes(20) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("TankBattleLauncher/1.0");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("TankBattleLauncher/1.1.0");
     }
 
     void ValidateUrl(Uri uri)
@@ -150,6 +151,9 @@ public sealed class Updater : IDisposable
             var state = new InstalledRelease(manifest.Version, manifest.Sha256.ToLowerInvariant(), directory);
             await File.WriteAllTextAsync(stateTemp, JsonSerializer.Serialize(state, JsonOptions), ct);
             File.Move(stateTemp, StatePath, true);
+            // This is the commit point. Cleanup must never run before the new
+            // release is installed AND selected, and must not invalidate success.
+            PruneOldVersions(state);
             progress?.Report(new("Đã cập nhật bản " + manifest.Version, 100));
         }
         finally
@@ -158,6 +162,94 @@ public sealed class Updater : IDisposable
             if (File.Exists(stateTemp)) File.Delete(stateTemp);
             if (Directory.Exists(staging)) Directory.Delete(staging, true);
         }
+    }
+
+    public int CleanupOldVersions()
+    {
+        // Retry deferred cleanup even when checking for updates is offline.
+        // Use the same lock as installation so another launcher cannot switch
+        // current.json while this instance is deciding which release to retain.
+        try
+        {
+            if (!PlainDirectory(root)) return 0;
+            using var installLock = new FileStream(Path.Combine(root, "update.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            var current = Current();
+            return current == null ? 0 : PruneOldVersions(current);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or System.Security.SecurityException)
+        { return 0; }
+    }
+
+    static bool PlainDirectory(string path) => Directory.Exists(path) &&
+        (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0;
+
+    int PruneOldVersions(InstalledRelease current)
+    {
+        int deleted = 0;
+        try
+        {
+            string versions = Path.GetFullPath(Path.Combine(root, "versions"));
+            if (!PlainDirectory(root) || !PlainDirectory(versions)) return 0;
+            foreach (string candidate in Directory.EnumerateDirectories(versions))
+            {
+                string path = Path.GetFullPath(candidate), name = Path.GetFileName(path);
+                // Only managed releases immediately inside this installation.
+                // Ignore unknown folders, links, staging and the selected release.
+                if (!string.Equals(Path.GetDirectoryName(path), versions, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(name, current.Directory, StringComparison.OrdinalIgnoreCase) ||
+                    !Regex.IsMatch(name, @"^\d{1,6}\.\d{1,6}\.\d{1,6}-[a-fA-F0-9]{64}$")) continue;
+                if (TryDeleteRelease(path)) deleted++;
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+        return deleted;
+    }
+
+    static bool RunningRelease(string directory)
+    {
+        string executable = Path.Combine(directory, "TankBattle.exe");
+        foreach (var process in Process.GetProcessesByName("TankBattle"))
+        {
+            using (process)
+            {
+                try
+                {
+                    if (string.Equals(process.MainModule?.FileName, executable, StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                catch (InvalidOperationException) { } // Process already exited.
+                catch (System.ComponentModel.Win32Exception) { return true; } // Cannot safely inspect it.
+            }
+        }
+        return false;
+    }
+
+    static bool TryDeleteRelease(string directory)
+    {
+        var handles = new List<FileStream>();
+        try
+        {
+            if (!PlainDirectory(directory) || RunningRelease(directory)) return false;
+            var folders = new Stack<string>(); folders.Push(directory);
+            var files = new List<string>();
+            while (folders.Count > 0)
+            {
+                foreach (string entry in Directory.EnumerateFileSystemEntries(folders.Pop()))
+                {
+                    var attributes = File.GetAttributes(entry);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0) return false;
+                    if ((attributes & FileAttributes.Directory) != 0) folders.Push(entry); else files.Add(entry);
+                }
+            }
+            // Check every file BEFORE deleting anything. Hold handles that allow
+            // deletion but reject new readers/writers until cleanup is complete.
+            // A running/locked old build is left whole for a subsequent retry.
+            foreach (string file in files) handles.Add(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Delete));
+            Directory.Delete(directory, true);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        { return false; }
+        finally { foreach (var handle in handles) handle.Dispose(); }
     }
 
     static async Task ExtractAsync(string archive, string staging, CancellationToken ct)

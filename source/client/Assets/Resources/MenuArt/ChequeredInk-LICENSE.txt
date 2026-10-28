@@ -1,0 +1,14 @@
+Cartoon UI Pack by Chequered Ink
+Source: https://ci.itch.io/cartoon-ui-pack
+License published by the author on the source page (retrieved 2026-10-25):
+
+You may use these game assets for ANY and ALL uses including commercial use, with or without giving credit, except that you may not sell or redistribute the unaltered assets as your own game assets.
+
+The author states that no pre-existing license was selected for these assets.
+This license applies only to the imported Cartoon UI Pack components in the
+white, green, yellow and red folders, not the user-provided logo/background.
+
+Original archive: cartoon_ui_pack.zip
+SHA-256: ce4a62d50d95cdec0d2f649f72ac220622227310d541fc79fe8fe7ffc0bff4a7
+Only selected PNG components are included. Keep this notice when distributing
+Tank Battle; do not redistribute this subset as a standalone asset pack.

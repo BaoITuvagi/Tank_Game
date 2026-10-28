@@ -34,7 +34,7 @@ class RoomFeaturesTest {
   }
  }
  @Test void eightPlayersReceiveBroadMapWithUniqueSpawns()throws Exception {
-  try(Server s=server()){Room room=directRoom(s,8,8,600);room.prepare(room.members.get(0).session,2);assertEquals(2,room.arenaMap.mapId);assertEquals(80,room.arenaMap.width);assertEquals(18000,room.matchTicks);
+  try(Server s=server()){Room room=directRoom(s,8,8,600);room.prepare(room.members.get(0).session,2);assertEquals(2,room.arenaMap.mapId);assertEquals(120,room.arenaMap.width);assertEquals(80,room.arenaMap.height);assertEquals(18000,room.matchTicks);
    Set<String> positions=new HashSet<>();for(var tank:room.world.tanks.values()){positions.add(tank.x+","+tank.y);assertFalse(room.arenaMap.blocked(tank.x,tank.y,room.world.bricks));}
    assertEquals(8,positions.size());assertEquals(16,room.arenaMap.spawns.length);
    for(var tank:room.world.tanks.values())for(var other:room.world.tanks.values())if(tank!=other)assertTrue(Math.hypot(tank.x-other.x,tank.y-other.y)>=12);
@@ -42,9 +42,23 @@ class RoomFeaturesTest {
   }
  }
  @Test void allLargeMapSpawnsConnectWithIntactBricks()throws Exception {
-  try(Server s=server()){GameMap map=s.largeMap;byte[] hp=new byte[64];Arrays.fill(hp,(byte)5);boolean[][] seen=new boolean[80][80];ArrayDeque<int[]> queue=new ArrayDeque<>();queue.add(new int[]{6,6});seen[6][6]=true;
-   while(!queue.isEmpty()){var p=queue.remove();for(var d:new int[][]{{1,0},{-1,0},{0,1},{0,-1}}){int x=p[0]+d[0],y=p[1]+d[1];if(x<1||y<1||x>=79||y>=79||seen[x][y]||map.blocked(x,y,hp))continue;seen[x][y]=true;queue.add(new int[]{x,y});}}
+  try(Server s=server()){GameMap map=s.largeMap;byte[] hp=new byte[64];Arrays.fill(hp,(byte)GameRules.BrickMaxHp);boolean[][] seen=new boolean[(int)map.width][(int)map.height];ArrayDeque<int[]> queue=new ArrayDeque<>();queue.add(new int[]{6,6});seen[6][6]=true;
+   while(!queue.isEmpty()){var p=queue.remove();for(var d:new int[][]{{1,0},{-1,0},{0,1},{0,-1}}){int x=p[0]+d[0],y=p[1]+d[1];if(x<1||y<1||x>=map.width-1||y>=map.height-1||seen[x][y]||map.blocked(x,y,hp))continue;seen[x][y]=true;queue.add(new int[]{x,y});}}
    for(var spawn:map.spawns)assertTrue(seen[(int)spawn.x][(int)spawn.y],"unreachable spawn "+spawn.x+","+spawn.y);
+  }
+ }
+ @Test void singleRectangularArenaFitsReducedVehiclesAndHasMoreTerrain()throws Exception {
+  try(Server s=server()) {
+   var map=s.largeMap;assertEquals(120,map.width);assertEquals(80,map.height);assertEquals(1.02f,GameRules.TankHalfSize);
+   assertEquals(16,map.walls.length);assertEquals(36,map.bricks.length);assertEquals(6,map.water.length);assertEquals(21,map.itemSpawns.length);
+   assertEquals(3,map.walls[4].w);assertEquals(15,map.walls[4].h);
+   byte[] hp=new byte[64];Arrays.fill(hp,(byte)GameRules.BrickMaxHp);
+   for(var brick:map.bricks){assertEquals(3,brick.w);assertEquals(3,brick.h);}
+   for(var spawn:map.spawns){assertFalse(map.water(spawn.x,spawn.y));for(int body:new int[]{0,4500,9000,13500})assertFalse(map.blocked(spawn.x,spawn.y,body,hp));}
+   assertTrue(map.blocked(2.9f,10,4500,hp));assertFalse(map.blocked(3,10,4500,hp));
+   for(RoomMode mode:RoomMode.values())for(int count:new int[]{2,4,8}) {
+    var room=new Room(s,100+count,"Single arena",count,1800,mode);assertSame(map,room.arenaMap);
+   }
   }
  }
  @Test void turretActivityCancelsAnExistingAfkWarning()throws Exception {

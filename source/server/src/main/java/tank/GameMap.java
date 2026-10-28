@@ -8,6 +8,8 @@ public class GameMap  {
     public float width,height;
     public Rect[] walls,bricks,water;
     public Point[] spawns;
+    public Point[] itemSpawns;
+    public BattlefieldMap battlefield;
     public static class Point  {
         public float x,y;
     }
@@ -27,12 +29,19 @@ public class GameMap  {
         return m;
     }
     public void validate() {
-        if(!Float.isFinite(width+height)||width<40||height<40||width>96||height>96||bricks.length>64||spawns.length<2)throw new IllegalArgumentException("map limits");
+        if(!Float.isFinite(width+height)||width<40||height<40||width>128||height>128||bricks.length>64||spawns.length<2)throw new IllegalArgumentException("map limits");
         for(int i=0;i<bricks.length;i++)if(bricks[i].id!=i)throw new IllegalArgumentException("brick IDs");
         for(Rect[] rs:List.of(walls,bricks,water))for(Rect r:rs)if(!Float.isFinite(r.x+r.y+r.w+r.h)||r.w<=0||r.h<=0||r.x<0||r.y<0||r.x+r.w>width||r.y+r.h>height)throw new IllegalArgumentException("rectangle");
         byte[] hp=new byte[64];
-        Arrays.fill(hp,(byte)5);
+        Arrays.fill(hp,(byte)GameRules.BrickMaxHp);
         for(Point s:spawns)if(!Float.isFinite(s.x+s.y)||s.x<.4||s.y<.4||s.x>width-.4||s.y>height-.4||blocked(s.x,s.y,hp))throw new IllegalArgumentException("spawn");
+        if(itemSpawns==null||itemSpawns.length<3||itemSpawns.length>64)throw new IllegalArgumentException("item spawns");
+        if(battlefield!=null)battlefield.validate(this);
+        Set<String> points=new HashSet<>();
+        for(Point p:itemSpawns) {
+            if(!Float.isFinite(p.x+p.y)||blocked(p.x,p.y,hp)||water(p.x,p.y)||!points.add(p.x+":"+p.y))throw new IllegalArgumentException("item spawn");
+            for(Rect r:water)if(overlap(p.x,p.y,r,GameRules.ItemHalfSize))throw new IllegalArgumentException("wet item spawn");
+        }
     }
     public boolean blocked(float x,float y,byte[] hp) {
         return blocked(x,y,0,hp);

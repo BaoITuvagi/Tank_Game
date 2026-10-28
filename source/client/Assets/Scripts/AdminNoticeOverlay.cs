@@ -16,6 +16,7 @@ namespace Tank {
         void Awake() {DontDestroyOnLoad(gameObject);}
         void OnEnable() {AdminNoticeChannel.Received+=Receive;}
         void OnDisable() {AdminNoticeChannel.Received-=Receive;}
+        void OnDestroy() {theme.Dispose();}
         void Receive(AdminNotice notice) {
             if(notices.Current==null)scroll=Vector2.zero;
             notices.Enqueue(notice);
@@ -54,12 +55,12 @@ namespace Tank {
 
                 float width=Mathf.Min(640,canvasWidth-32),height=Mathf.Min(400,canvasHeight-32);
                 Rect box=new Rect((canvasWidth-width)/2,(canvasHeight-height)/2,width,height);
-                Color accent=notice.Code==202?new Color(.69f,.24f,.22f):notice.Code==201?new Color(.65f,.44f,.12f):theme.Accent;
+                Color accent=notice.Code==202?CartoonUi.Danger:notice.Code==201?CartoonUi.Gold:CartoonUi.Ready;
                 Fill(new Rect(box.x+5,box.y+7,box.width,box.height),new Color(0,0,0,.35f));
-                Fill(box,theme.Paper);
+                CartoonUi.Panel(box,CartoonUi.PanelDark);
                 Fill(new Rect(box.x,box.y,box.width,5),accent);
                 Fill(new Rect(box.x+20,box.y+24,42,42),accent);
-                iconStyle.normal.textColor=Color.white;
+                iconStyle.normal.textColor=CartoonUi.Ink;
                 GUI.Label(new Rect(box.x+20,box.y+24,42,42),notice.Code==200?"i":"!",iconStyle);
                 string title=notice.Code==202?"Lỗi từ quản trị viên":notice.Code==201?"Cảnh báo từ quản trị viên":"Thông báo từ quản trị viên";
                 titleStyle.fontSize=width<500?17:22;

@@ -4,6 +4,14 @@
 /tmp/
 /.local-archive/
 /plan/
+
+# Local agent configuration and original asset copies
+/.agents/
+/.codex/
+/anh_nen.png
+/logo.png
+/cartoon_ui_pack.zip
+
 **/[Tt]arget/
 **/[Bb]in/
 **/[Oo]bj/
@@ -80,3 +88,44 @@ Desktop.ini
 /venv/
 /.pytest_cache/
 
+# Local requirements and development notes
+/Chien_dich.md
+/required_web.md
+
+# Keep only the final report under version control
+/report/*
+!/report/bao_cao.md
+
+# Asset mapping notes (retain assets, import metadata and licenses)
+/source/client/Assets/Resources/CampaignArt/README.txt
+/source/client/Assets/Resources/CampaignArt/README.txt.meta
+
+# Generated compilation, test output, temporary files and crash dumps
+*.class
+**/[Tt]est[Rr]esults/
+**/coverage/
+*.trx
+*.coverage
+*.coverage.*
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+*.dmp
+*.stackdump
+
+# Distribution archives belong in GitHub Releases, not source control
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+*.tgz
+*.unitypackage
+
+# Launcher tests remain available locally
+/source/launcher/TankLauncher.Tests/

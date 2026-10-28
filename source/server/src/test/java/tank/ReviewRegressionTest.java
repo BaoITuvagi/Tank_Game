@@ -1,7 +1,6 @@
 package tank;
 import java.io.*;
 import java.nio.file.*;
-import java.util.*;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,10 +13,10 @@ class ReviewRegressionTest {
   GameMap m=map();World.Tank tank=new World.Tank();tank.x=8;tank.y=10;
   for(int tick=1;tick<=90;tick++){World.movement(tank,new World.Input(tick,41,0),m,new byte[64]);assertFalse(m.blocked(tank.x,tank.y,tank.body,new byte[64]));}
   assertTrue(tank.y>20);assertTrue(tank.x<=10-GameRules.TankHalfSize);
-  assertTrue(m.blocked(9,10,4500,new byte[64]));assertFalse(m.blocked(8.79f,10,4500,new byte[64]));
+  assertTrue(m.blocked(9,10,4500,new byte[64]));assertFalse(m.blocked(10-GameRules.TankHalfSize*(float)Math.sqrt(2)-.01f,10,4500,new byte[64]));
  }
  @Test void intactBrickBlocksEntireBodyAndDestroyedBrickAllowsPassage(){
-  GameMap m=map();m.bricks=m.walls;m.walls=new GameMap.Rect[0];byte[] hp=new byte[64];hp[0]=5;
+  GameMap m=map();m.bricks=m.walls;m.walls=new GameMap.Rect[0];byte[] hp=new byte[64];hp[0]=3;
   assertTrue(m.blocked(9.5f,10,0,hp));hp[0]=0;assertFalse(m.blocked(9.5f,10,0,hp));
  }
  @Test void bundledSchemaHasProfilesAndCanBeAppliedAgain()throws Exception{

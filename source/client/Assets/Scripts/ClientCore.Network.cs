@@ -117,9 +117,12 @@ namespace Tank  {
             return id;
         }
         static bool IsResponse(byte op)  {
+            if(op==Tank.Campaign.CampaignClient.Response||op==Op.ShopResult)return true;
             return op==Op.RegisterResult||op==Op.LoginResult||op==Op.LogoutResult||op==Op.ActionResult|| op==Op.RoomListResult||op==Op.HistoryResult||op==Op.HistoryDetailResult||op==Op.DisplayNameResult||op==Op.HeartbeatAck;
         }
         void ClearAccountState()  {
+            ClearWallet();
+            Campaign=new Tank.Campaign.CampaignClient();
             ClearRoleplayMatch();RoomMode=RoomMode.NORMAL;PreparationError="";
             Account=Match=StartUs=0;
             Nickname=AccountName=RoomName="";

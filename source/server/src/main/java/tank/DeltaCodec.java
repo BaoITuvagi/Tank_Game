@@ -4,12 +4,12 @@ import static tank.Protocol.*;
 /** Compare encoded field bits; receiver applies transactionally to a private full-state copy. */
 public final class DeltaCodec  {
     static final int[] TANK_SIZES= {
-        4,4,2,2,2,2,2,1,4,4,2,1,1,4,2,2,2,1,2,2,2,2,1,4,4,4
+        4,4,2,2,2,2,2,1,4,4,2,1,1,4,2,2,2,1,2,2,2,2,1,4,4,4,2,1
     };
     static final int[] BULLET_SIZES= {
-        1,4,4,2,1,1,2,1
+        1,4,4,2,1,1,2,1,1
     };
-    static final int TANK_MASK=0x7ffffff,BULLET_MASK=255;
+    static final int TANK_MASK=0x1fffffff,BULLET_MASK=511;
     static byte[][] split(byte[] record,int skip,int[] sizes) {
         byte[][] fields=new byte[sizes.length][];
         for(int i=0;i<sizes.length;i++) {
@@ -67,7 +67,7 @@ public final class DeltaCodec  {
             byte[][] fields=bullet(bullet);
             int m=mask(fields,old==null?null:bullet(old),false);
             if(m==0)continue;
-            changes.u32(bullet.id).u8(m);
+            changes.u32(bullet.id).u16(m);
             for(int i=0;i<BULLET_SIZES.length;i++)if((m&(1<<i))!=0)changes.bytes(fields[i]);
             count++;
         }
@@ -78,7 +78,7 @@ public final class DeltaCodec  {
             changes.u8(i).u8(b.bricks[i]);
             count++;
         }
-        return out.u8(count).bytes(changes.done()).bytes(b.skills.encode()).done();
+        return out.u8(count).bytes(changes.done()).bytes(b.skills.encode()).bytes(b.items.encode()).bytes(b.combat.delta(a.combat)).bytes(b.battlefield.encode()).done();
     }
     public static byte[] apply(byte[] base,byte[] delta) {
         World w=World.decode(base);
@@ -124,6 +124,8 @@ public final class DeltaCodec  {
             if((mask&(1<<24))!=0)t.aimX=r.f32();
             if((mask&(1<<25))!=0)t.aimY=r.f32();
             if((mask&(1<<26))!=0)t.life=r.u32();
+            if((mask&(1<<27))!=0)t.rocketSlowEndTick=r.u16();
+            if((mask&(1<<28))!=0)t.rocketSlowStacks=r.u8();
             if((mask&1024)!=0&&!r.bool())throw new IllegalArgumentException("presence");
             w.tanks.put(slot,t);
         }
@@ -139,7 +141,7 @@ public final class DeltaCodec  {
         if(n>GameRules.MaxBullets)throw new IllegalArgumentException("bullet count");
         Set<Integer> ids=new HashSet<>();
         for(int i=0;i<n;i++) {
-            int id=r.u32(),mask=r.u8();
+            int id=r.u32(),mask=r.u16();
             if(mask==0||(mask&~BULLET_MASK)!=0||!ids.add(id))throw new IllegalArgumentException("bullet mask");
             var old=w.bullets.get(id);
             if(old==null&&mask!=BULLET_MASK)throw new IllegalArgumentException("new bullet incomplete");
@@ -153,6 +155,7 @@ public final class DeltaCodec  {
             if((mask&32)!=0)b.speedPercent=r.u8();
             if((mask&64)!=0)b.remainingLifetime=r.u16();
             if((mask&128)!=0)b.damage=r.u8();
+            if((mask&256)!=0)b.kind=r.u8();
             w.bullets.put(id,b);
         }
         n=r.u8();
@@ -160,10 +163,13 @@ public final class DeltaCodec  {
         seen.clear();
         for(int i=0;i<n;i++) {
             int id=r.u8(),hp=r.u8();
-            if(id>63||hp>5||!seen.add(id))throw new IllegalArgumentException("brick");
+            if(id>63||hp>GameRules.BrickMaxHp||!seen.add(id))throw new IllegalArgumentException("brick");
             w.bricks[id]=(byte)hp;
         }
         w.skills.read(r);
+        w.items.read(r);
+        w.combat.apply(r);
+        w.battlefield.read(r);
         r.end();
         byte[] full=w.encode();
         World.decode(full);

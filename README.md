@@ -1,29 +1,30 @@
 # Tank Battle Multiplayer
 
-**Website quản trị mạng:** xem [ADMIN_WEB.md](ADMIN_WEB.md) để đăng nhập admin, theo dõi IP/kết nối thật, ban/ngắt và gửi thông báo tại `http://127.0.0.1:8080`.
+Bản tích hợp quản trị mạng này dựa trên tag **v1.0.3**: giao thức **16**, nội dung **7**, khớp client 1.0.3 do Launcher tải. Phần gameplay, map, item, shop và chiến dịch giữ theo bản phát hành; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
 
-## Tải đúng branch và mở CMD
-
-Phần website quản trị nằm trên **branch `tung`**. Clone bằng:
+Các lệnh CMD chạy tại thư mục gốc repository:
 
 ```cmd
-git clone --branch tung --single-branch https://github.com/BaoITuvagi/Tank_Game.git Tank_Game
-cd Tank_Game
+scripts\build-server.cmd
+scripts\init-admin.cmd -Name admin
+scripts\start-server.cmd
 ```
 
-Hoặc trên GitHub chọn branch **tung → Code → Download ZIP**, giải nén toàn bộ rồi mở thư mục có các mục `source`, `scripts`, `config` và file README này. Gõ `cmd` vào thanh địa chỉ File Explorer để mở CMD tại đó.
+Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; server phải dừng khi khởi tạo. Bản Launcher 1.0.3 hiện có kết nối được server này. Hộp nổi admin mới cần client được build từ source tích hợp này; website/server không tự thay file client trong Launcher.
 
-**Repository này không có thư mục con `Tank_Game_updated`.** Mọi lệnh dưới đây chạy ngay ở thư mục gốc vừa clone/giải nén. Tên folder ngoài cùng có thể khác tùy nơi bạn lưu; không cần đổi tên hoặc tạo thêm folder con.
-
-Các file `.cmd` gọi lại script PowerShell tích hợp trong Windows; bạn thao tác từ CMD. Build server tìm Maven trong PATH, MAVEN_HOME/M2_HOME hoặc Maven Wrapper cache nếu có. Người tải source lần đầu cần cài JDK 21, Maven 3.9.x và Python 3 theo phần dưới; source không kèm database, mật khẩu hoặc bản chạy sẵn.
-
-Muốn gửi game một lần và tự cập nhật cho người chơi: xem [hướng dẫn launcher và phát hành client](source/launcher/README.md).
+Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/).
 
 Tank Battle là game xe tăng nhiều người chơi, gồm server Java và client Unity. Người chơi có thể đăng ký tài khoản, tạo hoặc tham gia phòng, đấu với nhau và xem lịch sử trận đấu.
 
 Mỗi phiên chơi sử dụng **một server chung**, lưu tài khoản và lịch sử của tất cả người chơi trong database SQLite. Các máy người chơi chạy client và kết nối đến server qua LAN hoặc VPN/Radmin. Bạn cũng có thể chạy server và client trên cùng máy để thử nghiệm.
 
 Dự án đang được phát triển. Repository cung cấp **mã nguồn**, không kèm file chạy, database hay dữ liệu người chơi. Sau khi tải về, bạn cần build để tạo bản chạy được, hoặc sử dụng bản đã được người khác build từ dự án này.
+
+## Phạm vi dự án
+
+- Tài khoản, phòng chờ, trận Thường/Nhập vai, chiến đấu, kỹ năng Q, item, Red Zone/Bombstorm và lịch sử trận.
+- Server Java mô phỏng gameplay; client Unity hiển thị, nhận điều khiển và đồng bộ qua TCP/UDP.
+- Bộ docs mô tả implementation và nguồn kiểm chứng; kết quả thực nghiệm mạng chưa được xác nhận trong đợt tổ chức tài liệu này.
 
 ## Bạn cần cài gì?
 
@@ -34,10 +35,9 @@ Dự án đang được phát triển. Repository cung cấp **mã nguồn**, kh
 | Tự build và chạy server từ repository | JDK 21, Maven 3.9.x, Python 3 |
 | Mở hoặc build client từ repository | Unity Hub, Unity Editor **6000.3.24f1**, module **Windows Build Support** và license Unity đã kích hoạt |
 | Chạy server đã được build sẵn | JDK 21 |
-| Build/test client bằng script `.cmd` | Môi trường Unity như trên và Python 3 để kiểm tra tích hợp quản trị |
 | Chơi bằng client đã được build sẵn | Không cần Java, Maven, Python hoặc Unity Editor |
 
-Người chỉ chạy server không cần Unity. Người chỉ chơi bản client đã build có thể chuyển thẳng đến mục **Chạy client và kết nối**.
+Người chỉ chạy server không cần Unity. Người chơi bản client đã build xem [cách kết nối](docs/deployment.md#connect).
 
 ## Cài đặt môi trường
 
@@ -83,126 +83,39 @@ Script tự tìm đúng Editor tại vị trí cài Unity Hub thông thường. 
 set "UNITY_EDITOR_PATH=C:\duong-dan\Editor\Unity.exe"
 ```
 
-Thay đường dẫn ví dụ bằng đường dẫn file `Editor\Unity.exe` thật trên máy bạn, giữ dấu nháy kép. Không chọn file chạy Unity Hub.
+Thay đường dẫn ví dụ bằng đường dẫn Unity Editor thật trên máy bạn, giữ dấu nháy kép. Không chọn file chạy Unity Hub.
 
-## Build và chạy server
+Tại Unity Hub, thêm project `source/client`. Tài nguyên game cần thiết đã có trong repository và được Unity import; giữ nguyên `.meta` và giấy phép. Nếu thiếu/hỏng, xem [khôi phục tài nguyên](docs/client.md#assets).
 
-Từ mã nguồn vừa tải về, tạo bản server bằng:
+## Đọc tiếp
 
-```cmd
-scripts\build-server.cmd
-```
-
-Chờ lệnh hoàn tất và báo build thành công. File server được tạo tại `build/server/tank-server-1.0.0.jar`.
-
-Nếu đã có server build sẵn từ dự án này, đặt file `.jar` vào đúng vị trí trên trong thư mục dự án và bỏ qua bước build.
-
-Nếu mới tải từ GitHub, sau khi build hãy tạo admin một lần khi server chưa chạy:
-
-```cmd
-scripts\init-admin.cmd -Name admin
-```
-
-Nhập/xác nhận mật khẩu tối thiểu 12 ký tự. Không có mật khẩu mặc định. Tài khoản admin riêng với tài khoản game. Những lần chạy sau không cần khởi tạo lại.
-
-Khởi động server:
-
-```cmd
-scripts\start-server.cmd
-```
-
-Giữ cửa sổ này mở trong lúc chơi. Website quản trị trên cùng máy là **http://127.0.0.1:8080**; đăng nhập admin vừa tạo. Tài khoản game được đăng ký trong client. Server dùng thiết lập mặc định trong `config/server.properties`. Nếu cần đổi cổng hoặc nơi lưu database, xem [hướng dẫn cấu hình](config/README.md).
-
-**Database nằm trên máy chạy server:** tất cả tài khoản và lịch sử được lưu tại `runtime/tank.db`. Khi chưa có database, server tự tạo một database rỗng; các lần chạy sau dùng lại dữ liệu đã lưu. Máy chỉ chạy client không giữ database tài khoản.
-
-Nếu bạn chạy một server khác để thử nghiệm, server đó có database độc lập, không tự đồng bộ với server khác.
-
-Dừng server bằng Ctrl+C. Sau khi cập nhật bản server, khởi động lại để dùng bản mới.
-
-## Chạy client và kết nối
-
-### Chạy trong Unity Editor
-
-Trong Unity Hub, thêm project ở thư mục **`source/client`**, mở bằng Editor 6000.3.24f1. Mở scene `Assets/Scenes/Main.unity`, rồi bấm Play.
-
-### Build thành ứng dụng Windows
-
-Đóng Unity Editor đang mở cùng project, rồi chạy trong CMD tại thư mục gốc dự án:
-
-```cmd
-scripts\build-client.cmd
-```
-
-Bản client nằm trong `build/client`. Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, sao chép **toàn bộ thư mục client**, gồm file `.exe`, thư mục Data và các file đi kèm; chỉ chép file `.exe` sẽ không đủ.
-
-Nếu đã nhận bản client build sẵn, mở `TankBattle.exe` trong thư mục đó và làm theo bước kết nối bên dưới.
-
-### Kết nối đến server
-
-Mở **Cài đặt** trong client:
-
-- Server đang chạy trên cùng máy: nhập `127.0.0.1`.
-- Server chạy trên máy khác: nhập IPv4 của máy server. Người chạy server có thể dùng `ipconfig` để xem IPv4 của mạng LAN đang dùng; nếu chơi qua Radmin, dùng IP Radmin của máy server.
-- Giữ TCP **8888** và UDP **8889**, trừ khi server dùng cổng khác.
-
-Các máy cần ở cùng LAN hoặc cùng mạng VPN/Radmin. Máy server cần cho phép TCP 8888 và UDP 8889 qua firewall. Nếu Windows hỏi quyền truy cập mạng khi chạy Java/server, cho phép trên mạng dùng để chơi.
-
-Sau khi kết nối, đăng ký tài khoản, đăng nhập, tạo hoặc tham gia phòng. Trận đấu cần ít nhất hai người và tất cả phải ready để bắt đầu. Client ghi nhớ lựa chọn kết nối trên máy bạn; lựa chọn này không phải database tài khoản.
-
-Khi tạo phòng, chọn **Thường** (mặc định) hoặc **Nhập vai**. Chế độ được giữ cố định cho phòng đó. Phòng Nhập vai yêu cầu mỗi người chọn một quốc gia khác nhau trước khi ready. Sau khi tải và đồng bộ quốc gia/kỹ năng Q, trận đếm ngược 3 giây rồi bắt đầu.
-
-Nhập vai có kỹ năng Q theo quốc gia. Chết xóa hiệu ứng nhưng giữ hồi chiêu. Người đứng hạng nhất giành Hộp Đen trên màn hình kết quả; đây là phần thưởng kể chuyện trong trận. Các thông số kỹ năng vẫn cần được đánh giá qua playtest về công dụng và cân bằng.
-
-## Điều khiển
-
-| Phím/thao tác | Chức năng |
+| Mục đích | Tài liệu |
 |---|---|
-| WASD hoặc ↑/↓/←/→ | Di chuyển |
-| Chuột | Ngắm |
-| Click trái hoặc Space | Bắn |
-| Shift | Tăng tốc |
-| Q (Nhập vai) | Kỹ năng quốc gia |
-| Chuột phải trong arena | Bật/tắt tự bắn |
-| F11 hoặc Alt+Enter | Đổi fullscreen |
+| Nắm nhanh phạm vi, kiến trúc và hiện trạng | [Context dự án](docs/context.md), [kiến trúc và source map](docs/architecture.md) |
+| Build, chạy, cấu hình và kết nối LAN/VPN | [Triển khai](docs/deployment.md) |
+| Luật chơi, kỹ năng, item, battlefield | [Gameplay](docs/gameplay.md) |
+| Giao thức, đồng bộ và dữ liệu | [Protocol](docs/protocol.md), [SQLite và lịch sử](docs/data.md) |
+| Unity, UI, tài nguyên và preview | [Client](docs/client.md) |
+| Kiểm tra và đo đạc | [Testing](docs/testing.md), [thực nghiệm](docs/evaluation.md) |
+| Chuẩn bị báo cáo môn Lập trình mạng | [Hướng dẫn báo cáo](docs/report-guide.md) |
 
-## Lỗi thường gặp
+## Chế độ chiến dịch
 
-| Thông báo hoặc hiện tượng | Việc cần kiểm tra |
-|---|---|
-| Không tìm thấy Java/Maven/Python | Kiểm tra mục Cài đặt môi trường; mở lại CMD nếu vừa đổi biến môi trường |
-| Không tìm thấy file server `.jar` | Build server trước hoặc đặt bản build sẵn vào đúng đường dẫn |
-| Không tìm thấy Unity | Cài đúng phiên bản hoặc đặt `UNITY_EDITOR_PATH` |
-| Unity báo thiếu license | Đăng nhập/kích hoạt license trong Unity Hub, mở Editor một lần rồi thử lại |
-| Package Manager không kết nối | Kiểm tra mạng và việc firewall/phần mềm bảo vệ có chặn Unity/Package Manager hay không |
-| Client không kết nối được | Kiểm tra server đã chạy, IP, cổng, LAN/VPN và firewall |
-| Cổng hoặc database đang được dùng | Đóng server cũ; không chạy hai server cùng cổng hoặc cùng database |
+Từ menu, chọn **Chiến dịch**, chọn quốc gia rồi bắt đầu chuyến giải cứu. Chiến dịch dùng bộ luật, bố cục map và giao diện riêng.
 
-Log được tạo khi chạy để giúp tìm lỗi. Log server/build/test Unity nằm trong `runtime/`; kết quả test Java nằm trong `source/server/target/surefire-reports/`. Không cần có sẵn những file này trước khi chạy.
+- **WASD / phím mũi tên:** di chuyển; đi vào ô có địch để cận chiến.
+- **I:** bắn theo hướng xe, tầm 4 ô; hồi sau 5 lượt hợp lệ.
+- **O:** kỹ năng quốc gia. Phím J không còn dùng trong chiến dịch.
+- **P:** mở/đóng shop; Esc đóng shop. Mua vật phẩm không tiêu lượt hoặc hồi chiêu.
 
-## Dành cho người sửa mã nguồn
+| Quốc gia | Máu | Giáp giảm mỗi đòn | Cận chiến | Đạn I | Kỹ năng O | Hồi O |
+|---|---:|---:|---:|---:|---|---:|
+| Mỹ | 100 | 0 | 20 | 40 | Không kích 70 sát thương, bán kính 2 ô quanh địch gần nhất trong 12 ô | 24 lượt |
+| Liên Xô | 140 | 3 | 28 | 32 | Nhận 3 khiên và xung kích 45 sát thương quanh xe trong 1 ô | 20 lượt |
+| Ý | 85 | 0 | 16 | 48 | Pháo 120 sát thương xuyên đội hình và khiên hỗ trợ, theo hướng xe trong 8 ô; dừng ở vật cản | 16 lượt |
 
-| Thư mục | Nội dung |
-|---|---|
-| `source/server` | Server Java, schema SQLite và test regression |
-| `source/client` | Project Unity, mã client và tài nguyên game kèm `.meta` |
-| `source/shared` | Luật gameplay dùng chung giữa Java và C# |
-| `config` | Thiết lập server và mẫu thiết lập môi trường riêng |
-| `scripts` | Các lệnh build, chạy và kiểm thử |
+Shop và vật phẩm hồi máu theo giới hạn riêng của từng xe. Khiên chặn trọn một đòn; kỹ năng Liên Xô có thể dùng để chuẩn bị phòng thủ trước giao tranh. Các lượt bắn hoặc kỹ năng bị từ chối không làm địch hành động.
 
-Client và server cần dùng cùng đợt build (giao thức v5, nội dung v6). Phòng mặc định 100 HP, cho phép 1–500 HP; đạn thường gây 20 HP và thanh máu xe chỉ hiển thị độ đầy, không có con số. Mọi trận dùng map lớn 80 × 80 với vị trí xuất phát ngẫu nhiên, phân bố cân đối; có thể sẵn sàng và bắt đầu trận tiếp theo ngay trong cùng phòng. Bộ kỹ năng Q và hồi chiêu được đồng bộ từ `source/shared/roleplay-content.json`; luật nền ở `source/shared/game-rules.json`. Sau khi thay đổi nội dung, đồng bộ Java/C# và content hash bằng:
+Mỗi chuyến đi bắt đầu với **0 vàng**. Kết thúc chuyến đi, vàng còn lại sau mua vật phẩm được cộng vào **vàng tài khoản** khi lưu kết quả. Huy hiệu vàng có đồng xu, số dư và nút **+**: bấm số vàng để xem công dụng, bấm + để xem cách kiếm thêm. Trong trận **Nhập vai**, bấm **E** để mở shop theo hướng dẫn sidebar: 6 loại, **50 vàng/loại**, mỗi loại mua tối đa một lần mỗi đợt. Item mua cất vào túi ở sidebar, **bấm icon để dùng sau**, kể cả lúc shop đóng. Túi giữ qua chết/hồi sinh/vào lại và chỉ dùng trong trận hiện tại. Vẫn được mua sau khi đã nhặt item; nhặt trên map có hiệu lực ngay. Cứ **40 giây** có một đợt item và shop mở **20 giây**, không phụ thuộc thời lượng trận; trận 3 phút có các đợt ở giây **40/80/120/160**. Item xuất hiện ngẫu nhiên trong vòng tròn giữa map (bán kính 25% cạnh ngắn) và biến mất khi hết đợt. Nút **Đóng**, E hoặc Esc đóng shop; mở shop không tạm dừng trận. Xem [luật vật phẩm](docs/gameplay.md#items).
 
-```cmd
-python scripts/sync-contracts.py
-```
-
-Chi tiết contract và kiểm thử packet ở [source/shared/README.md](source/shared/README.md).
-
-Sau đó build lại cả server và client. Build server tự chạy test Java. Muốn chạy test Unity, build server trước để tạo dữ liệu kiểm thử cần thiết, đóng Editor đang mở cùng project rồi chạy:
-
-```cmd
-scripts\test-client.cmd
-```
-
-Database, bản build, cache, log và cấu hình riêng được `.gitignore` bỏ qua. Khi thay đổi tài nguyên Unity, giữ file `.meta` đi kèm để bảo toàn tham chiếu.
-
-Hình ảnh game của Kenney dùng giấy phép CC0, giữ tại [Kenney-LICENSE.txt](source/client/Assets/Resources/ArenaArt/Kenney-LICENSE.txt).
+UI chiến dịch sử dụng Theme Wood và Sprout Lands UI của Cup Nooble. Tệp ghi công và điều khoản Sprout nằm trong [CampaignUI/Sprout-License.txt](source/client/Assets/Resources/CampaignUI/Sprout-License.txt).

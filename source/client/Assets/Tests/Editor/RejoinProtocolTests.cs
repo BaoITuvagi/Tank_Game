@@ -61,6 +61,6 @@ public class RejoinProtocolTests {
   }finally{listener.Stop();}
  }
  static IEnumerator WaitFor(ClientCore c,Func<bool> condition){double deadline=ClientCore.NowUs+5e6;while(!condition()){c.Poll();Assert.Less(ClientCore.NowUs,deadline,c.Message);yield return null;}}
- static Packet ReadRequest(NetworkStream stream,byte expected){while(true){var packet=Protocol.Read(stream);if(packet.Op==Op.Heartbeat||packet.Op==Op.RoomList&&expected!=Op.RoomList)continue;Assert.AreEqual(expected,packet.Op);return packet;}}
+ static Packet ReadRequest(NetworkStream stream,byte expected){while(true){var packet=Protocol.Read(stream);if(packet.Op==Op.Shop){var frame=Protocol.Frame(Op.ShopResult,packet.Sequence,new WireWriter().U16(0).U8(2).U64(0).U64(0).U8(0).U8(0).U32(0).Bytes(new byte[6]).Done());stream.Write(frame,0,frame.Length);continue;}if(packet.Op==Op.Heartbeat||packet.Op==Op.RoomList&&expected!=Op.RoomList)continue;Assert.AreEqual(expected,packet.Op);return packet;}}
  static void Write(NetworkStream stream,byte op,byte[] payload){byte[] frame=Protocol.Frame(op,0,payload);stream.Write(frame,0,frame.Length);stream.Flush();}
 }

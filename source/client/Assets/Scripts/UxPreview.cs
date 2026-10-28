@@ -7,12 +7,45 @@ namespace Tank  {
                 return Array.IndexOf(Environment.GetCommandLineArgs(),"--menu-preview")>=0;
             }
         }
+        void SetupMenuPreviewQa() {
+            if(!IsMenuPreview)return;
+            var args=Environment.GetCommandLineArgs();
+            if(Array.IndexOf(args,"--preview-long-text")>=0) {
+                username="tank_battle_commander_123";
+                password=roomPassword=joinPassword="menu-preview-only-2026";
+                roomName=client.RoomName="Đấu trường những người bạn";
+                client.Nickname=displayName="Chỉ huy xe tăng Việt Nam";
+                foreach(var player in client.Players)player.Name="Chỉ huy xe tăng Việt Nam";
+                foreach(var room in client.Rooms)room.Name="Đấu trường những người bạn";
+                foreach(var score in client.Scores)score.Name="Chỉ huy xe tăng Việt Nam";
+            }
+            if(Array.IndexOf(args,"--preview-error")>=0)client.Message="Tên tài khoản hoặc mật khẩu không đúng. Vui lòng kiểm tra lại thông tin và thử lại.";
+            if(Array.IndexOf(args,"--preview-wide-names")>=0){
+                client.Nickname=displayName=new string('M',24);client.RoomName=roomName=new string('M',24);
+                foreach(var player in client.Players)player.Name=client.Nickname;
+                foreach(var room in client.Rooms)room.Name=client.RoomName;
+                foreach(var score in client.Scores)score.Name=client.Nickname;
+                if(client.HistoryDetail!=null)foreach(var score in client.HistoryDetail.Players)score.Name=client.Nickname;
+            }
+            if(Array.IndexOf(args,"--preview-empty-slots")>=0&&client.Players.Count>3)client.Players.RemoveRange(3,client.Players.Count-3);
+            if(Array.IndexOf(args,"--preview-two")>=0&&client.Players.Count>0){client.RoomCapacity=4;if(client.Players.Count>2)client.Players.RemoveRange(2,client.Players.Count-2);}
+            if(Array.IndexOf(args,"--preview-unselected")>=0)foreach(var player in client.Players)if(player.Slot==client.Slot){player.Nation=-1;player.Ready=false;}
+            if(Array.IndexOf(args,"--preview-ready")>=0)foreach(var player in client.Players)player.Ready=true;
+            if(Array.IndexOf(args,"--preview-guest")>=0)client.Host=1;
+            if(Array.IndexOf(args,"--preview-scroll-bottom")>=0) {
+                scroll=roleplayInfoScroll=dialogScroll=lobbyActionScroll=new Vector2(0,10000);
+                menuViewport=new Vector2(10000,10000);
+            }
+        }
         void SetupMenuPreview()  {
             if(!IsMenuPreview)return;
             var args=Environment.GetCommandLineArgs();
             int index=Array.IndexOf(args,"--menu-preview");
             string page=index+1<args.Length?args[index+1]:"login";
+            bool preparing=page=="roleplay-preparing";
+            if(preparing)page="roleplay-room";
             if(page=="login")return;
+            if(page=="login-loading") {client.Phase=ClientPhase.CONNECTING;username="commander";return;}
             if(page=="register") {
                 registerTab=true;
                 return;
@@ -44,17 +77,20 @@ namespace Tank  {
                 joinForm=true;
                 return;
             }
-            if(page=="lobby"||page=="history"||page=="history-detail"||page=="afk-lobby") {
+            if(page=="lobby"||page=="lobby-empty"||page=="history"||page=="history-empty"||page=="history-detail"||page=="afk-lobby") {
                 client.Phase=ClientPhase.LOBBY;
                 client.Rooms.Add(new RoomInfo {
                     Id=24,Name="Đấu trường bạn bè",Players=3,Capacity=4,Phase=RoomPhase.WAITING
                 });
                 client.Rooms.Add(new RoomInfo {
-                    Id=25,Name="Biên giới 8 người",Players=6,Capacity=8,Phase=RoomPhase.WAITING
+                    Id=25,Name="Biên giới 8 người",Players=6,Capacity=8,Phase=RoomPhase.WAITING,Locked=true,Mode=RoomMode.ROLEPLAY
                 });
                 client.Rooms.Add(new RoomInfo {
                     Id=26,Name="Cuộc đấu tối nay",Players=4,Capacity=4,Phase=RoomPhase.RUNNING
                 });
+                client.Rooms.Add(new RoomInfo {Id=27,Name="Biệt đội đã đủ",Players=2,Capacity=2,Phase=RoomPhase.WAITING});
+                if(page=="lobby-empty")client.Rooms.Clear();
+                if(page=="history-empty")history=true;
                 if(page=="afk-lobby") {
                     client.Rooms.Clear();
                     client.Rooms.Add(new RoomInfo {
@@ -99,6 +135,16 @@ namespace Tank  {
             for(int slot=0;slot<8;slot++)client.Players.Add(new RoomPlayer {
                 Slot=slot,Name=names[slot],Ready=slot<6
             });
+            if(page=="roleplay-room") {
+                client.RoomMode=RoomMode.ROLEPLAY;
+                int choice=0,nationIndex=Array.IndexOf(args,"--preview-nation"),requested;
+                if(nationIndex>=0&&nationIndex+1<args.Length&&int.TryParse(args[nationIndex+1],out requested)&&requested>=0&&requested<8)choice=requested;
+                foreach(var player in client.Players) {player.Nation=(player.Slot+choice)%8;player.Ready=false;}
+                if(preparing) {
+                    client.Phase=ClientPhase.PREPARING;client.RoomPhase=RoomPhase.PREPARING;client.PrepareStage=PrepStage.SYNC_LOADOUT;
+                    foreach(var player in client.Players)player.Ready=true;
+                }
+            }
             if(page=="room-settings")OpenRoomForm(true);
         }
     }
