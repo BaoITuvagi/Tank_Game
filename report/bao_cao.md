@@ -486,7 +486,7 @@ Các lệnh ở mục 10–11 là hướng dẫn tái lập lấy từ repositor
 
 ### 10.1. Clone / Download
 
-Clone repository hoặc tải Code → Download ZIP từ GitHub rồi giải nén toàn bộ. Mở CMD tại thư mục repository và chạy `cd Tank_Game_updated` trước các lệnh dưới đây. Hướng dẫn cài và chạy hiện tại nằm trong [README chính](../../README.md); số liệu test trong phần báo cáo lịch sử giữ nguyên ngày đo.
+Clone repository hoặc tải Code → Download ZIP từ GitHub rồi giải nén toàn bộ. Mở CMD ngay tại thư mục gốc repository đã clone/giải nén, nơi có source, scripts, config; không cần cd vào thư mục con nào nữa. Hướng dẫn cài và chạy hiện tại nằm trong [README chính](../README.md); số liệu test trong phần báo cáo lịch sử giữ nguyên ngày đo.
 
 ### 10.2. Install Dependencies
 
@@ -771,7 +771,7 @@ Các mã S1–S11 là tham chiếu nội bộ tới bằng chứng triển khai 
 | S10 | [Test Java](../source/server/src/test/java/tank), [Test Unity](../source/client/Assets/Tests/Editor), [pom.xml](../source/server/pom.xml), [scripts](../scripts), [game-rules.json](../source/shared/game-rules.json) |
 | S11 | [Công cụ benchmark](../scripts/benchmark/README.md), [kết quả 36 lượt](benchmarks/network-20261015/results.md), [runs.csv](benchmarks/network-20261015/runs.csv), [hash dữ liệu](benchmarks/network-20261015/hashes.json) |
 
-Hướng dẫn triển khai hiện tại: [README repository](../../README.md). Tài liệu học phần gốc được đối chiếu trong báo cáo, Instruction.md (`../../Instruction.md`; tài liệu/artifact cục bộ không kèm source GitHub), Topics.md (`../../Topics.md`; tài liệu/artifact cục bộ không kèm source GitHub). Phạm vi web lấy từ [required_web.md](../required_web.md).
+Hướng dẫn triển khai hiện tại: [README repository](../README.md). Tài liệu học phần gốc được đối chiếu trong báo cáo, Instruction.md (`../../Instruction.md`; tài liệu/artifact cục bộ không kèm source GitHub), Topics.md (`../../Topics.md`; tài liệu/artifact cục bộ không kèm source GitHub). Phạm vi web lấy từ [required_web.md](../required_web.md).
 
 ## 20. Team Contribution – Đóng góp thành viên
 

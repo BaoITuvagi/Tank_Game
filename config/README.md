@@ -2,7 +2,7 @@
 
 Cách cài phần mềm, build và chạy nằm trong [README chính](../README.md). File này giải thích những thiết lập bạn có thể cần thay đổi; nếu thiết lập mặc định phù hợp, cứ dùng nguyên bản.
 
-Người mới clone/tải ZIP nên hoàn tất [hướng dẫn lần đầu](../../README.md). Các lệnh ở đây dùng CMD tại thư mục `Tank_Game_updated` của source đã giải nén, không phụ thuộc ổ đĩa hoặc tên máy.
+Người mới clone/tải ZIP nên hoàn tất [hướng dẫn lần đầu](../README.md). Các lệnh ở đây dùng CMD tại gốc repository của source đã clone/giải nén (nơi có source, scripts, config), không phụ thuộc ổ đĩa hoặc tên máy.
 
 ## Cấu hình server
 

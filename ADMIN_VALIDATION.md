@@ -1,6 +1,6 @@
 # Kết quả kiểm chứng và giới hạn
 
-Tài liệu này ghi nhận kết quả ở môi trường phát triển, không khẳng định mọi máy tải source sẽ có sẵn các công cụ hoặc artifact. Cách chạy cho người mới nằm trong [README chính](../README.md).
+Tài liệu này ghi nhận kết quả ở môi trường phát triển, không khẳng định mọi máy tải source sẽ có sẵn các công cụ hoặc artifact. Cách chạy cho người mới nằm trong [README chính](README.md).
 
 ## Server và website
 

@@ -6,7 +6,7 @@ Launcher Windows x64 viết bằng C#/WinForms, tách khỏi client Unity. Ngư�
 
 Cần .NET SDK 9.x. Build mặc định tải runtime pack từ NuGet lần đầu và tạo bản độc lập, người chơi **không cần cài .NET, Java hay Unity**.
 
-Launcher là tùy chọn phát hành client, không cần để chạy website. Các ví dụ dùng CMD tại `Tank_Game_updated` trong source đã clone/giải nén. Trước tiên hoàn tất [hướng dẫn chạy server/web](../../../README.md).
+Launcher là tùy chọn phát hành client, không cần để chạy website. Các ví dụ dùng CMD tại gốc repository trong source đã clone/giải nén. Trước tiên hoàn tất [hướng dẫn chạy server/web](../../README.md).
 
 ```cmd
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1

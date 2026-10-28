@@ -25,7 +25,7 @@ Các client thực hiện REGISTER/LOGIN, CREATE/JOIN, READY, UDP handshake, PIN
 
 ## Cách chạy
 
-Chạy CMD tại Tank_Game_updated của repository đã clone/giải nén, với JDK 21 trong PATH và JAR đã build. Chỉ chạy java sau khi javac báo thành công:
+Chạy CMD tại gốc repository đã clone/giải nén (nơi có source, scripts, config), với JDK 21 trong PATH và JAR đã build. Chỉ chạy java sau khi javac báo thành công:
 
 ```cmd
 if not exist runtime\benchmark-tools mkdir runtime\benchmark-tools

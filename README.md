@@ -2,15 +2,20 @@
 
 **Website quản trị mạng:** xem [ADMIN_WEB.md](ADMIN_WEB.md) để đăng nhập admin, theo dõi IP/kết nối thật, ban/ngắt và gửi thông báo tại `http://127.0.0.1:8080`.
 
-Đây là bản source chính đã tích hợp quản trị. Hướng dẫn tổng quan và đưa lên GitHub nằm ở [README gốc](../README.md) và [GITHUB.md](../GITHUB.md). Build server tự tìm Maven trong PATH, MAVEN_HOME/M2_HOME hoặc Maven Wrapper cache nếu có.
+## Tải đúng branch và mở CMD
 
-Các lệnh bên dưới dùng **Command Prompt (CMD)**, chạy tại thư mục gốc dự án:
+Phần website quản trị nằm trên **branch `tung`**. Clone bằng:
 
 ```cmd
-cd Tank_Game_updated
+git clone --branch tung --single-branch https://github.com/BaoITuvagi/Tank_Game.git Tank_Game
+cd Tank_Game
 ```
 
-Trước lệnh trên, mở CMD tại thư mục repository đã clone/giải nén (thư mục có README gốc). Nếu đã ở Tank_Game_updated thì không cần chạy cd lần nữa. Các file `.cmd` gọi lại script PowerShell có sẵn trong Windows; bạn không cần mở PowerShell.
+Hoặc trên GitHub chọn branch **tung → Code → Download ZIP**, giải nén toàn bộ rồi mở thư mục có các mục `source`, `scripts`, `config` và file README này. Gõ `cmd` vào thanh địa chỉ File Explorer để mở CMD tại đó.
+
+**Repository này không có thư mục con `Tank_Game_updated`.** Mọi lệnh dưới đây chạy ngay ở thư mục gốc vừa clone/giải nén. Tên folder ngoài cùng có thể khác tùy nơi bạn lưu; không cần đổi tên hoặc tạo thêm folder con.
+
+Các file `.cmd` gọi lại script PowerShell tích hợp trong Windows; bạn thao tác từ CMD. Build server tìm Maven trong PATH, MAVEN_HOME/M2_HOME hoặc Maven Wrapper cache nếu có. Người tải source lần đầu cần cài JDK 21, Maven 3.9.x và Python 3 theo phần dưới; source không kèm database, mật khẩu hoặc bản chạy sẵn.
 
 Muốn gửi game một lần và tự cập nhật cho người chơi: xem [hướng dẫn launcher và phát hành client](source/launcher/README.md).
 

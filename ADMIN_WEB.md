@@ -1,18 +1,12 @@
 # Website quản trị kết nối Tank Battle
 
-Nếu mới clone hoặc tải ZIP từ GitHub, bắt đầu từ [README chính](../README.md). Các lệnh dưới đây chạy trong thư mục `Tank_Game_updated` của bản tải về. Source không kèm file chạy, database hay mật khẩu.
+Nếu mới clone hoặc tải ZIP từ GitHub, bắt đầu từ [README chính](README.md). Các lệnh dưới đây chạy ở gốc repository branch tung, nơi có source, scripts, config và README.md. Source không kèm file chạy, database hay mật khẩu.
 
 Website nằm trong server Java, chạy cục bộ tại **http://127.0.0.1:8080**. Dữ liệu đến từ socket thật của game. Không cần Node.js, dịch vụ web riêng hay database trên máy người chơi.
 
 ## Khởi chạy trên Windows
 
-Mở thư mục repository sau khi clone/giải nén trong File Explorer, gõ `cmd` vào thanh địa chỉ rồi chạy:
-
-```cmd
-cd Tank_Game_updated
-```
-
-Nếu CMD đã ở thư mục Tank_Game_updated thì bỏ qua lệnh cd. Bản tải từ GitHub cần build trước. Nếu đã có `build\server\tank-server-1.0.0.jar`, chỉ cần JDK 21 để chạy. Chỉ khi build lại source mới cần thêm Maven 3.9 và Python 3.
+Chọn branch tung khi clone/tải ZIP theo README. Mở thư mục gốc đã giải nén (nơi có source, scripts, config), gõ `cmd` vào thanh địa chỉ File Explorer. Không chạy `cd Tank_Game_updated`; repository này không có folder đó. Bản tải từ GitHub cần build trước. Nếu đã có `build\server\tank-server-1.0.0.jar`, chỉ cần JDK 21 để chạy. Chỉ khi build lại source mới cần thêm Maven 3.9 và Python 3.
 
 ```cmd
 rem Chi build neu chua co JAR hoac vua sua source
@@ -71,7 +65,7 @@ Giữ `admin.bind=127.0.0.1` cho bài tập; cổng web phải khác TCP 8888. H
 
 ## Test bằng client Unity
 
-Chỉ sau khi build client hoặc nhận đủ folder client chạy sẵn, mở trong một CMD khác tại Tank_Game_updated:
+Chỉ sau khi build client hoặc nhận đủ folder client chạy sẵn, mở trong một CMD khác tại gốc repository:
 
 ```cmd
 start "" "build\client\TankBattle.exe"
