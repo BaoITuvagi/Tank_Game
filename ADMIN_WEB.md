@@ -85,14 +85,18 @@ scripts\build-client.cmd
 
 - **Kết nối trực tiếp:** số phiên, IP, tài khoản đăng nhập, người trong trận và IP bị ban; tìm kiếm, lọc, phân trang 12 phiên. Mỗi dòng có mã phiên và cổng nguồn để phân biệt nhiều client cùng IP. Xem thời điểm kết nối/hoạt động, trạng thái phòng/trận, TCP và hoạt động UDP. Dữ liệu tự cập nhật mỗi 2 giây, báo cũ sau 7 giây không cập nhật thành công. Không giả lập RTT.
 - **Quy tắc ban IP:** thêm IP và lý do, sửa lý do, kích hoạt/tạm dừng, xóa để bỏ ban. IP đích không đổi khi sửa. Hộp xác nhận nêu IP, tài khoản và số phiên bị ảnh hưởng. IPv4/IPv6 cụ thể được chuẩn hóa; không nhận hostname hay CIDR.
-- **Ngắt / Ngắt IP:** đóng một phiên hoặc mọi phiên của IP, có xác nhận và lý do. Không tạo ban. Client được phép kết nối lại.
+- **Ngắt IP:** đóng mọi kết nối đang dùng IP đó, có xác nhận số kết nối/tài khoản và lý do. Không tạo ban; người chơi được phép kết nối lại. Giao diện bỏ nút ngắt riêng một phiên để tránh nhầm lẫn.
 - **Lịch sử:** bấm IP/tài khoản để tra cứu các giai đoạn đăng nhập, IP liên quan, tài khoản liên quan, lần đầu/cuối và lý do kết thúc. Dùng bộ lọc ngày theo múi giờ Việt Nam. Bảng phân trang 50 bản ghi; phần tổng hợp tối đa 100 cặp gần nhất. Tra IP đó trong mục quy tắc và nhật ký để xem thao tác liên quan.
-- **Thông báo:** chọn phiên, IP, phòng hoặc tất cả; chọn thông tin/cảnh báo/lỗi. Giới hạn 500 ký tự và 1.000 byte UTF-8. Kết quả là số phiên đã đưa vào hàng đợi gửi, không phải số người đọc.
+- **Thông báo:** chỉ chọn **Tất cả người chơi** hoặc **Một IP**; chọn thông tin/cảnh báo/lỗi. Nút Gửi tin trên mỗi dòng tự điền IP. Tất cả gồm mọi kết nối TCP đang mở, kể cả chưa đăng nhập; Một IP gồm mọi kết nối cùng địa chỉ đó. Nhiều người chung IP sẽ cùng nhận tin. Giới hạn 500 ký tự và 1.000 byte UTF-8. Kết quả là số kết nối đã đưa vào hàng đợi gửi, không phải số người đọc.
 - **Nhật ký:** tìm theo IP, tài khoản, admin, nội dung, loại thao tác và khoảng ngày. Ghi yêu cầu và kết quả thao tác ngắt/gửi riêng để không nhầm đã tiếp nhận với đã thực hiện.
 
 Client Unity cần build lại để có hộp nổi thông báo admin ở giữa màn hình, cả trong menu và trận. Hộp dùng panel tối, màu vàng/xanh và kiểu chữ CartoonUi/MenuTheme của bản 1.0.3, phân biệt thông tin/cảnh báo/lỗi bằng màu, có vùng cuộn cho tin dài và nút Đóng hoặc Tin tiếp theo. Tin admin không còn đẩy vào dòng trạng thái chung ở góc. Nhiều tin được giữ theo thứ tự; tối đa 32 tin kể cả tin đang xem. Khi quá tải, giữ nguyên tin đang xem, bỏ tin chờ cũ nhất và hiện số tin đã lược bớt. Hộp không tạm dừng trận, thay đổi điều khiển, tự ngắt kết nối hoặc gửi xác nhận đã đọc. Client cũ chỉ có cách hiển thị đã được build sẵn; cập nhật web đơn lẻ không thay đổi được giao diện của client cũ.
 
 ## Kiến trúc phục vụ báo cáo
+
+Các khái niệm ở giao diện cũ: client là ứng dụng game trên máy người chơi; phiên là một lần client kết nối TCP tới server (kết nối lại tạo phiên mới). Gửi theo phiên chỉ đến một kết nối; theo IP đến mọi kết nối chung IP; theo phòng đến các thành viên phòng đó; toàn bộ đến mọi kết nối. Giao diện hiện chỉ giữ IP và toàn bộ cho dễ dùng. API cũ theo phiên/phòng vẫn được giữ tương thích với các tích hợp và kiểm thử hiện có.
+
+Để nhìn thấy popup mới, mở đúng project `source\client` trong repository này bằng Unity **6000.3.24f1** và bấm Play, hoặc chạy `scripts\build-client.cmd` rồi mở `build\client\TankBattle.exe`. Cần cài module Windows Build Support khi build. Giữ nguyên toàn bộ folder build/client khi gửi cho người chơi. Launcher đang trỏ bản phát hành cũ sẽ tiếp tục tải client cũ cho đến khi nhóm phát hành bản client tích hợp mới. Popup có nền tối phủ phía sau, luôn nằm trên menu/HUD; không phụ thuộc việc người chơi ở sảnh, trận multiplayer hay chiến dịch.
 
 ```mermaid
 flowchart LR

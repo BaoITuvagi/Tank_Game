@@ -1,5 +1,11 @@
 # Kết quả kiểm chứng và giới hạn
 
+## Đơn giản hóa thao tác IP và thông báo — 28/10/2026
+
+- Giao diện chỉ còn Gửi tin / Ngắt IP / Ban IP trên mỗi dòng. Gửi tin có hai phạm vi: tất cả hoặc một IP. Nút Gửi tin tự chọn IP của dòng; hộp ngắt liệt kê mọi kết nối cùng IP trước khi xác nhận. API theo phiên/phòng vẫn giữ tương thích.
+- Kiểm tra JavaScript bằng Node đạt; 6 AdminWebTest đạt và đã đóng gói lại JAR. Chrome/Playwright với server, SQLite tạm và hai kết nối TCP thật: gửi theo IP/toàn bộ đều đến cả hai, ngắt IP đóng cả hai; không có lỗi JavaScript, form vừa màn hình 390px. Kết thúc kiểm tra đã đóng server/browser thử.
+- Popup độc lập với menu/HUD đã thêm nền tối phía sau. Kiểm tra adapter client đạt; chưa build/chạy Unity vì thiếu Unity Editor 6000.3.24f1. Người chơi phải chạy client build từ source tích hợp mới có popup; bản Launcher hiện có không tự thay đổi.
+
 ## Đồng bộ branch Bao — 28/10/2026
 
 - Đã đối chiếu 707 file của bản tải tại `C:\Users\Admin\Downloads\Tank_Game-Bao\Tank_Game-Bao` với branch Bao commit ec3221e: nội dung khớp; 10 file chỉ khác CRLF/LF. Không sửa thư mục tham khảo.
