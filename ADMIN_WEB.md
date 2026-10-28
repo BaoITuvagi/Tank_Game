@@ -4,6 +4,10 @@ Nếu mới clone hoặc tải ZIP từ GitHub, bắt đầu từ [README chính
 
 Website nằm trong server Java, chạy cục bộ tại **http://127.0.0.1:8080**. Dữ liệu đến từ socket thật của game. Không cần Node.js, dịch vụ web riêng hay database trên máy người chơi.
 
+### Cách sử dụng hiện tại: chơi qua Launcher
+
+Người chơi tiếp tục mở game bằng Launcher chính thức; chỉ build và chạy server trong repository này. Thông báo web dùng gói NOTICE mà client hiện có hỗ trợ: ở sảnh nó hiển thị trong vùng trạng thái; không bảo đảm hiển thị khi đang đấu vì HUD của client nguyên bản không vẽ nội dung NOTICE chung. Server/web không thể tự tạo popup trên client đã phát hành. Kết quả gửi chỉ xác nhận đã xếp hàng gửi, không xác nhận người chơi đã thấy tin. Không cần build client riêng cho cách sử dụng này. Các hướng dẫn build client/overlay bên dưới chỉ dành cho phát triển một bản phát hành mới trong tương lai.
+
 Nền game đã đồng bộ branch Bao commit `ec3221e` (v1.0.3), protocol **16**, content **7**. Dùng client tương ứng; không đổi riêng số protocol để ép client cũ kết nối. Khi cập nhật source, dừng server bằng Ctrl+C, chạy `scripts\build-server.cmd`, rồi `scripts\start-server.cmd`; tài khoản và lịch sử trong runtime được giữ lại.
 
 ## Khởi chạy trên Windows

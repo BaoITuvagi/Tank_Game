@@ -53,8 +53,6 @@ namespace Tank {
                 GUI.enabled=true;
                 GUI.depth=-1000;
 
-                // Draw independently of game menus/HUD, including multiplayer and campaign.
-                Fill(new Rect(0,0,canvasWidth,canvasHeight),new Color(0,0,0,.48f));
                 float width=Mathf.Min(640,canvasWidth-32),height=Mathf.Min(400,canvasHeight-32);
                 Rect box=new Rect((canvasWidth-width)/2,(canvasHeight-height)/2,width,height);
                 Color accent=notice.Code==202?CartoonUi.Danger:notice.Code==201?CartoonUi.Gold:CartoonUi.Ready;
