@@ -22,14 +22,31 @@ namespace Tank  {
         int observedAccountRevision;
         readonly System.Collections.Generic.Dictionary<GUIStyle,GUIStyle> flexibleButtons=new System.Collections.Generic.Dictionary<GUIStyle,GUIStyle>();
         GUIStyle cardName,cardText,cardSmall,cardHeading,plainCardButton,compactAction,centerCardHeading,centerCardText,centerSection,centerHint;
+        GUIStyle depotKicker,depotTitle,depotText,depotName,depotSmall,depotNumber,depotAction;
         void InitMenuCards() {
             if(cardName!=null)return;
             cardName=CartoonUi.Label(18,CartoonUi.Ink);cardText=CartoonUi.Label(16,CartoonUi.Ink);
             cardSmall=CartoonUi.Label(14,CartoonUi.Ink);cardHeading=CartoonUi.Label(22,CartoonUi.Ink,true);
             centerCardHeading=new GUIStyle(cardHeading){alignment=TextAnchor.MiddleCenter};centerCardText=new GUIStyle(cardText){alignment=TextAnchor.MiddleCenter};
+            centerCardHeading.normal.textColor=CartoonUi.Text;centerCardText.normal.textColor=CartoonUi.Text;
             centerSection=new GUIStyle(menu.Section){alignment=TextAnchor.MiddleCenter};centerHint=new GUIStyle(menu.Hint){alignment=TextAnchor.UpperCenter};
             plainCardButton=new GUIStyle(menu.Secondary){fixedHeight=0,margin=new RectOffset(0,0,0,0),padding=new RectOffset()};
             compactAction=new GUIStyle(menu.Secondary){font=CartoonUi.BodyFont,fontSize=15,fixedHeight=40,margin=new RectOffset(0,0,0,0),padding=new RectOffset(8,8,3,7)};
+            depotKicker=CartoonUi.Label(12,CartoonUi.Gold);depotTitle=CartoonUi.Label(28,CartoonUi.Text,true);
+            depotText=CartoonUi.Label(16,CartoonUi.Text);depotName=CartoonUi.Label(19,CartoonUi.Text);
+            depotSmall=CartoonUi.Label(14,CartoonUi.Muted);depotNumber=CartoonUi.Label(28,CartoonUi.Gold,true);
+            depotAction=new GUIStyle(compactAction){fixedHeight=42,padding=new RectOffset(12,12,4,6)};
+        }
+        void DepotRule(Rect rect,Color color) {
+            ArenaRenderer.Fill(new Rect(rect.x,rect.y,Mathf.Min(36,rect.width),rect.height),color);
+            ArenaRenderer.Fill(new Rect(rect.x+42,rect.y,Mathf.Max(0,rect.width-42),1),new Color(color.r,color.g,color.b,.24f));
+        }
+        void TankBay(Rect rect,int palette,Color accent) {
+            CartoonUi.Panel(rect,CartoonUi.Backdrop,4,0);
+            float inset=Mathf.Min(10,rect.width*.12f);
+            ArenaRenderer.Fill(new Rect(rect.x+inset,rect.y+inset,Mathf.Max(1,rect.width-inset*2),2),accent);
+            ArenaRenderer.Fill(new Rect(rect.x+inset,rect.yMax-inset-2,Mathf.Max(1,rect.width-inset*2),2),accent);
+            CartoonUi.TankPortrait(new Rect(rect.x+4,rect.y+4,rect.width-8,rect.height-8),palette);
         }
         void EmptyMenuState(float width,string title,string description) {
             InitMenuCards();
@@ -76,14 +93,16 @@ namespace Tank  {
             }
         }
         void DrawHeader(bool playing) {
+            InitMenuCards();
             if(playing)menu.Logo(new Rect(16,5,48,48));
             else {
                 if(client.Phase<=ClientPhase.AUTHENTICATING&&Screen.width<1100)menu.Logo(new Rect((viewWidth-72)/2,2,72,72));
                 else menu.Logo(new Rect(24,2,72,72));
             }
-            if(!playing&&((client.Phase>=ClientPhase.LOBBY&&viewWidth>=900)||Screen.width>=1100))GUI.Label(new Rect(112,23,240,36),"TANK BATTLE",new GUIStyle(menu.Header) {
-                fontSize=playing?16:22
-            });
+            if(!playing&&((client.Phase>=ClientPhase.LOBBY&&viewWidth>=1000)||Screen.width>=1100)) {
+                GUI.Label(new Rect(112,15,240,30),"TANK BATTLE",menu.Header);
+                GUI.Label(new Rect(114,46,240,18),"SẴN SÀNG XUẤT KÍCH",depotKicker);
+            }
             if(client.Phase>=ClientPhase.LOBBY) {
                 string profileLabel=WrapMenuText(string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname,menu.HeaderButton,190);
                 float buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,menu.HeaderButton,190));
@@ -161,6 +180,10 @@ namespace Tank  {
             if(client.Phase<=ClientPhase.AUTHENTICATING) {
                 var layout=MenuLayout.Fit(Screen.width,Screen.height);
                 Rect card=layout.AuthCard;
+                if(!settings&&!registerTab) {
+                    card.height=Mathf.Min(card.height,550);
+                    card.y=layout.Content.center.y-card.height/2;
+                }
                 if(layout.Wide)menu.Logo(layout.AuthLogo);
                 menu.Card(card,settings?"Kết nối":registerTab?"Đăng ký":"Đăng nhập");
                 GUILayout.BeginArea(new Rect(card.x+24,card.y+80,card.width-48,card.height-104));
@@ -192,7 +215,9 @@ namespace Tank  {
             if(Button("Đăng nhập",true,registerTab)) {registerTab=false;confirmPassword="";}
             if(Button("Đăng ký",true,!registerTab))registerTab=true;
             GUILayout.EndHorizontal();
-            GUILayout.Space(18);
+            GUILayout.Space(14);
+            GUILayout.Label(registerTab?"GIA NHẬP ĐỘI HÌNH":"TRỞ LẠI CHIẾN TRƯỜNG",depotKicker);
+            GUILayout.Space(6);
             username=Field("account","Tên đăng nhập",username,24);
             GUILayout.Space(12);
             password=Field("account-password","Mật khẩu",password,64,true);
@@ -267,38 +292,44 @@ namespace Tank  {
         }
         void DrawLobby(Rect area) {
             InitMenuCards();
-            float dataHeight=134+client.Rooms.Count*144;
-            if(history)dataHeight=client.SelectedHistoryMatch!=0?284+(client.HistoryDetail==null?0:client.HistoryDetail.Players.Count)*90:134+client.History.Count*110;
-            // The navigation needs 540 px; longer data lists keep their own scroll viewport.
-            area.height=Mathf.Min(area.height,Mathf.Max(540,dataHeight));
-            menu.Card(area,history?"Lịch sử trận":"Phòng đang mở");
-            GUILayout.BeginArea(new Rect(area.x+24,area.y+84,220,area.height-108));
-            lobbyActionScroll=GUILayout.BeginScrollView(lobbyActionScroll);
-            if(!string.IsNullOrEmpty(client.WalletError))GUILayout.Label(client.WalletError,menu.Hint);
-            GUILayout.Space(10);
-            GUILayout.Label("CHỌN TRẬN ĐẤU",menu.Hint);
-            if(Button("Tạo phòng"))OpenRoomForm(false);
-            if(Button("Làm mới",true,true)) {
+            // A sortie banner and an open room browser replace the administrative side rail.
+            Rect banner=new Rect(area.x,area.y,area.width,148);
+            CartoonUi.Panel(banner,CartoonUi.PanelDark,8,0);
+            float entryWidth=Mathf.Clamp(area.width*.34f,270,390),copyWidth=area.width-entryWidth-152;
+            TankBay(new Rect(banner.x+18,banner.y+18,104,112),client.Slot,CartoonUi.Ready);
+            GUI.Label(new Rect(banner.x+142,banner.y+20,copyWidth,20),"BỘ CHỈ HUY THIẾT GIÁP",depotKicker);
+            string bannerTitle=history?"NHẬT KÝ\nTÁC CHIẾN":"TẬP HỢP.\nXUẤT KÍCH.";
+            GUI.Label(new Rect(banner.x+140,banner.y+44,copyWidth,82),bannerTitle,depotTitle);
+            Rect entry=new Rect(banner.xMax-entryWidth-18,banner.y+20,entryWidth,112);
+            GUI.Label(new Rect(entry.x+4,entry.y,entry.width-8,20),"MẶT TRẬN CHIẾN DỊCH",depotKicker);
+            GUI.Label(new Rect(entry.x+4,entry.y+24,entry.width-8,24),"Tiến quân · Thu vàng · Ghi danh",depotSmall);
+            GUILayout.BeginArea(new Rect(entry.x,entry.y+54,entry.width,58));
+            GUILayout.BeginHorizontal();CampaignEntryButtons();GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+            Rect browser=new Rect(area.x,area.y+164,area.width,area.height-164);
+            CartoonUi.Panel(browser,CartoonUi.PanelDark,8,0);
+            GUI.Label(new Rect(browser.x+22,browser.y+18,browser.width-402,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
+            float actionX=browser.xMax-370;
+            if(GUI.Button(new Rect(actionX,browser.y+14,112,42),"Tạo phòng",depotAction))OpenRoomForm(false);
+            if(GUI.Button(new Rect(actionX+120,browser.y+14,94,42),"Làm mới",depotAction)) {
                 if(history) {
                     client.CloseHistoryDetail();
                     client.GetHistory();
                 }
                 else client.Refresh();
             }
-            if(Button(history?"Danh sách phòng":"Lịch sử",true,true)) {
+            if(GUI.Button(new Rect(actionX+222,browser.y+14,128,42),history?"Danh sách phòng":"Lịch sử",depotAction)) {
                 history=!history;
                 client.CloseHistoryDetail();
                 scroll=Vector2.zero;
                 if(history)client.GetHistory();
             }
-            GUILayout.Space(10);
-            CampaignEntryButtons();
-            GUILayout.EndScrollView();
-            GUILayout.EndArea();
-            GUILayout.BeginArea(new Rect(area.x+268,area.y+84,area.width-292,area.height-108));
+            DepotRule(new Rect(browser.x+22,browser.y+67,browser.width-44,3),CartoonUi.Gold);
+            GUILayout.BeginArea(new Rect(browser.x+20,browser.y+78,browser.width-40,browser.height-92));
             scroll=GUILayout.BeginScrollView(scroll);
-            float listWidth=area.width-324;
+            float listWidth=MenuScrollContentWidth(browser.width-40);
             GUILayout.BeginVertical(GUILayout.Width(listWidth));
+            if(!string.IsNullOrEmpty(client.WalletError))GUILayout.Label(client.WalletError,menu.Hint);
             if(history) {
                 if(client.SelectedHistoryMatch!=0)DrawHistoryDetail(listWidth);
                 else {
@@ -312,9 +343,9 @@ namespace Tank  {
                 if(client.Rooms.Count==0)EmptyMenuState(listWidth,"Đấu trường đang yên tĩnh","Tạo phòng đầu tiên, hoặc làm mới để tìm đồng đội.");
                 foreach(var room in client.Rooms)DrawLobbyRoomCard(room,listWidth);
             }
+            Feedback();
             GUILayout.EndVertical();
             GUILayout.EndScrollView();
-            Feedback();
             GUILayout.EndArea();
         }
         void DrawHistoryCard(HistoryEntry entry,float width) {
@@ -337,24 +368,26 @@ namespace Tank  {
             bool available=(room.Phase==RoomPhase.WAITING||returning)&&room.Players<room.Capacity;
             bool full=room.Players>=room.Capacity;
             float detailWidth=Mathf.Max(100,width-284);
-            string title=WrapMenuText(room.Name,cardHeading,detailWidth);
-            string mode=WrapMenuText(room.Mode==RoomMode.ROLEPLAY?"NHẬP VAI · Kỹ năng Q riêng":"ĐẤU THƯỜNG · Tự do giao tranh",cardSmall,detailWidth);
-            float titleHeight=MenuTextHeight(title,cardHeading,detailWidth),modeHeight=MenuTextHeight(mode,cardSmall,detailWidth);
+            string title=WrapMenuText(room.Name,depotName,detailWidth);
+            string mode=WrapMenuText(room.Mode==RoomMode.ROLEPLAY?"NHẬP VAI · Kỹ năng Q riêng":"ĐẤU THƯỜNG · Tự do giao tranh",depotSmall,detailWidth);
+            float titleHeight=MenuTextHeight(title,depotName,detailWidth),modeHeight=MenuTextHeight(mode,depotSmall,detailWidth);
             bool separateLock=room.Locked&&detailWidth<390;
             float contentHeight=12+titleHeight+8+modeHeight+10+24+(separateLock?28:0)+16;
             Rect row=GUILayoutUtility.GetRect(width,Mathf.Max(132,contentHeight),GUILayout.Width(width));
-            CartoonUi.Panel(row,CartoonUi.Cream,16,5);
-            CartoonUi.TankPortrait(new Rect(row.x+12,row.y+24,78,78),(int)(room.Id%8));
-            GUI.Label(new Rect(row.x+102,row.y+12,detailWidth,titleHeight),title,cardHeading);
-            GUI.Label(new Rect(row.x+102,row.y+20+titleHeight,detailWidth,modeHeight),mode,cardSmall);
+            CartoonUi.Panel(row,CartoonUi.PanelColor,6,0);
+            Color accent=room.Mode==RoomMode.ROLEPLAY?CartoonUi.Gold:CartoonUi.Ready;
+            ArenaRenderer.Fill(new Rect(row.x+1,row.y+12,4,row.height-24),accent);
+            TankBay(new Rect(row.x+15,row.y+18,72,Mathf.Min(96,row.height-36)),(int)(room.Id%8),accent);
+            GUI.Label(new Rect(row.x+102,row.y+12,detailWidth,titleHeight),title,depotName);
+            GUI.Label(new Rect(row.x+102,row.y+20+titleHeight,detailWidth,modeHeight),mode,depotSmall);
             float metaTop=row.y+30+titleHeight+modeHeight;
-            CartoonUi.Icon(new Rect(row.x+102,metaTop+3,18,18),UiIcon.Players,CartoonUi.Ink);
-            GUI.Label(new Rect(row.x+127,metaTop,60,24),room.Players+" / "+room.Capacity,cardText);
+            CartoonUi.Icon(new Rect(row.x+102,metaTop+3,18,18),UiIcon.Players,CartoonUi.Muted);
+            GUI.Label(new Rect(row.x+127,metaTop,60,24),room.Players+" / "+room.Capacity,depotText);
             for(int i=0;i<room.Capacity;i++)CartoonUi.Panel(new Rect(row.x+192+i*12,metaTop+6,9,10),i<room.Players?CartoonUi.Ready:CartoonUi.Disabled,3,0);
             if(room.Locked) {
                 float lockX=separateLock?row.x+102:row.x+304,lockY=separateLock?metaTop+28:metaTop;
-                CartoonUi.Icon(new Rect(lockX,lockY+3,18,18),UiIcon.Lock,CartoonUi.Ink);
-                GUI.Label(new Rect(lockX+24,lockY,130,24),"Có mật khẩu",cardSmall);
+                CartoonUi.Icon(new Rect(lockX,lockY+3,18,18),UiIcon.Lock,CartoonUi.Muted);
+                GUI.Label(new Rect(lockX+24,lockY,130,24),"Có mật khẩu",depotSmall);
             }
             string state=returning?"CÓ THỂ VÀO LẠI":full&&room.Phase==RoomPhase.WAITING?"ĐÃ ĐẦY":RoomPhaseLabel(room.Phase).ToUpperInvariant();
             CartoonUi.Badge(new Rect(row.xMax-170,row.y+14,152,28),state,available?CartoonUi.Ready:room.Phase==RoomPhase.RUNNING?CartoonUi.Gold:CartoonUi.Disabled);
@@ -474,7 +507,7 @@ namespace Tank  {
         void DrawRoom(Rect area) {
             InitMenuCards();
             // Roster content scrolls independently when full names need taller rows.
-            area.height=Mathf.Min(area.height,648);
+            area.height=Mathf.Min(area.height,820);
             bool roleplay=client.RoomMode==RoomMode.ROLEPLAY;
             float sidebar=Mathf.Clamp(area.width*.28f,client.RoomMode==RoomMode.ROLEPLAY?320:260,320);
             Rect players=new Rect(area.x,area.y,area.width-sidebar-20,area.height),info=new Rect(area.xMax-sidebar,area.y,sidebar,area.height);
@@ -485,7 +518,7 @@ namespace Tank  {
                 players.width=rosterWidth;
             }
             int readyCount=client.Players.FindAll(p=>p.Ready).Count;
-            menu.Card(players,roleplay?"Đội hình":client.RoomName,client.Players.Count+" / "+client.RoomCapacity+" người  ·  "+readyCount+" sẵn sàng");
+            menu.Card(players,"BÃI TẬP KẾT",client.Players.Count+" / "+client.RoomCapacity+" người  ·  "+readyCount+" sẵn sàng");
             int columns=players.width>=390?2:1;
             float cellWidth=(players.width-64-(columns-1)*10)/columns;
             GUILayout.BeginArea(new Rect(players.x+24,players.y+110,players.width-48,players.height-134));
@@ -511,13 +544,13 @@ namespace Tank  {
             GUILayout.EndScrollView();
             GUILayout.EndArea();
             if(nations.width>0) {
-                menu.Card(nations,"Chọn phe","Một phe cho mỗi người · kỹ năng riêng");
+                menu.Card(nations,"CHỌN PHE","Một phe cho mỗi người · kỹ năng riêng");
                 GUILayout.BeginArea(new Rect(nations.x+24,nations.y+110,nations.width-48,nations.height-134));
                 nationScroll=GUILayout.BeginScrollView(nationScroll);
                 NationSelector(nations.width-72,2,true);
                 GUILayout.EndScrollView();GUILayout.EndArea();
             }
-            menu.Card(info,"Phòng");
+            menu.Card(info,"XUẤT KÍCH");
             var localPlayer=client.Players.Find(p=>p.Slot==client.Slot);
             bool localReady=localPlayer!=null&&localPlayer.Ready;
             float actionWidth=info.width-56;
@@ -581,45 +614,50 @@ namespace Tank  {
             public float NameHeight,DetailHeight,BodyHeight,Height;
         }
         RoomPlayerCardLayout MeasureRoomPlayerCard(RoomPlayer player,float width) {
-            if(player==null)return new RoomPlayerCardLayout{Height=132};
+            if(player==null)return new RoomPlayerCardLayout{Height=154};
             bool own=player.Slot==client.Slot,host=player.Slot==client.Host;
             bool kick=client.Slot==client.Host&&!host&&client.RoomPhase==RoomPhase.WAITING;
             float nameWidth=width-(kick?56:24),detailWidth=width-88;
             string details=client.RoomMode==RoomMode.ROLEPLAY?(player.Nation<0?"Chưa chọn phe":RoleplayContent.NationNames[player.Nation]):TankPalette.Names[Mathf.Clamp(player.Slot,0,7)];
             if(host)details+=" · Chủ phòng";
             var layout=new RoomPlayerCardLayout {
-                Name=WrapMenuText((own?"Bạn · ":"")+player.Name,cardName,nameWidth),
-                Details=WrapMenuText(details,cardSmall,detailWidth)
+                Name=WrapMenuText((own?"Bạn · ":"")+player.Name,depotName,nameWidth),
+                Details=WrapMenuText(details,depotSmall,detailWidth)
             };
-            layout.NameHeight=MenuTextHeight(layout.Name,cardName,nameWidth);
-            layout.DetailHeight=MenuTextHeight(layout.Details,cardSmall,detailWidth);
-            // Leave room for the complete62px portrait and a separate bottom inset.
-            layout.BodyHeight=Mathf.Max(72,26+6+layout.DetailHeight);
-            layout.Height=12+layout.NameHeight+8+layout.BodyHeight+16;
+            layout.NameHeight=MenuTextHeight(layout.Name,depotName,nameWidth);
+            layout.DetailHeight=MenuTextHeight(layout.Details,depotSmall,detailWidth);
+            layout.BodyHeight=Mathf.Max(78,26+8+layout.DetailHeight);
+            layout.Height=12+layout.NameHeight+8+layout.BodyHeight+12;
             return layout;
         }
         void DrawRoomPlayerCard(Rect r,RoomPlayer player,int position,RoomPlayerCardLayout layout) {
             if(player==null) {
-                CartoonUi.Panel(r,CartoonUi.PanelDark,14,3);
-                GUI.Label(new Rect(r.x+12,r.y+14,r.width-24,28),"VỊ TRÍ "+(position+1),menu.Hint);
-                CartoonUi.Icon(new Rect(r.x+14,r.y+57,34,34),UiIcon.Players,CartoonUi.Muted);
-                GUI.Label(new Rect(r.x+58,r.y+51,r.width-70,48),"Đang chờ\nđồng đội…",menu.Hint);
+                CartoonUi.Panel(r,CartoonUi.Backdrop,5,0);
+                GUI.Label(new Rect(r.x+14,r.y+12,r.width-28,22),"BÃI XE / 0"+(position+1),depotKicker);
+                CartoonUi.Icon(new Rect(r.x+18,r.y+61,30,30),UiIcon.Players,CartoonUi.Muted);
+                GUI.Label(new Rect(r.x+64,r.y+56,r.width-78,50),"Đang chờ\nđồng đội…",depotSmall);
+                DepotRule(new Rect(r.x+14,r.yMax-20,r.width-28,2),CartoonUi.PanelColor);
                 return;
             }
             bool own=player.Slot==client.Slot,host=player.Slot==client.Host;
             bool kick=client.Slot==client.Host&&!host&&client.RoomPhase==RoomPhase.WAITING;
-            CartoonUi.Panel(r,own?CartoonUi.Ready:CartoonUi.Cream,14,4);
-            GUI.Label(new Rect(r.x+12,r.y+12,r.width-(kick?56:24),layout.NameHeight),layout.Name,cardName);
+            CartoonUi.Panel(r,CartoonUi.PanelColor,5,0);
+            ArenaRenderer.Fill(new Rect(r.x+1,r.y+10,4,r.height-20),own?CartoonUi.Gold:player.Ready?CartoonUi.Ready:CartoonUi.Outline);
+            GUI.Label(new Rect(r.x+12,r.y+12,r.width-(kick?56:24),layout.NameHeight),layout.Name,depotName);
             float bodyTop=r.y+12+layout.NameHeight+8;
-            CartoonUi.TankPortrait(new Rect(r.x+9,bodyTop,62,62),player.Nation>=0?player.Nation:player.Slot);
+            TankBay(new Rect(r.x+11,bodyTop,60,78),player.Nation>=0?player.Nation:player.Slot,own?CartoonUi.Gold:CartoonUi.Ready);
             float textX=r.x+78,textWidth=r.width-88;
-            CartoonUi.Badge(new Rect(textX,bodyTop,textWidth,26),player.Ready?"Sẵn sàng":"Đang chờ",player.Ready?CartoonUi.Ready:CartoonUi.Disabled);
-            GUI.Label(new Rect(textX,bodyTop+32,textWidth,layout.DetailHeight),layout.Details,cardSmall);
+            CartoonUi.Badge(new Rect(textX,bodyTop,Mathf.Min(130,textWidth),26),player.Ready?"Sẵn sàng":"Đang chờ",player.Ready?CartoonUi.Ready:CartoonUi.Disabled);
+            GUI.Label(new Rect(textX,bodyTop+34,textWidth,layout.DetailHeight),layout.Details,depotSmall);
             if(kick&&GUI.Button(new Rect(r.xMax-40,r.y+12,28,28),"×",compactAction))client.Kick(player.Slot);
         }
         void DrawResults(Rect area) {
             InitMenuCards();
-            menu.Card(area,"KẾT QUẢ TRẬN ĐẤU");
+            var own=client.Scores.Find(s=>s.Slot==client.Slot);
+            CartoonUi.Panel(area,CartoonUi.PanelDark,8,0);
+            GUI.Label(new Rect(area.x+26,area.y+15,area.width-52,18),"BÁO CÁO TÁC CHIẾN / KẾT QUẢ TRẬN ĐẤU",depotKicker);
+            GUI.Label(new Rect(area.x+24,area.y+39,area.width-48,42),own!=null&&own.Rank==1?"CHIẾN THẮNG!":"TRẬN ĐẤU KẾT THÚC",depotTitle);
+            DepotRule(new Rect(area.x+26,area.y+88,area.width-52,3),CartoonUi.Gold);
             float width=area.width-72,podiumWidth=Mathf.Min(1040,width),cellWidth=(podiumWidth-24)/3,podiumHeight=0;
             int[] order={2,1,3};
             var podiumCards=new PodiumCardLayout[3];
@@ -628,7 +666,7 @@ namespace Tank  {
                 podiumCards[column]=MeasurePodiumCard(score,cellWidth);
                 podiumHeight=Mathf.Max(podiumHeight,podiumCards[column].Height);
             }
-            GUILayout.BeginArea(new Rect(area.x+24,area.y+84,area.width-48,area.height-184));
+            GUILayout.BeginArea(new Rect(area.x+24,area.y+104,area.width-48,area.height-204));
             scroll=GUILayout.BeginScrollView(scroll);
             if(podiumHeight>0) {
                 Rect podium=GUILayoutUtility.GetRect(width,podiumHeight,GUILayout.Width(width));
@@ -640,7 +678,6 @@ namespace Tank  {
                 }
                 GUILayout.Space(12);
             }
-            var own=client.Scores.Find(s=>s.Slot==client.Slot);
             string summary=own==null?"Thành tích toàn đội":"THÀNH TÍCH CỦA BẠN · Hạng "+own.Rank+" · "+own.Kills+" hạ gục / "+own.Deaths+" tử trận";
             if(client.RoomMode==RoomMode.ROLEPLAY) {
                 var winner=client.Scores.Find(s=>s.Rank==1);
@@ -674,15 +711,16 @@ namespace Tank  {
             };
             layout.NameHeight=MenuTextHeight(layout.Name,centerCardHeading,width-32);
             layout.StatsHeight=MenuTextHeight(layout.Stats,centerCardText,width-32);
-            layout.Height=12+84+8+layout.NameHeight+12+layout.StatsHeight+16+(score.Rank==1?20:0);
+            layout.Height=12+100+8+layout.NameHeight+12+layout.StatsHeight+16+(score.Rank==1?32:0);
             return layout;
         }
         void DrawPodiumCard(Rect card,Score score,PodiumCardLayout layout) {
-            Color fill=score.Rank==1?CartoonUi.Gold:score.Rank==2?CartoonUi.Cream:CartoonUi.Sand;
-            CartoonUi.Panel(card,fill,16,6);
+            Color fill=score.Rank==1?CartoonUi.PanelColor:CartoonUi.Backdrop;
+            CartoonUi.Panel(card,fill,6,0);
+            ArenaRenderer.Fill(new Rect(card.x+12,card.y+1,card.width-24,4),score.Rank==1?CartoonUi.Gold:CartoonUi.Outline);
             CartoonUi.Medal(new Rect(card.x+12,card.y+12,46,54),score.Rank);
-            CartoonUi.TankPortrait(new Rect(card.center.x-42,card.y+12,84,84),score.Nation>=0?score.Nation:score.Slot);
-            GUI.Label(new Rect(card.x+16,card.y+104,card.width-32,layout.NameHeight),layout.Name,centerCardHeading);
+            TankBay(new Rect(card.center.x-45,card.y+16,90,96),score.Nation>=0?score.Nation:score.Slot,score.Rank==1?CartoonUi.Gold:CartoonUi.Ready);
+            GUI.Label(new Rect(card.x+16,card.y+120,card.width-32,layout.NameHeight),layout.Name,centerCardHeading);
             GUI.Label(new Rect(card.x+16,card.yMax-16-layout.StatsHeight,card.width-32,layout.StatsHeight),layout.Stats,centerCardText);
         }
         struct ScoreCardLayout {

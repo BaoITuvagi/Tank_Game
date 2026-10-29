@@ -11,15 +11,15 @@ namespace Tank {
         }
         NationCardLayout MeasureNationCard(int nation,bool selected,bool taken,float width) {
             var layout=new NationCardLayout {
-                Name=WrapMenuText(RoleplayContent.NationNames[nation],cardName,width-82),
+                Name=WrapMenuText(RoleplayContent.NationNames[nation],depotName,width-82),
                 Status=selected?"ĐANG CHỌN":taken?"ĐÃ CÓ NGƯỜI":"",
-                Skill=WrapMenuText("Q · "+RoleplayContent.QNames[nation],cardSmall,width-24)
+                Skill=WrapMenuText("Q · "+RoleplayContent.QNames[nation],depotSmall,width-24)
             };
-            layout.NameHeight=MenuTextHeight(layout.Name,cardName,width-82);
-            layout.Status=WrapMenuText(layout.Status,cardSmall,width-82);
-            layout.StatusHeight=layout.Status.Length==0?0:MenuTextHeight(layout.Status,cardSmall,width-82);
+            layout.NameHeight=MenuTextHeight(layout.Name,depotName,width-82);
+            layout.Status=WrapMenuText(layout.Status,depotKicker,width-82);
+            layout.StatusHeight=layout.Status.Length==0?0:MenuTextHeight(layout.Status,depotKicker,width-82);
             layout.TopHeight=Mathf.Max(64,layout.NameHeight+4+layout.StatusHeight);
-            layout.SkillHeight=MenuTextHeight(layout.Skill,cardSmall,width-24);
+            layout.SkillHeight=MenuTextHeight(layout.Skill,depotSmall,width-24);
             layout.Height=10+layout.TopHeight+6+layout.SkillHeight+12;
             return layout;
         }
@@ -27,9 +27,12 @@ namespace Tank {
             var local=client.Players.Find(p=>p.Slot==client.Slot);
             if(local==null)return;
             InitMenuCards();
+            columns=Mathf.Clamp(Mathf.FloorToInt((width+8)/210),1,columns);
             if(nationCard==null) {
-                nationCard=new GUIStyle(menu.Nation){fixedHeight=108,margin=new RectOffset(0,0,0,0),padding=new RectOffset()};
-                nationCardSelected=new GUIStyle(menu.NationSelected){fixedHeight=108,margin=new RectOffset(0,0,0,0),padding=new RectOffset()};
+                nationCard=new GUIStyle(CartoonUi.Button(CartoonUi.PanelColor,14,108)){margin=new RectOffset(0,0,0,0),padding=new RectOffset()};
+                nationCardSelected=new GUIStyle(nationCard);
+                foreach(var state in new[]{nationCardSelected.normal,nationCardSelected.hover,nationCardSelected.active,nationCardSelected.focused})
+                    state.background=CartoonUi.SurfaceStyle(CartoonUi.PanelDark,6,0,true).normal.background;
             }
             if(!compact)GUILayout.Label(RoleplayContent.Story,menu.Text);
             bool waiting=client.RoomPhase==RoomPhase.WAITING;
@@ -55,11 +58,12 @@ namespace Tank {
                     if(GUI.Button(choice,"",selected?nationCardSelected:nationCard))client.SelectNation(nation);
                     GUI.enabled=enabled;
                     Color prior=GUI.color;if(taken)GUI.color=new Color(.68f,.72f,.76f,1);
-                    CartoonUi.TankPortrait(new Rect(choice.x+8,choice.y+6,58,58),nation);
+                    TankBay(new Rect(choice.x+8,choice.y+8,56,58),nation,selected?CartoonUi.Gold:CartoonUi.Ready);
                     var layout=cards[column];
-                    GUI.Label(new Rect(choice.x+72,choice.y+10,choice.width-82,layout.NameHeight),layout.Name,cardName);
-                    if(layout.StatusHeight>0)GUI.Label(new Rect(choice.x+72,choice.y+14+layout.NameHeight,choice.width-82,layout.StatusHeight),layout.Status,cardSmall);
-                    GUI.Label(new Rect(choice.x+12,choice.y+16+layout.TopHeight,choice.width-24,layout.SkillHeight),layout.Skill,cardSmall);
+                    GUI.Label(new Rect(choice.x+72,choice.y+10,choice.width-82,layout.NameHeight),layout.Name,depotName);
+                    if(layout.StatusHeight>0)GUI.Label(new Rect(choice.x+72,choice.y+14+layout.NameHeight,choice.width-82,layout.StatusHeight),layout.Status,depotKicker);
+                    DepotRule(new Rect(choice.x+12,choice.y+10+layout.TopHeight,choice.width-24,2),selected?CartoonUi.Gold:CartoonUi.Outline);
+                    GUI.Label(new Rect(choice.x+12,choice.y+16+layout.TopHeight,choice.width-24,layout.SkillHeight),layout.Skill,depotSmall);
                     GUI.color=prior;
                     if(column<columns-1)GUILayout.Space(8);
                 }

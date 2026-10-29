@@ -20,13 +20,14 @@ namespace Tank {
         }
         void DrawWalletBadge(Rect rect) {
             if(walletNumber==null) {
-                walletNumber=CartoonUi.Label(20,CartoonUi.Text);
+                walletNumber=CartoonUi.Label(20,CartoonUi.Gold);
                 walletNumber.alignment=TextAnchor.MiddleLeft;
-                walletPlus=CartoonUi.Button(CartoonUi.Ready,24,0);
+                walletPlus=CartoonUi.Button(CartoonUi.Gold,24,0);
             }
-            CartoonUi.Panel(rect,CartoonUi.PanelDark,10,1);
             Rect plus=new Rect(rect.xMax-38,rect.y+3,35,rect.height-6);
             Rect info=new Rect(rect.x+3,rect.y+3,rect.width-44,rect.height-6);
+            bool hovered=GUI.enabled&&info.Contains(Event.current.mousePosition);
+            CartoonUi.Panel(rect,hovered?Color.Lerp(CartoonUi.PanelDark,CartoonUi.PanelColor,.55f):CartoonUi.PanelDark,5,1);
             if(GUI.Button(info,GUIContent.none,GUIStyle.none))walletNotice=WalletPurpose;
             Rect coin=new Rect(rect.x+9,rect.center.y-12,24,24);
             CartoonUi.Panel(coin,new Color(.82f,.47f,.1f),12,0);
@@ -38,17 +39,17 @@ namespace Tank {
             while(walletNumber.fontSize>12&&walletNumber.CalcSize(new GUIContent(amount)).x>number.width)walletNumber.fontSize--;
             GUI.Label(number,amount,walletNumber);
             if(GUI.Button(plus,GUIContent.none,walletPlus))walletNotice=WalletEarn;
-            CartoonUi.Icon(new Rect(plus.center.x-9,plus.center.y-9,18,18),UiIcon.Health,CartoonUi.Text);
+            CartoonUi.Icon(new Rect(plus.center.x-9,plus.center.y-9,18,18),UiIcon.Health,CartoonUi.Ink);
         }
         void DrawWalletNotice() {
-            ArenaRenderer.Fill(new Rect(0,0,viewWidth,viewHeight),new Color(.03f,.06f,.1f,.8f));
+            ArenaRenderer.Fill(new Rect(0,0,viewWidth,viewHeight),new Color(.035f,.055f,.042f,.84f));
             float width=Mathf.Min(520,viewWidth-40);
             string text=WrapMenuText(walletNotice,menu.Text,width-48);
             float body=MenuTextHeight(text,menu.Text,width-48),height=Mathf.Min(viewHeight-32,Mathf.Max(250,body+170));
             Rect card=new Rect((viewWidth-width)/2,(viewHeight-height)/2,width,height);
             menu.Card(card,"VÀNG");
             GUI.Label(new Rect(card.x+24,card.y+82,width-48,body),text,menu.Text);
-            if(GUI.Button(new Rect(card.x+24,card.yMax-64,width-48,48),"Đóng",menu.Secondary))walletNotice="";
+            if(GUI.Button(new Rect(card.xMax-202,card.yMax-64,178,48),"Đóng",menu.Secondary))walletNotice="";
             if(Event.current.type==EventType.KeyDown&&Event.current.keyCode==KeyCode.Escape){walletNotice="";Event.current.Use();}
         }
     }

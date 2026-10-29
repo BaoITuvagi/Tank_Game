@@ -5,10 +5,10 @@ namespace Tank {
     public enum UiIcon { Health,Armor,Damage,Range,Clock,Players,Lock,Trophy,Skill,Fire,Airstrike,Supply }
     // Shared presentation only: the menu and HUD keep their own layout/input paths.
     public static class CartoonUi {
-        public static readonly Color Ink=Hex(0x151D29),Outline=Hex(0x7A8899),Text=Hex(0xFFF7E5),Muted=Hex(0xCED8E5),
-            PanelColor=Hex(0x43566F),PanelDark=Hex(0x2C3D55),Cream=Hex(0xF3EDDD),
-            Gold=Hex(0xFFD65E),Ready=Hex(0x69D2AC),Danger=Hex(0xEA7C6B),Backdrop=Hex(0x19273B),
-            Sand=Hex(0xE6CAA0),CardLight=Hex(0xF3EDDE),Disabled=Hex(0x8D9BAA);
+        public static readonly Color Ink=Hex(0x18241D),Outline=Hex(0x62705A),Text=Hex(0xFFF4D7),Muted=Hex(0xB9C5AE),
+            PanelColor=Hex(0x344237),PanelDark=Hex(0x202B26),Cream=Hex(0xF2E7CA),
+            Gold=Hex(0xFFC34B),Ready=Hex(0x9AC96C),Danger=Hex(0xE88C65),Backdrop=Hex(0x121C19),
+            Sand=Hex(0xD8C191),CardLight=Hex(0xE6DCBF),Disabled=Hex(0x84907E);
         static Font displayFont,bodyFont;
         public static Font DisplayFont {get{return displayFont??(displayFont=Resources.Load<Font>("MenuArt/Fonts/Bungee-Regular"));}}
         public static Font BodyFont {get{return bodyFont??(bodyFont=Resources.Load<Font>("MenuArt/Fonts/Nunito-Bold"));}}
@@ -22,9 +22,13 @@ namespace Tank {
         static readonly Dictionary<Key,GUIStyle> surfaces=new Dictionary<Key,GUIStyle>();
         static readonly List<Texture2D> textures=new List<Texture2D>();
         static float RoundedDistance(float x,float y,float left,float bottom,float width,float height,float radius) {
-            radius=Mathf.Clamp(radius,0,Mathf.Min(width,height)*.5f);
-            float qx=Mathf.Abs(x-left-width*.5f)-(width*.5f-radius),qy=Mathf.Abs(y-bottom-height*.5f)-(height*.5f-radius);
-            return Mathf.Sqrt(Mathf.Max(qx,0)*Mathf.Max(qx,0)+Mathf.Max(qy,0)*Mathf.Max(qy,0))+Mathf.Min(Mathf.Max(qx,qy),0)-radius;
+            // A chamfered armour plate. Nine-slicing preserves the clipped corners
+            // rather than stretching a circular app-card silhouette.
+            float cut=Mathf.Min(8,Mathf.Max(2,radius*.5f));
+            float edge=Mathf.Max(Mathf.Max(left-x,x-left-width),Mathf.Max(bottom-y,y-bottom-height));
+            float lower=(cut-(x-left)-(y-bottom))*.7071f;
+            float upper=(cut-(left+width-x)-(bottom+height-y))*.7071f;
+            return Mathf.Max(edge,Mathf.Max(lower,upper));
         }
         static float Coverage(float x,float y,float left,float bottom,float width,float height,float radius) {
             return Mathf.Clamp01(.5f-RoundedDistance(x,y,left,bottom,width,height,radius));
@@ -45,16 +49,20 @@ namespace Tank {
                 float px=x+.5f,py=y+.5f;
                 Color color=Color.clear;
                 if(key.Depth>0) {
-                    // Soft drop shadow below one face; there is no separate raised base.
+                    // A restrained weight under an actionable plate.
                     float distance=RoundedDistance(px,py,left,bottom-(.5f+depth*1.5f),width,height,radius);
                     float coverage=Mathf.Clamp01(.5f-distance/2.4f);
                     Color shadow=Color.black;shadow.a=.10f+depth*.14f;
                     color=Over(color,shadow,coverage);
                 }
-                Color edge=key.Depth>0?Color.black:key.Selected?Gold:Outline;
+                Color edge=key.Depth>0?Ink:key.Selected?Gold:Color.Lerp(key.Fill,Outline,.42f);
                 Color face=key.Depth>0&&key.Selected?Color.Lerp(key.Fill,Gold,.22f):key.Fill;
                 color=Over(color,edge,Coverage(px,py,left,bottom,width,height,radius));
                 color=Over(color,face,Coverage(px,py,left+outline,bottom+outline,width-2*outline,height-2*outline,radius-outline));
+                if(key.Depth>0&&py>bottom+height-3&&py<bottom+height-1)
+                    color=Over(color,Color.white,.14f*Coverage(px,py,left+outline,bottom+outline,width-2*outline,height-2*outline,radius-outline));
+                if(key.Depth>0&&py<bottom+4)
+                    color=Over(color,Ink,.13f*Coverage(px,py,left+outline,bottom+outline,width-2*outline,height-2*outline,radius-outline));
                 pixels[y*size+x]=color;
             }
             texture.SetPixels(pixels);texture.Apply(false,true);textures.Add(texture);return texture;
@@ -62,7 +70,7 @@ namespace Tank {
         public static GUIStyle SurfaceStyle(Color fill,int radius=16,int depth=0,bool selected=false) {
             var key=new Key{Fill=fill,Radius=radius,Depth=depth,Selected=selected};GUIStyle style;
             if(surfaces.TryGetValue(key,out style))return style;
-            int border=radius+3;
+            int border=Mathf.Min(12,radius+3);
             style=new GUIStyle{border=new RectOffset(border,border,border,border)};style.normal.background=Texture(key);
             surfaces.Add(key,style);return style;
         }
@@ -97,8 +105,8 @@ namespace Tank {
         }
         static void State(GUIStyleState state,GUIStyle surface,Color ink){state.background=surface.normal.background;state.textColor=ink;}
         public static GUIStyle Button(Color fill,int fontSize=17,int height=52) {
-            var style=new GUIStyle(GUI.skin.button){font=DisplayFont,fontStyle=FontStyle.Normal,fontSize=fontSize,fixedHeight=height,wordWrap=true,
-                alignment=TextAnchor.MiddleCenter,border=new RectOffset(17,17,17,17),padding=new RectOffset(16,16,7,12),margin=new RectOffset(4,4,6,6)};
+            var style=new GUIStyle(GUI.skin.button){font=BodyFont,fontStyle=FontStyle.Normal,fontSize=Mathf.Max(16,fontSize),fixedHeight=height,wordWrap=true,
+                alignment=TextAnchor.MiddleCenter,border=new RectOffset(12,12,12,12),padding=new RectOffset(16,16,8,10),margin=new RectOffset(4,4,6,6)};
             State(style.normal,SurfaceStyle(fill,14,5),Ink);State(style.hover,SurfaceStyle(Color.Lerp(fill,Color.white,.17f),14,5),Ink);
             State(style.active,SurfaceStyle(Color.Lerp(fill,Ink,.08f),14,2),Ink);State(style.focused,SurfaceStyle(fill,14,5,true),Ink);
             State(style.onNormal,SurfaceStyle(Ready,14,5,true),Ink);State(style.onHover,SurfaceStyle(Color.Lerp(Ready,Color.white,.15f),14,5,true),Ink);

@@ -80,7 +80,7 @@ Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, ch
 <a id="connect"></a>
 ## Kết nối qua máy cục bộ, LAN hoặc VPN
 
-Trong client, mở **Kết nối/Cài đặt**, nhập địa chỉ server, TCP và UDP rồi Lưu:
+Client chưa lưu cấu hình dùng host mặc định **`13.75.2.41`**, TCP **8888**, UDP **8889**. Cấu hình trong `Application.persistentDataPath/connection.json` đã lưu vẫn được ưu tiên. Để đổi server, mở **Kết nối/Cài đặt**, nhập địa chỉ, TCP và UDP rồi Lưu:
 
 | Server ở đâu? | Địa chỉ nhập vào client |
 |---|---|

@@ -6,7 +6,8 @@ namespace Tank.Campaign {
     // Styles are copied locally so campaign never mutates the shared menu skin.
     public static class CampaignUI {
         static readonly Dictionary<string,Texture2D> textures=new Dictionary<string,Texture2D>();
-        public static GUIStyle Header,Title,Text,Hint,Light,SmallLight,Card,Dark,Slot,Banner,Primary,Quiet,Selected,Disabled,Focus,RankingRow,RankingText,RankingName,DialogueTitle,DialogueText,Danger,StatValue,StatCaption,SkillTitleLight,ErrorLabel;
+        public static GUIStyle Header,Title,Text,Hint,Light,SmallLight,Card,Dark,Slot,Banner,Primary,Quiet,Selected,Disabled,Focus,RankingRow,RankingText,RankingName,DialogueTitle,DialogueText,Danger,StatValue,StatCaption,SkillTitleLight,ErrorLabel,Outcome,GoldValue,RankingDistance,CenteredLight,CenteredValue;
+        static Texture2D logo;
         public static RectOffset PanelBorder {get{return new RectOffset(6,5,6,5);}}
         public static Texture2D Texture(string name){
             Texture2D result;if(!textures.TryGetValue(name,out result)){result=Resources.Load<Texture2D>("CampaignUI/"+name);textures[name]=result;}
@@ -30,15 +31,21 @@ namespace Tank.Campaign {
         }
         public static void Ensure(){
             if(Header!=null)return;
-            Header=CartoonUi.Label(26,CartoonUi.Text,true);Title=CartoonUi.Label(21,CartoonUi.Ink,true);
+            Header=CartoonUi.Label(27,CartoonUi.Text,true);Title=CartoonUi.Label(28,CartoonUi.Ink,true);
             Text=CartoonUi.Label(16,CartoonUi.Ink);Hint=CartoonUi.Label(14,CartoonUi.PanelDark);
             Light=CartoonUi.Label(18,CartoonUi.Text);SmallLight=CartoonUi.Label(14,CartoonUi.Muted);
+            Outcome=CartoonUi.Label(29,CartoonUi.Text,true);Outcome.alignment=TextAnchor.MiddleCenter;
+            GoldValue=CartoonUi.Label(38,CartoonUi.Gold,true);GoldValue.alignment=TextAnchor.MiddleCenter;
+            RankingDistance=CartoonUi.Label(24,CartoonUi.Gold,true);RankingDistance.alignment=TextAnchor.MiddleRight;
+            CenteredValue=new GUIStyle(RankingDistance){alignment=TextAnchor.MiddleCenter};
+            CenteredLight=new GUIStyle(SmallLight){alignment=TextAnchor.MiddleCenter};
             SkillTitleLight=CartoonUi.Label(16,CartoonUi.Text);
             ErrorLabel=CartoonUi.Label(14,CartoonUi.Danger);
             Card=new GUIStyle(CartoonUi.SurfaceStyle(CartoonUi.Cream,18,0));Dark=new GUIStyle(CartoonUi.SurfaceStyle(CartoonUi.PanelDark,16,0));
             Slot=new GUIStyle(CartoonUi.SurfaceStyle(CartoonUi.PanelColor,14,0));Banner=new GUIStyle(CartoonUi.SurfaceStyle(CartoonUi.Sand,14,0));
-            Primary=CartoonUi.Button(CartoonUi.Gold,16,0);Quiet=CartoonUi.Button(CartoonUi.Cream,15,0);
-            Selected=CartoonUi.Button(CartoonUi.Ready,16,0);Disabled=CartoonUi.Button(CartoonUi.PanelDark,15,0);Danger=CartoonUi.Button(CartoonUi.Danger,15,0);
+            Primary=CartoonUi.Button(CartoonUi.Gold,18,0);Quiet=CartoonUi.Button(CartoonUi.Cream,17,0);
+            Selected=CartoonUi.Button(CartoonUi.Ready,18,0);Disabled=CartoonUi.Button(CartoonUi.PanelDark,17,0);Danger=CartoonUi.Button(CartoonUi.Danger,17,0);
+            foreach(var button in new[]{Primary,Quiet,Selected,Disabled,Danger})button.font=CartoonUi.BodyFont;
             Disabled.normal.textColor=Disabled.hover.textColor=Disabled.active.textColor=Disabled.focused.textColor=CartoonUi.Text;
             Focus=new GUIStyle(CartoonUi.SurfaceStyle(CartoonUi.Cream,18,0,true));
             RankingRow=new GUIStyle(CartoonUi.SurfaceStyle(CartoonUi.PanelColor,14,0));
@@ -80,7 +87,18 @@ namespace Tank.Campaign {
 #endif
             return size;
         }
-        public static void Background(Rect rect){Ensure();ArenaRenderer.Fill(rect,CartoonUi.Backdrop);}
+        public static void Background(Rect rect){
+            Ensure();ArenaRenderer.Fill(rect,CartoonUi.Backdrop);
+            if(rect.height>180){
+                ArenaRenderer.Fill(new Rect(rect.xMax-170,rect.y,170,rect.height),Color.Lerp(CartoonUi.Backdrop,CartoonUi.PanelDark,.45f));
+                for(int i=0;i<3;i++)Rule(new Rect(rect.xMax-152+i*18,rect.y+28,7,48),CartoonUi.PanelColor);
+            }
+        }
+        public static void Rule(Rect rect,Color color){ArenaRenderer.Fill(rect,color);}
+        public static void Logo(Rect rect){
+            if(logo==null)logo=Resources.Load<Texture2D>("MenuArt/logo");
+            if(logo!=null)GUI.DrawTexture(rect,logo,ScaleMode.ScaleToFit,true);
+        }
         public static void Panel(Rect rect,bool selected=false){Ensure();GUI.Box(rect,GUIContent.none,selected?Focus:Card);}
         public static void Notice(Rect rect,string text,bool error=false,bool success=false){
             Ensure();CartoonUi.Panel(rect,error?CartoonUi.Danger:success?CartoonUi.Ready:CartoonUi.Sand,12,3);
