@@ -13,7 +13,7 @@ namespace Tank  {
             Skin.font=CartoonUi.BodyFont;
             Skin.settings.cursorColor=Ink;
             Skin.settings.cursorFlashSpeed=.7f;
-            Skin.settings.selectionColor=new Color(.3f,.65f,.9f,.45f);
+            Skin.settings.selectionColor=new Color(1,.76f,.29f,.45f);
             Text=CartoonUi.Label(16,CartoonUi.Text);
             Name=new GUIStyle(Text) {
                 fontStyle=FontStyle.Bold
@@ -36,7 +36,7 @@ namespace Tank  {
             road=Resources.Load<Texture2D>("ArenaArt/tileSand_roadEast");
         }
         public void Background(float width,float height)  {
-            ArenaRenderer.Fill(new Rect(0,0,width,height),new Color(.09f,.13f,.2f));
+            ArenaRenderer.Fill(new Rect(0,0,width,height),CartoonUi.Backdrop);
             ArenaRenderer.Fill(new Rect(0,0,width,68),CartoonUi.PanelDark);
         }
         public void Card(Rect rect,string title,string subtitle=null)  {
