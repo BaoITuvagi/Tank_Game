@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using UnityEngine;
 namespace Tank  {
     [Serializable] public class ConnectionSettings  {
-        public string host="127.0.0.1";
+        public string host="13.75.2.41";
         public int tcpPort=8888,udpPort=8889;
     }
     public partial class TankApp : MonoBehaviour  {

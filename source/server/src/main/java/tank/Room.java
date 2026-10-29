@@ -487,12 +487,14 @@ public class Room  {
         }
     }
     void input(Server.Session s,int ack,List<World.Input> input) {
+        if(!s.open)return;
         Member m=member(s);
         if(m==null||m.rejoining||phase!=RoomState.RUNNING)return;
         ack(s,ack);
         for(World.Input in:input)m.input.put(in,world.tick);
     }
     void input(Server.Session s,int ack,List<World.Input> input,float aimX,float aimY) {
+        if(!s.open)return;
         Member m=member(s);
         if(m==null||m.rejoining||phase!=RoomState.RUNNING)return;
         input(s,ack,input);

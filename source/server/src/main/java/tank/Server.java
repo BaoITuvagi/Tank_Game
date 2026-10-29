@@ -26,6 +26,8 @@ public class Server implements AutoCloseable  {
     final DatagramSocket udp;
     final UdpTransport transport;
     final Metrics metrics;
+    final Object accessGate=new Object();
+    final AdminWeb admin;
     final ScheduledExecutorService maintenance=Executors.newSingleThreadScheduledExecutor();
     volatile boolean running=true;
     public Server(Config cfg)throws Exception  {
@@ -65,15 +67,25 @@ public class Server implements AutoCloseable  {
         metrics=recorder;
         transport=wrapper;
         matchId=nextMatch;
+        AdminWeb control=null;
+        try {if(cfg.flag("admin.enabled"))control=new AdminWeb(this);}
+        catch(Exception e){tcp.close();transport.close();udp.close();db.close();metrics.close();maintenance.shutdownNow();throw e;}
+        admin=control;
     }
     public void start() {
+        if(admin!=null)admin.start();
         Thread.ofVirtual().name("udp-receiver").start(this::udpLoop);
         Thread.ofVirtual().name("tcp-acceptor").start(()-> {
             while(running)try {
                 Socket socket=tcp.accept();socket.setTcpNoDelay(true);socket.setSoTimeout(15000);if(connections.size()>=cfg.integer("max.sessions",320)) {
                     socket.close();continue;
                 }
-                Session s=new Session(socket);connections.add(s);s.start();
+                synchronized(accessGate) {
+                    if(admin!=null&&admin.isBanned(socket.getInetAddress().getHostAddress())){socket.close();continue;}
+                    Session s=new Session(socket);connections.add(s);
+                    if(admin!=null)admin.store.identity(s,null);
+                    s.start();
+                }
             }
             catch(IOException e) {
                 if(running)System.err.println("accept: "+e.getMessage());
@@ -91,6 +103,9 @@ public class Server implements AutoCloseable  {
         return false;
     }
     public final class Session implements AutoCloseable  {
+        final String id=UUID.randomUUID().toString();
+        final long connectedAt=System.currentTimeMillis();
+        volatile String historyKey;
         CampaignSession campaign=new CampaignSession(this,db);
         final Socket socket;
         final ArrayBlockingQueue<byte[]> outbound=new ArrayBlockingQueue<>(128);
@@ -427,7 +442,9 @@ public class Server implements AutoCloseable  {
                         if(accounts.putIfAbsent(a.id(),this)!=null) {
                             error(response,p.sequence(),Error.ALREADY_LOGGED_IN);return;
                         }
-                        account=a;token=new byte[16];new SecureRandom().nextBytes(token);tokens.put(HexFormat.of().formatHex(token),this); send(LOGIN_RESULT,p.sequence(),new Writer().u16(0).u64(a.id()).str(displayName()).bytes(token).str(a.name()).done());
+                        account=a;
+                        if(admin!=null)admin.store.identity(this,null);
+                        token=new byte[16];new SecureRandom().nextBytes(token);tokens.put(HexFormat.of().formatHex(token),this); send(LOGIN_RESULT,p.sequence(),new Writer().u16(0).u64(a.id()).str(displayName()).bytes(token).str(a.name()).done());
                     }
                     finally {
                         authBusy=false;
@@ -457,9 +474,14 @@ public class Server implements AutoCloseable  {
             account=null;
             token=null;
             endpoint=null;
+            if(open&&a!=null&&admin!=null)admin.store.identity(this,null);
         }
         public synchronized void close() {
-            if(!open)return;
+            closeWithReason("Mất kết nối TCP / đóng phiên");
+        }
+        synchronized boolean closeWithReason(String reason) {
+            if(!open)return false;
+            if(admin!=null)admin.store.identity(this,reason);
             open=false;
             leave(1);
             logout();
@@ -469,6 +491,7 @@ public class Server implements AutoCloseable  {
             }
             catch(IOException ignored) {
             }
+            return true;
         }
     }
     void udpLoop() {
@@ -500,6 +523,7 @@ public class Server implements AutoCloseable  {
                 r.end();
                 if(s.endpoint!=null&&!s.endpoint.equals(endpoint))return;
                 room.enqueue(()-> {
+                    if(!s.open)return;
                     Room.Member member=room.member(s);if(s.room!=room||room.match!=match||member==null||!(room.phase==RoomState.PREPARING||room.phase==RoomState.RUNNING&&member.rejoining))return;s.endpoint=endpoint;s.lastUdp=System.nanoTime();udpSend(s,HANDSHAKE_ACK,new Writer().u64(match).u64(nonce).u8(s.slot).u64(nowUs()).done());
                 });
                 return;
@@ -543,7 +567,7 @@ public class Server implements AutoCloseable  {
         }
     }
     void udpSend(Session s,int op,byte[] p) {
-        if(s.endpoint==null)return;
+        if(!s.open||s.endpoint==null)return;
         byte[] raw=frame(op,s.sequence.incrementAndGet(),p);
         if(raw.length>1200) {
             System.err.println("UDP size invariant");
@@ -568,6 +592,7 @@ public class Server implements AutoCloseable  {
         endpointRates.clear();
         for(Session s:connections)s.close();
         for(Room r:rooms.values())r.stop();
+        if(admin!=null)admin.close();
         transport.close();
         udp.close();
         db.close();

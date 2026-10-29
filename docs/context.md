@@ -1,6 +1,6 @@
 # Context dự án Tank Battle
 
-Đối chiếu: **2026-10-23**, working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Đây là bản định hướng để chọn phần cần đọc; không phải bằng chứng build, test hoặc thực nghiệm đã đạt.
+Đối chiếu: **2026-10-29**, working tree dựa trên HEAD `665906672f15c641abd1ee40e894c63fe616102d` của nhánh `tung`, có cập nhật UI từ Bao `97c6a46` và IP client mặc định `13.75.2.41` chưa commit. Đây là bản định hướng để chọn phần cần đọc; không phải bằng chứng build, test hoặc thực nghiệm đã đạt.
 
 Mục lục: [Tổng quan](#overview) · [Nguyên tắc kiến trúc](#principles) · [Nguồn chính](#sources) · [Hiện trạng](#status) · [Cách đọc](#reading).
 
@@ -22,7 +22,7 @@ Vàng còn lại từ Chiến dịch tích lũy vào ví tài khoản, hiển th
 - TCP mang yêu cầu tài khoản/phòng, điều khiển vòng đời và lịch sử. UDP mang input, đồng hồ và snapshot. Hai bên phải tương thích version, content và map hash.
 - Client `ClientCore` nhận mạng, dự đoán và reconciliation; `GameState` chứa mô hình, movement và interpolation. Sửa movement/collision hoặc wire phải xem cả Java và C#.
 - Unity khởi tạo bằng `TankApp`, scene `Main.unity`, UI dùng IMGUI. Bảo toàn setup hiện có, GUID `.meta`, importer và giấy phép tài nguyên.
-- UI Multiplayer và Chiến dịch dùng chung phong cách Cartoon Military Arcade: palette navy/slate, nhiệm vụ sand, nút kem/vàng/mint/coral và font Bungee/Nunito (2026-10-25–26). `CartoonUi` chia sẻ style, icon, badge, portrait, huy chương và thanh tiến độ; `CampaignUI` là lớp style theo ngữ nghĩa của Chiến dịch. Panel/thẻ phẳng, viền steel gray `#7A8899` mỏng 1 px; nút có viền đen mảnh và bóng đổ mềm theo phản hồi cuối. Chữ giữ tương phản, nội dung dài được đo để xuống dòng/cuộn; không có tooltip theo chuột. HUD có trạng thái kỹ năng và xác nhận rời/kết thúc trận; Ping/FPS là chữ gọn, HP/năng lượng Multiplayer không lặp trong sidebar. Bố cục arena/ngắm, map, asset xe và luật server giữ riêng. Chi tiết và bằng chứng kiểm tra ở [client](client.md#ui) và [UI validation](ui-validation.md).
+- UI Multiplayer và Chiến dịch dùng chung giao diện cuối của Bao `97c6a46`: nền xanh quân đội tối, khung cắt góc, nút vàng/kem/xanh/cam và font Bungee/Nunito. `CartoonUi` chia sẻ style, icon, badge, portrait, huy chương và thanh tiến độ; `CampaignUI` là lớp style theo ngữ nghĩa của Chiến dịch. Panel/thẻ phẳng, nút có viền Ink mảnh và bóng đổ nhẹ. Chữ giữ tương phản, nội dung dài được đo để xuống dòng/cuộn; không có tooltip theo chuột. HUD có trạng thái kỹ năng và xác nhận rời/kết thúc trận; Ping/FPS là chữ gọn, HP/năng lượng Multiplayer không lặp trong sidebar. Bố cục arena/ngắm, map, asset xe và luật server giữ riêng. Chi tiết và bằng chứng kiểm tra ở [client](client.md#ui) và [UI validation](ui-validation.md).
 - SQLite chỉ nằm trên server. Kết quả trận đi qua worker database; lỗi ghi có cơ chế spool/retry, không đồng nghĩa mọi thao tác lưu đều thành công.
 
 Luồng và điểm vào cụ thể: [kiến trúc](architecture.md#data-flow), [bản đồ source](architecture.md#source-map).

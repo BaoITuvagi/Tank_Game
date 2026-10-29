@@ -1,5 +1,17 @@
 # Tank Battle Multiplayer
 
+Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3): giao thức **16**, nội dung **7**, khớp client 1.0.3 do Launcher tải. Phần gameplay, đồ họa, map, item, shop và chiến dịch giữ theo bản của Bảo; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
+
+Các lệnh CMD chạy tại thư mục gốc repository:
+
+```cmd
+scripts\build-server.cmd
+scripts\init-admin.cmd -Name admin
+scripts\start-server.cmd
+```
+
+Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; server phải dừng khi khởi tạo. Bản Launcher 1.0.3 hiện có kết nối được server này. Hộp nổi admin mới cần client được build từ source tích hợp này; website/server không tự thay file client trong Launcher.
+
 Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/).
 
 Tank Battle là game xe tăng nhiều người chơi, gồm server Java và client Unity. Người chơi có thể đăng ký tài khoản, tạo hoặc tham gia phòng, đấu với nhau và xem lịch sử trận đấu.
@@ -31,30 +43,30 @@ Người chỉ chạy server không cần Unity. Người chơi bản client đ�
 
 ### Java và công cụ build server
 
-Cài **JDK 21**, sau đó kiểm tra trong PowerShell:
+Cài **JDK 21**, sau đó kiểm tra trong CMD:
 
-```powershell
+```cmd
 java -version
 ```
 
 Kết quả cần hiển thị phiên bản 21. Nếu không tìm thấy Java, đang dùng phiên bản khác hoặc `JAVA_HOME` đang trỏ tới JDK khác, chọn rõ JDK 21 cho cửa sổ hiện tại:
 
-```powershell
-$env:JAVA_HOME='<DUONG_DAN_THU_MUC_JDK_21>'
-$env:Path=(Join-Path $env:JAVA_HOME 'bin')+';'+$env:Path
+```cmd
+set "JAVA_HOME=C:\duong-dan\jdk-21"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
 java -version
 ```
 
-Thay phần `<...>` bằng thư mục JDK trên máy bạn, giữ dấu nháy. Chọn thư mục chứa thư mục con `bin`, không chọn trực tiếp file `java.exe`. Khi mở PowerShell mới, cần đặt lại nếu chưa lưu biến môi trường trong Windows.
+Thay đường dẫn ví dụ bằng thư mục JDK thật trên máy bạn, giữ dấu nháy kép. Chọn thư mục chứa thư mục con `bin`, không chọn trực tiếp file `java.exe`. Khi mở CMD mới, cần đặt lại nếu chưa lưu biến môi trường trong Windows.
 
 Nếu tự build server từ mã nguồn, cài thêm:
 
 - **Python 3:** bật tùy chọn thêm Python vào `PATH` khi cài. Dự án không cần thêm thư viện Python.
-- **Maven 3.9.x:** giải nén Maven và thêm thư mục `bin` của Maven vào biến `Path` của Windows. Tìm “environment variables” trong Windows, mở phần biến môi trường của người dùng, chọn `Path` → `Edit` → `New` để thêm đường dẫn. Mở lại PowerShell sau khi lưu.
+- **Maven 3.9.x:** giải nén Maven và thêm thư mục `bin` của Maven vào biến `Path` của Windows. Tìm “environment variables” trong Windows, mở phần biến môi trường của người dùng, chọn `Path` → `Edit` → `New` để thêm đường dẫn. Mở lại CMD sau khi lưu.
 
 Kiểm tra trước khi build:
 
-```powershell
+```cmd
 python --version
 mvn -version
 ```
@@ -67,11 +79,11 @@ Cài Unity Hub, đăng nhập và kích hoạt license trên máy. Trong Hub, c�
 
 Script tự tìm đúng Editor tại vị trí cài Unity Hub thông thường. Nếu script báo không tìm thấy Editor, chọn đường dẫn riêng:
 
-```powershell
-$env:UNITY_EDITOR_PATH='<DUONG_DAN_DEN_EDITOR_UNITY_EXE>'
+```cmd
+set "UNITY_EDITOR_PATH=C:\duong-dan\Editor\Unity.exe"
 ```
 
-Thay phần `<...>` bằng đường dẫn file `Editor/Unity.exe` trên máy bạn, giữ dấu nháy. Không chọn file chạy Unity Hub.
+Thay đường dẫn ví dụ bằng đường dẫn Unity Editor thật trên máy bạn, giữ dấu nháy kép. Không chọn file chạy Unity Hub.
 
 Tại Unity Hub, thêm project `source/client`. Tài nguyên game cần thiết đã có trong repository và được Unity import; giữ nguyên `.meta` và giấy phép. Nếu thiếu/hỏng, xem [khôi phục tài nguyên](docs/client.md#assets).
 

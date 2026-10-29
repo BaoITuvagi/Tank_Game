@@ -13,9 +13,9 @@ echo Keep this window open while playing. Press Ctrl+C to stop.
 echo.
 
 if exist "%ProgramFiles%\Java\jdk-21.0.12.1\bin\java.exe" (
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-server.ps1" -Java "%ProgramFiles%\Java\jdk-21.0.12.1\bin\java.exe"
+    call "%~dp0scripts\start-server.cmd" -Java "%ProgramFiles%\Java\jdk-21.0.12.1\bin\java.exe"
 ) else (
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-server.ps1"
+    call "%~dp0scripts\start-server.cmd"
 )
 set "serverExitCode=%errorlevel%"
 
