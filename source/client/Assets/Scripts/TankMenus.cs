@@ -9,6 +9,8 @@ namespace Tank  {
         GUIStyle afkText;
         int capacityChoice=2,durationChoice=1;
         bool registerTab,roomForm,editingRoom,profileForm,joinForm,useRoomPassword;
+        bool fieldSubmitRequested;
+        string fieldFocusRequest;
         string startingHpText="100",roomPassword="",joinPassword="",displayName="",formError="";
         uint joinTarget;
         int savedNameRevision,savedSettingsRevision;
@@ -127,6 +129,11 @@ namespace Tank  {
             GUI.enabled=prior;
             return result;
         }
+        bool SubmitButton(string label,bool enabled=true) {
+            bool submit=fieldSubmitRequested&&GUI.enabled&&enabled;
+            fieldSubmitRequested=false;
+            return Button(label,enabled)||submit;
+        }
         GUIStyle FlexibleButtonStyle(GUIStyle source) {
             GUIStyle flexible;
             if(!flexibleButtons.TryGetValue(source,out flexible)) {
@@ -142,10 +149,22 @@ namespace Tank  {
             // Reserve the actual scrollbar gutter plus child margins inside the clipped viewport.
             return Mathf.Max(120,viewportWidth-Mathf.Max(14,scrollbar.fixedWidth)-scrollbar.margin.horizontal-8);
         }
-        string Field(string key,string label,string value,int limit=64,bool secret=false) {
+        void HandleFieldEnter(string key,string nextField=null) {
+            var e=Event.current;
+            if(GUI.enabled&&GUI.GetNameOfFocusedControl()==key&&e.type==EventType.KeyDown&&(e.keyCode==KeyCode.Return||e.keyCode==KeyCode.KeypadEnter)&&!e.alt&&!e.control&&!e.command&&!e.shift) {
+                if(nextField==null)fieldSubmitRequested=true;else fieldFocusRequest=nextField;
+                e.Use();
+            }
+        }
+        void FocusRequestedField(string key){
+            if(fieldFocusRequest==key&&Event.current.type==EventType.Repaint){GUI.FocusControl(key);fieldFocusRequest=null;}
+        }
+        string Field(string key,string label,string value,int limit=64,bool secret=false,string nextField=null) {
             GUILayout.Label(label,menu.Name);
+            HandleFieldEnter(key,nextField);
             GUI.SetNextControlName(key);
             string result=secret?GUILayout.PasswordField(value,'•',limit):GUILayout.TextField(value,limit);
+            FocusRequestedField(key);
             Rect r=GUILayoutUtility.GetLastRect();
             bool qa=UxTestDriver.Arg("--qa-field-focus","")==key;
             if(qa)GUI.FocusControl(key);
@@ -215,16 +234,16 @@ namespace Tank  {
             GUILayout.Space(14);
             GUILayout.Label(registerTab?"GIA NHẬP ĐỘI HÌNH":"TRỞ LẠI CHIẾN TRƯỜNG",depotKicker);
             GUILayout.Space(6);
-            username=Field("account","Tên đăng nhập",username,24);
+            username=Field("account","Tên đăng nhập",username,24,nextField:"account-password");
             GUILayout.Space(12);
-            password=Field("account-password","Mật khẩu",password,64,true);
+            password=Field("account-password","Mật khẩu",password,64,true,registerTab?"account-confirm-password":null);
             if(registerTab) {
                 GUILayout.Space(12);
                 confirmPassword=Field("account-confirm-password","Nhập lại mật khẩu",confirmPassword,64,true);
             }
             GUILayout.Space(18);
             bool busy=client.Phase==ClientPhase.CONNECTING||client.AuthenticationPending||pendingLogin||pendingRegister;
-            if(Button(busy?"Đang xử lý…":registerTab?"Đăng ký":"Đăng nhập",!busy&&client.AuthenticationRetrySeconds<=0))BeginAuthentication(registerTab);
+            if(SubmitButton(busy?"Đang xử lý…":registerTab?"Đăng ký":"Đăng nhập",!busy&&client.AuthenticationRetrySeconds<=0))BeginAuthentication(registerTab);
             if(client.Message=="Đăng ký thành công"&&Button("Đăng nhập ngay")) {
                 registerTab=false;
                 BeginAuthentication(false);
@@ -412,13 +431,13 @@ namespace Tank  {
             GUILayout.BeginVertical(GUILayout.Width(formWidth));
             bool split=card.width>=840;
             if(split){GUILayout.BeginHorizontal();GUILayout.BeginVertical(GUILayout.Width(columnWidth));}
-            roomName=Field("room-name","Tên phòng",roomName,24);
+            roomName=Field("room-name","Tên phòng",roomName,24,nextField:!editingRoom||useRoomPassword?"room-password":"starting-hp");
             GUILayout.Space(10);
             if(editingRoom) {
                 useRoomPassword=menu.Toggle(useRoomPassword,"Dùng mật khẩu");
-                if(useRoomPassword)roomPassword=Field("room-password",client.RoomLocked?"Mật khẩu mới (để trống để giữ nguyên)":"Mật khẩu",roomPassword,32,true);
+                if(useRoomPassword)roomPassword=Field("room-password",client.RoomLocked?"Mật khẩu mới (để trống để giữ nguyên)":"Mật khẩu",roomPassword,32,true,"starting-hp");
             }
-            else roomPassword=Field("room-password","Mật khẩu phòng (không bắt buộc)",roomPassword,32,true);
+            else roomPassword=Field("room-password","Mật khẩu phòng (không bắt buộc)",roomPassword,32,true,"starting-hp");
             GUILayout.Space(10);
             if(editingRoom)GUILayout.Label("Chế độ: "+(client.RoomMode==RoomMode.ROLEPLAY?"Nhập vai":"Thường")+" · cố định khi tạo phòng",menu.Hint);
             else {
@@ -448,7 +467,7 @@ namespace Tank  {
             GUILayout.EndArea();
             GUILayout.BeginArea(new Rect(card.x+24,card.yMax-84,card.width-48,64));
             GUILayout.BeginHorizontal();
-            if(Button("Xác nhận")) {
+            if(SubmitButton("Xác nhận")) {
                 formError="";
                 int hp;
                 int mode=!useRoomPassword?1:string.IsNullOrEmpty(roomPassword)&&client.RoomLocked?0:2;
@@ -759,7 +778,7 @@ namespace Tank  {
             GUILayout.EndScrollView();GUILayout.EndArea();
             GUILayout.BeginArea(new Rect(card.x+24,card.yMax-84,card.width-48,64));
             GUILayout.BeginHorizontal();
-            if(Button(profileForm?"Lưu tên":"Vào phòng")) {
+            if(SubmitButton(profileForm?"Lưu tên":"Vào phòng")) {
                 if(profileForm) {
                     formError="";
                     if(string.IsNullOrWhiteSpace(displayName)||Encoding.UTF8.GetByteCount(displayName.Trim())>96)formError="Nhập tên từ 1 đến 24 ký tự.";

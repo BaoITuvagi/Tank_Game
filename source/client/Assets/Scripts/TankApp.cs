@@ -104,6 +104,7 @@ namespace Tank  {
             return px>=arenaX&&px<=arenaX+map.width*scale&&py>=arenaY&&py<=arenaY+map.height*scale;
         }
         void OnGUI() {
+            fieldSubmitRequested=false;
             uiScale=1;
             viewWidth=Screen.width;
             viewHeight=Screen.height;
@@ -132,11 +133,11 @@ namespace Tank  {
                 GUI.enabled=true;
                 if(playing&&AnyDialog){menu.Init();GUI.skin=menu.Skin;}
                 DrawDialogs();
-                FocusedControl=GUI.GetNameOfFocusedControl();
                 if(viewport)GUI.EndScrollView();
                 DrawPreferencesDialog();
             }
             finally {
+                FocusedControl=GUI.GetNameOfFocusedControl();
                 GUI.skin=previousSkin;
                 GUI.matrix=previous;
                 GUI.color=Color.white;
