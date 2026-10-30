@@ -316,7 +316,7 @@ namespace Tank  {
             Fill(new Rect(r.x+1,r.y+1,(r.width-2)*Mathf.Clamp01((float)energy/Movement.MaxEnergy),r.height-2),new Color(.12f,.58f,1f,alpha));
         }
         Vector2 rankingScroll,skillStatusScroll;
-        public bool Panel(ClientCore client,float panelX,float top,float width,float height,bool stale,bool autoFire=false)  {
+        public bool Panel(ClientCore client,float panelX,float top,float width,float height,bool stale)  {
             Styles();
             var r=new Rect(panelX,top,width,height);
             // One instrument rail: the arena, aiming bounds and world presentation stay untouched.
@@ -356,11 +356,12 @@ namespace Tank  {
             var ranked=LiveRanking.Sort(latest.World);
             bool hasSkill=client.RoomMode==RoomMode.ROLEPLAY&&local!=null&&local.Nation>=0&&local.Nation<8;
             string skillLabel=hasSkill?SkillButtonLabel(client,local):"",skillNotice=hasSkill?SkillStatus(client,local):"";
+            float footerHeight=stale?78:54;
             float skillHeight=hasSkill?Mathf.Max(54,skillUnavailableText.CalcHeight(new GUIContent(skillLabel),width-32)):0;
             float noticeHeight=string.IsNullOrEmpty(skillNotice)?0:Mathf.Ceil(body.CalcHeight(new GUIContent(skillNotice),width-48));
-            float noticeSpace=Mathf.Max(lineHeight,Mathf.Floor((height-rankTop-112-skillHeight-14-64)/lineHeight)*lineHeight);
+            float noticeSpace=Mathf.Max(lineHeight,Mathf.Floor((height-rankTop-footerHeight-skillHeight-14-64)/lineHeight)*lineHeight);
             float statusHeight=Mathf.Min(noticeHeight,noticeSpace),skillBlockHeight=skillHeight+(statusHeight>0?6+statusHeight:0);
-            float rankHeight=Mathf.Max(32,height-rankTop-(hasSkill?112+skillBlockHeight+8:110));
+            float rankHeight=Mathf.Max(32,height-rankTop-(hasSkill?footerHeight+skillBlockHeight+8:footerHeight+8));
             float rowWidth=width-38,statsWidth=52,totalHeight=8;
             foreach(var tank in ranked)statsWidth=Mathf.Max(statsWidth,Mathf.Ceil(rankName.CalcSize(new GUIContent(tank.Kills+" / "+tank.Deaths)).x)+4);
             float nameWidth=rowWidth-64-statsWidth;
@@ -387,18 +388,9 @@ namespace Tank  {
                 py+=rowHeight+4;
             }
             GUI.EndScrollView();
-            if(hasSkill)SkillHud(client,local,panelX+16,r.yMax-112-skillBlockHeight,width-32,skillLabel,skillNotice,skillHeight,statusHeight);
-            Fill(new Rect(panelX+18,r.yMax-108,width-36,1),CartoonUi.PanelColor);
-            GUI.Label(new Rect(panelX+18,r.yMax-101,width-36,18),"Di chuyển / tăng tốc: xem Cài đặt",body);
-            GUI.Label(new Rect(panelX+18,r.yMax-83,width-36,18),ClientPreferences.Active.Label(ControlAction.AutoFire)+": tự bắn "+(autoFire?"BẬT":"TẮT"),body);
-            string warning=!GameWindowFocus.IsForeground&&!ArenaPreview.Enabled?"Bấm vào game để điều khiển":stale?"Mạng chậm — chờ trạng thái":"";
-            if(warning.Length>0)GUI.Label(new Rect(panelX+18,r.yMax-64,width-36,22),warning,body);
-            else if(roleplay) {
-                int next=((int)client.EstimatedSkillTick/GameRules.RoleplayItemIntervalTicks+1)*GameRules.RoleplayItemIntervalTicks;
-                string shopKey=ClientPreferences.Active.Label(ControlAction.Shop)+": Mở shop";
-                string shop=client.ItemWave>0?shopKey+" · còn "+Math.Max(0,(int)Math.Ceiling((Math.Min(client.ItemMatchTicks,client.ItemWave*GameRules.RoleplayItemIntervalTicks+GameRules.RoleplayItemWindowTicks)-(double)client.EstimatedSkillTick)/30))+"s":next<client.ItemMatchTicks?shopKey+" · sau "+Math.Max(0,(int)Math.Ceiling((next-(double)client.EstimatedSkillTick)/30))+"s":shopKey+" · đã hết đợt";
-                GUI.Label(new Rect(panelX+18,r.yMax-64,width-36,22),shop,body);
-            }
+            if(hasSkill)SkillHud(client,local,panelX+16,r.yMax-footerHeight-skillBlockHeight,width-32,skillLabel,skillNotice,skillHeight,statusHeight);
+            Fill(new Rect(panelX+18,r.yMax-footerHeight+4,width-36,1),CartoonUi.PanelColor);
+            if(stale)GUI.Label(new Rect(panelX+18,r.yMax-72,width-36,22),"Mạng chậm — chờ trạng thái",body);
             return GUI.Button(new Rect(panelX+16,r.yMax-42,width-32,34),"Rời trận",leaveButton);
         }
         static string RankingLabel(ClientCore client,TankState tank) {

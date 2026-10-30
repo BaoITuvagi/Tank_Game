@@ -243,7 +243,7 @@ namespace Tank  {
                 }
             }
             arenaRenderer.Draw(map,rendered,latest==null?null:latest.World,latest==null?0:latest.Tick,client.Slot,arenaX,arenaY,scale);
-            if(arenaRenderer.Panel(client,layout.SidebarX,ArenaLayout.Top,ArenaLayout.SidebarWidth,layout.Height,stale,autoFire.Enabled)) {
+            if(arenaRenderer.Panel(client,layout.SidebarX,ArenaLayout.Top,ArenaLayout.SidebarWidth,layout.Height,stale)) {
                 leaveMatchForm=true;GUI.FocusControl(null);
             }
             DrawShopOpeningNotice(layout.SidebarX,ArenaLayout.Top,ArenaLayout.SidebarWidth);
