@@ -11,6 +11,7 @@ namespace Tank  {
         bool registerTab,roomForm,editingRoom,profileForm,joinForm,useRoomPassword;
         bool fieldSubmitRequested;
         string fieldFocusRequest;
+        float loginContentHeight,registerContentHeight;
         string startingHpText="100",roomPassword="",joinPassword="",displayName="",formError="";
         uint joinTarget;
         int savedNameRevision,savedSettingsRevision;
@@ -197,10 +198,9 @@ namespace Tank  {
             if(client.Phase<=ClientPhase.AUTHENTICATING) {
                 var layout=MenuLayout.Fit(Screen.width,Screen.height);
                 Rect card=layout.AuthCard;
-                if(!registerTab) {
-                    card.height=Mathf.Min(card.height,550);
-                    card.y=layout.Content.center.y-card.height/2;
-                }
+                float measured=registerTab?registerContentHeight:loginContentHeight;
+                card.height=Mathf.Min(card.height,(measured>0?measured:registerTab?430:330)+104);
+                card.y=layout.Content.center.y-card.height/2;
                 if(layout.Wide)menu.Logo(layout.AuthLogo);
                 menu.Card(card,registerTab?"Đăng ký":"Đăng nhập");
                 GUILayout.BeginArea(new Rect(card.x+24,card.y+80,card.width-48,card.height-104));
@@ -208,6 +208,10 @@ namespace Tank  {
                 GUILayout.BeginVertical(GUILayout.Width(MenuScrollContentWidth(card.width-48)));
                 AuthenticationForm();
                 GUILayout.EndVertical();
+                if(Event.current.type==EventType.Repaint){
+                    float contentHeight=Mathf.Ceil(GUILayoutUtility.GetLastRect().height);
+                    if(registerTab)registerContentHeight=contentHeight;else loginContentHeight=contentHeight;
+                }
                 GUILayout.EndScrollView();
                 GUILayout.EndArea();
                 return;
