@@ -3,16 +3,13 @@ using System.IO;
 using System.Security.Cryptography;
 using UnityEngine;
 namespace Tank  {
-    [Serializable] public class ConnectionSettings  {
-        public string host="13.75.2.41";
-        public int tcpPort=8888,udpPort=8889;
-    }
     public partial class TankApp : MonoBehaviour  {
+        const string ServerHost="13.75.2.41";
+        const int ServerTcpPort=8888,ServerUdpPort=8889;
         ClientCore client;
         GameMap map;
-        ConnectionSettings connection;
-        string username="",password="",confirmPassword="",roomName="Đấu xe tăng",hostText,tcpText,udpText;
-        bool settings,history;
+        string username="",password="",confirmPassword="",roomName="Đấu xe tăng";
+        bool history;
         Vector2 scroll;
         ArenaRenderer arenaRenderer=new ArenaRenderer();
         double nextStep;
@@ -28,11 +25,6 @@ namespace Tank  {
             Application.targetFrameRate=60;
             client=MapLoader.CreateClient(out map);
             client.SnapshotAccepted+=snapshot=>arenaRenderer.AcceptEffects(client,snapshot);
-            string local=Path.Combine(Application.persistentDataPath,"connection.json");
-            connection=JsonUtility.FromJson<ConnectionSettings>(File.ReadAllText(File.Exists(local)?local:Path.Combine(Application.streamingAssetsPath,"connection.json")));
-            hostText=connection.host;
-            tcpText=connection.tcpPort.ToString();
-            udpText=connection.udpPort.ToString();
             nextStep=ClientCore.NowUs;
             if(ArenaPreview.Enabled)ArenaPreview.Setup(client);
             SetupMenuPreview();
@@ -163,7 +155,7 @@ namespace Tank  {
                 pendingPassword=password;
                 pendingRegister=register;
                 pendingLogin=!register;
-                client.Connect(connection.host,connection.tcpPort,connection.udpPort);
+                client.Connect(ServerHost,ServerTcpPort,ServerUdpPort);
             }
             else if(register)client.Register(username,password);
             else client.Login(username,password);

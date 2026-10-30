@@ -21,7 +21,7 @@ Dùng Unity **6000.3.24f1**, theo [ProjectVersion.txt](../source/client/ProjectS
 
 `TankApp.Awake` tạo thư mục dữ liệu riêng của ứng dụng, đặt chạy nền và mục tiêu 60 FPS, tạo `ClientCore` qua [MapLoader.CreateClient](../source/client/Assets/Scripts/MapLoader.cs), gắn sự kiện snapshot cho lớp hiệu ứng rồi đọc cấu hình kết nối. `MapLoader` đọc map và hash từ StreamingAssets, kiểm tra sprite cần cho Nhập vai, preload Combat FX và mask xe. Luồng vòng đời client/server nằm tại [kiến trúc khởi động](architecture.md#startup).
 
-Cài đặt kết nối của người dùng được đọc từ `Application.persistentDataPath/connection.json`; nếu chưa có thì dùng bản mặc định trong `Assets/StreamingAssets/connection.json`: host `13.75.2.41`, TCP `8888`, UDP `8889`. `ConnectionSettings.host` dùng cùng IP mặc định. Cấu hình người dùng đã lưu tiếp tục được ưu tiên. Nút Lưu trong [TankApp.ConnectionForm](../source/client/Assets/Scripts/TankMenus.cs) ghi lại file riêng này và đóng kết nối hiện tại. File đó chỉ lưu host/cổng, không phải database tài khoản. Xem [cấu hình triển khai](deployment.md#configuration).
+Client cố định server `13.75.2.41`, TCP `8888`, UDP `8889` bằng các hằng trong [TankApp](../source/client/Assets/Scripts/TankApp.cs). Đăng nhập và đăng ký luôn dùng địa chỉ này. Đã bỏ nút/màn hình Kết nối và file cấu hình StreamingAssets; `connection.json` từng lưu trên máy không còn được đọc. Muốn đổi endpoint phải sửa hằng và build lại client. Smoke/test harness vẫn có endpoint riêng để kiểm thử.
 
 <a id="ui"></a>
 ## Giao diện và render arena

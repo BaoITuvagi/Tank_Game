@@ -34,16 +34,21 @@ namespace Tank {
             string selected=campaignChoice>=0?CampaignNation.For(campaignNations[campaignChoice]).Name:"chọn xe",startLabel=client.Campaign.Pending?"Đang chuẩn bị…":"Xuất kích · "+selected,resumeLabel=canResume?"Tiếp tục chuyến đi":"Xem / Lưu kết quả";
             float buttonHeight=Mathf.Max(CampaignButtonHeight(startLabel,buttonWidth,54),CampaignButtonHeight("Bảng xếp hạng",buttonWidth,54));
             if(buttonCount==3)buttonHeight=Mathf.Max(buttonHeight,CampaignButtonHeight(resumeLabel,buttonWidth,54));
-            float buttonY=viewHeight-18-buttonHeight,statusHeight=string.IsNullOrEmpty(status)?0:CampaignLabelHeight(!string.IsNullOrEmpty(client.Campaign.Error)?CampaignUI.ErrorLabel:CampaignUI.SmallLight,status,viewWidth-64,24),statusY=buttonY-8-statusHeight;
             float viewportWidth=viewWidth-48,contentWidth=viewportWidth-20,frameWidth=Mathf.Min(1240,contentWidth-8),left=(contentWidth-frameWidth)/2;
+            float statusHeight=string.IsNullOrEmpty(status)?0:CampaignLabelHeight(!string.IsNullOrEmpty(client.Campaign.Error)?CampaignUI.ErrorLabel:CampaignUI.SmallLight,status,frameWidth,24);
             bool wide=frameWidth>=800;float railWidth=wide?244:frameWidth,railHeight=wide?326:130;
             float dossierWidth=wide?frameWidth-railWidth-18:frameWidth,dossierHeight=CampaignDossierHeight(dossierWidth),dossierY=wide?4:railHeight+20;
             float firstHeight=wide?Mathf.Max(railHeight,dossierHeight):dossierY+dossierHeight;
-            const string missionTitle="HỒ SƠ NHIỆM VỤ · 10.000 M",missionText="Vu-a-lo đã bắt Tổng thống Đô-na-tri và gia đình. Vượt các chốt địch để giải cứu họ. Mỗi 200 m, một tên trùm sẽ chặn đường.",controls="WASD / Mũi tên: di chuyển\nI: bắn · O: kỹ năng · P: tiếp tế\nGiữ hướng xe khi bắn";
+            const string missionTitle="HỒ SƠ NHIỆM VỤ · 10.000 M",missionText="Tổ chức Vu-a-lo đã bắt giữ tổng thống Đô-na-tri và gia đình, là 1 chỉ huy đại tài hãy lên đường giải cứu ngài tổng thống",controls="WASD / Mũi tên: di chuyển\nI: bắn · O: kỹ năng · P: tiếp tế\nGiữ hướng xe khi bắn";
             float missionWidth=wide?frameWidth*.67f:frameWidth,missionTitleHeight=CampaignLabelHeight(CampaignUI.DialogueTitle,missionTitle,missionWidth-40,26),missionTextHeight=CampaignLabelHeight(CampaignUI.DialogueText,missionText,missionWidth-40),controlsWidth=wide?frameWidth-missionWidth-28:frameWidth-40;
             float controlsHeight=CampaignLabelHeight(CampaignUI.DialogueText,controls,controlsWidth,58),guideHeight=wide?Mathf.Max(missionTitleHeight+missionTextHeight+34,controlsHeight+32):missionTitleHeight+missionTextHeight+controlsHeight+54;
             float stackHeight=firstHeight+18+guideHeight;
-            Rect viewport=new Rect(24,contentTop,viewportWidth,Mathf.Max(80,statusY-12-contentTop));
+            float statusBlock=statusHeight>0?statusHeight+12:0;
+            float availableHeight=viewHeight-contentTop-24,footerHeight=24+statusBlock+buttonHeight;
+            float viewportHeight=Mathf.Min(stackHeight+8,Mathf.Max(80,availableHeight-footerHeight));
+            float groupTop=contentTop+Mathf.Max(0,(availableHeight-viewportHeight-footerHeight)/2);
+            Rect viewport=new Rect((viewWidth-contentWidth)/2,groupTop,viewportWidth,viewportHeight);
+            float statusY=viewport.yMax+12,buttonY=viewport.yMax+24+statusBlock,frameX=viewport.x+left;
             campaignScroll=GUI.BeginScrollView(viewport,campaignScroll,new Rect(0,0,contentWidth,Mathf.Max(viewport.height,stackHeight+8)));
             GUI.Label(new Rect(left,4,railWidth,24),"BIÊN ĐỘI THIẾT GIÁP",CampaignUI.SmallLight);
             for(int i=0;i<3;i++){
@@ -58,8 +63,8 @@ namespace Tank {
             float controlsX=wide?briefing.x+missionWidth:briefing.x+20,controlsY=wide?briefing.y+16:briefing.y+30+missionTitleHeight+missionTextHeight;
             GUI.Label(new Rect(controlsX,controlsY,controlsWidth,controlsHeight),controls,CampaignUI.DialogueText);
             GUI.EndScrollView();
-            if(client.Campaign.Pending)CartoonUi.Busy(new Rect(32,statusY,Mathf.Min(430,viewWidth-64),statusHeight),status);
-            else if(!string.IsNullOrEmpty(status))GUI.Label(new Rect(32,statusY,viewWidth-64,statusHeight),status,!string.IsNullOrEmpty(client.Campaign.Error)?CampaignUI.ErrorLabel:CampaignUI.SmallLight);
+            if(client.Campaign.Pending)CartoonUi.Busy(new Rect(frameX,statusY,Mathf.Min(430,frameWidth),statusHeight),status);
+            else if(!string.IsNullOrEmpty(status))GUI.Label(new Rect(frameX,statusY,frameWidth,statusHeight),status,!string.IsNullOrEmpty(client.Campaign.Error)?CampaignUI.ErrorLabel:CampaignUI.SmallLight);
             if(CampaignUI.Button(new Rect(buttonX,buttonY,buttonWidth,buttonHeight),startLabel,campaignChoice>=0&&!client.Campaign.Pending&&!canResume&&!needsSave)){client.CampaignCommand(0,campaignNations[campaignChoice]);campaignPage=3;}
             if(CampaignUI.Button(new Rect(buttonX+buttonWidth+12,buttonY,buttonWidth,buttonHeight),"Bảng xếp hạng",!client.Campaign.Pending,true)){campaignPage=2;campaignScroll=Vector2.zero;client.CampaignCommand(3);}
             if((canResume||needsSave)&&CampaignUI.Button(new Rect(buttonX+(buttonWidth+12)*2,buttonY,buttonWidth,buttonHeight),resumeLabel,!client.Campaign.Pending,false,true))campaignPage=3;

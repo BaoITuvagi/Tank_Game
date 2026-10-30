@@ -180,17 +180,16 @@ namespace Tank  {
             if(client.Phase<=ClientPhase.AUTHENTICATING) {
                 var layout=MenuLayout.Fit(Screen.width,Screen.height);
                 Rect card=layout.AuthCard;
-                if(!settings&&!registerTab) {
+                if(!registerTab) {
                     card.height=Mathf.Min(card.height,550);
                     card.y=layout.Content.center.y-card.height/2;
                 }
                 if(layout.Wide)menu.Logo(layout.AuthLogo);
-                menu.Card(card,settings?"Kết nối":registerTab?"Đăng ký":"Đăng nhập");
+                menu.Card(card,registerTab?"Đăng ký":"Đăng nhập");
                 GUILayout.BeginArea(new Rect(card.x+24,card.y+80,card.width-48,card.height-104));
                 scroll=GUILayout.BeginScrollView(scroll);
                 GUILayout.BeginVertical(GUILayout.Width(MenuScrollContentWidth(card.width-48)));
-                if(settings)ConnectionForm();
-                else AuthenticationForm();
+                AuthenticationForm();
                 GUILayout.EndVertical();
                 GUILayout.EndScrollView();
                 GUILayout.EndArea();
@@ -233,37 +232,6 @@ namespace Tank  {
                 BeginAuthentication(false);
             }
             if(client.AuthenticationRetrySeconds>0)GUILayout.Label("Thử lại sau "+Math.Ceiling(client.AuthenticationRetrySeconds)+" giây.",menu.Hint);
-            Feedback();
-            GUILayout.Space(12);
-            if(Button("Kết nối",!busy,true)) {
-                settings=true;
-                scroll=Vector2.zero;
-                formError="";
-            }
-        }
-        void ConnectionForm() {
-            hostText=Field("server","Địa chỉ server",hostText);
-            tcpText=Field("tcp","TCP",tcpText,5);
-            udpText=Field("udp","UDP",udpText,5);
-            GUILayout.Space(16);
-            if(Button("Lưu")) {
-                int tp,up;
-                if(int.TryParse(tcpText,out tp)&&int.TryParse(udpText,out up)&&tp>0&&tp<=65535&&up>0&&up<=65535&&!string.IsNullOrWhiteSpace(hostText)) {
-                    connection.host=hostText.Trim();
-                    connection.tcpPort=tp;
-                    connection.udpPort=up;
-                    System.IO.File.WriteAllText(System.IO.Path.Combine(Application.persistentDataPath,"connection.json"),JsonUtility.ToJson(connection));
-                    client.Dispose();
-                    settings=false;
-                    status="";
-                    client.Message="";
-                }
-                else formError="Địa chỉ hoặc cổng không hợp lệ.";
-            }
-            if(Button("Quay lại",true,true)) {
-                settings=false;
-                formError="";
-            }
             Feedback();
         }
         void OpenRoomForm(bool edit) {

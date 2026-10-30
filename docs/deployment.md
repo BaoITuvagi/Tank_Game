@@ -78,17 +78,9 @@ Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, ch
 Để chạy trong Editor, mở `source/client`, scene `Assets/Scenes/Main.unity` rồi Play theo [bootstrap client](client.md#bootstrap).
 
 <a id="connect"></a>
-## Kết nối qua máy cục bộ, LAN hoặc VPN
+## Kết nối tới server cố định
 
-Client chưa lưu cấu hình dùng host mặc định **`13.75.2.41`**, TCP **8888**, UDP **8889**. Cấu hình trong `Application.persistentDataPath/connection.json` đã lưu vẫn được ưu tiên. Để đổi server, mở **Kết nối/Cài đặt**, nhập địa chỉ, TCP và UDP rồi Lưu:
-
-| Server ở đâu? | Địa chỉ nhập vào client |
-|---|---|
-| Cùng máy | `127.0.0.1` |
-| Máy khác trên cùng LAN | IPv4 của máy server trên card mạng LAN đang sử dụng; người chạy server xem bằng `ipconfig`. |
-| Cùng mạng VPN/Radmin | IP VPN/Radmin của máy server. |
-
-Mặc định TCP **8888**, UDP **8889**. Các máy cần ở cùng LAN hoặc mạng VPN/Radmin và máy server phải cho phép cả TCP lẫn UDP trên các cổng thực tế qua firewall. Nếu Windows hỏi quyền mạng cho Java/server, cho phép trên mạng dùng để chơi. `bind=0.0.0.0` chỉ là địa chỉ lắng nghe của server; client nhập IP thật của máy server.
+Client luôn kết nối tới **`13.75.2.41`**, TCP **8888**, UDP **8889**. Đã bỏ màn hình chọn kết nối; cấu hình `connection.json` cũ trên máy không được đọc. Server cần cho phép cả hai cổng qua firewall. Để tạo bản client dùng server khác, sửa `ServerHost`, `ServerTcpPort`, `ServerUdpPort` trong `TankApp.cs` rồi build lại. Smoke/test harness vẫn cấu hình endpoint riêng để kiểm thử cục bộ.
 
 Đăng ký tài khoản, đăng nhập, tạo/tham gia phòng, rồi tất cả sẵn sàng để chủ phòng bắt đầu. Cần ít nhất hai người và mỗi cửa sổ dùng một tài khoản riêng. Khi tạo phòng có thể chọn **Thường** hoặc **Nhập vai**; chế độ cố định cho phòng. Phòng Nhập vai yêu cầu mỗi người chọn quốc gia khác nhau trước khi ready, tải/đồng bộ loadout rồi đếm ngược ba giây. Xem [vòng đời phòng](architecture.md#lifecycle) và [kỹ năng](gameplay.md#skills).
 

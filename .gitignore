@@ -5,9 +5,23 @@
 /.local-archive/
 /plan/
 
-# Local agent configuration and original asset copies
-/.agents/
-/.codex/
+# Local Codex instructions, prompts, activity and reference documentation
+.agents/
+.codex/
+.codex.*
+AGENTS.md
+AGENTS.override.md
+CODEX.md
+codex.md
+*[Pp][Rr][Oo][Mm][Pp][Tt]*.md
+[Pp]rompt/
+[Pp]rompts/
+/BTL_Prompt/
+/Doc_DA/
+/.github/modernize/
+/ADMIN_VALIDATION.md
+
+# Original asset copies (runtime assets and their licenses remain tracked)
 /anh_nen.png
 /logo.png
 /cartoon_ui_pack.zip

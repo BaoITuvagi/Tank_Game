@@ -50,10 +50,6 @@ namespace Tank  {
                 registerTab=true;
                 return;
             }
-            if(page=="settings") {
-                settings=true;
-                return;
-            }
             client.Nickname="Commander";
             client.Slot=0;
             client.Host=0;
