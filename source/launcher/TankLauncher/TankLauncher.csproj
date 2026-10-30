@@ -5,7 +5,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>Launcher</AssemblyName>
+    <AssemblyName>TankBattle-Launcher</AssemblyName>
     <Version>1.1.0</Version>
   </PropertyGroup>
   <ItemGroup>

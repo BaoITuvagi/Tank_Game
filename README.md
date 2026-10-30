@@ -14,6 +14,8 @@ Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; serve
 
 Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/).
 
+Tải [TankBattle-Launcher.zip](https://github.com/BaoITuvagi/Tank_Game/releases/latest/download/TankBattle-Launcher.zip), giải nén cả gói rồi chạy **TankBattle-Launcher.exe**. Giữ `launcher.json` cùng thư mục với file EXE. Script `scripts/build-launcher.ps1` tạo gói theo đúng tên này.
+
 Tank Battle là game xe tăng nhiều người chơi, gồm server Java và client Unity. Người chơi có thể đăng ký tài khoản, tạo hoặc tham gia phòng, đấu với nhau và xem lịch sử trận đấu.
 
 Mỗi phiên chơi sử dụng **một server chung**, lưu tài khoản và lịch sử của tất cả người chơi trong database SQLite. Các máy người chơi chạy client và kết nối đến server qua LAN hoặc VPN/Radmin. Bạn cũng có thể chạy server và client trên cùng máy để thử nghiệm.

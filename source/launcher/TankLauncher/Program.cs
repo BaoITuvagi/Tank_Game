@@ -31,7 +31,7 @@ sealed class LauncherForm : Form
 
     public LauncherForm()
     {
-        Text = "Tank Battle Launcher";
+        Text = "TankBattle-Launcher";
         ClientSize = new Size(560, 245);
         MinimumSize = new Size(520, 280);
         Font = new Font("Segoe UI", 10);

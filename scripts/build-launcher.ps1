@@ -21,8 +21,10 @@ if($LASTEXITCODE -ne 0){throw 'Launcher publish failed. A standalone build needs
 $config=[ordered]@{manifestUrl=$ManifestUrl;allowLoopbackHttp=[bool]$AllowLoopbackHttp}
 $json=$config | ConvertTo-Json
 [IO.File]::WriteAllText((Join-Path $output 'launcher.json'),$json,(New-Object Text.UTF8Encoding($false)))
-$bundle=Join-Path $root "build/$flavor-win64.zip"
-Compress-Archive -LiteralPath (Join-Path $output 'Launcher.exe'),(Join-Path $output 'launcher.json') -DestinationPath $bundle -Force
-Write-Output "Built $output/Launcher.exe. Distribute the entire folder, including launcher.json."
+$launcherFile='TankBattle-Launcher.exe'
+$bundleName=if($FrameworkDependent){'TankBattle-Launcher-framework-dependent.zip'}else{'TankBattle-Launcher.zip'}
+$bundle=Join-Path $root "build/$bundleName"
+Compress-Archive -LiteralPath (Join-Path $output $launcherFile),(Join-Path $output 'launcher.json') -DestinationPath $bundle -Force
+Write-Output "Built $output/$launcherFile. Distribute the entire folder, including launcher.json."
 Write-Output "Player download: $bundle"
 if($FrameworkDependent){Write-Warning 'This development build requires the .NET 9 Desktop Runtime on the player machine. Use the default standalone build for distribution.'}
