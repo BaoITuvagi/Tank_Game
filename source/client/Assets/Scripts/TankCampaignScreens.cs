@@ -24,8 +24,8 @@ namespace Tank {
             GUI.Label(new Rect(120,21,viewWidth-440,headingHeight),heading,CampaignUI.Header);
             GUI.Label(new Rect(122,27+headingHeight,viewWidth-440,subtitleHeight),subtitle,CampaignUI.SmallLight);
             CampaignUI.Rule(new Rect(24,headerHeight,viewWidth-48,2),CartoonUi.Gold);
-            if(client.Phase!=ClientPhase.LOBBY){DrawCampaignBack();CampaignUI.Notice(new Rect(28,126,viewWidth-56,72),"Đăng nhập để bắt đầu chiến dịch và lưu vàng, điểm số.");if(CampaignUI.Button(new Rect(40,218,220,48),"Về đăng nhập"))campaignPage=0;return;}
-            if(campaignPage==2){DrawCampaignRanking(contentTop);DrawCampaignBack();return;}
+            if(client.Phase!=ClientPhase.LOBBY){DrawCampaignBack(headerHeight);CampaignUI.Notice(new Rect(28,126,viewWidth-56,72),"Đăng nhập để bắt đầu chiến dịch và lưu vàng, điểm số.");if(CampaignUI.Button(new Rect(40,218,220,48),"Về đăng nhập"))campaignPage=0;return;}
+            if(campaignPage==2){DrawCampaignRanking(contentTop);DrawCampaignBack(headerHeight);return;}
             bool canResume=client.Campaign.Run!=null&&!client.Campaign.Run.Finished;
             bool needsSave=client.Campaign.Run!=null&&client.Campaign.Run.Finished&&client.Campaign.Run.SaveStatus!="Đã lưu kết quả.";
             string status=client.Campaign.Pending?"Đang chuẩn bị chiến dịch…":!string.IsNullOrEmpty(client.Campaign.Error)?client.Campaign.Error:campaignChoice<0?"Chọn một chiến xa để nhận nhiệm vụ.":canResume?"Bạn đang có chuyến đi dở dang. Chọn Tiếp tục để trở lại chiến trường.":needsSave?"Kết quả chuyến đi cần được lưu trước khi nhận nhiệm vụ mới.":"";
@@ -66,11 +66,17 @@ namespace Tank {
             if(CampaignUI.Button(new Rect(buttonX,buttonY,buttonWidth,buttonHeight),startLabel,campaignChoice>=0&&!client.Campaign.Pending&&!canResume&&!needsSave)){client.CampaignCommand(0,campaignNations[campaignChoice]);campaignPage=3;}
             if(CampaignUI.Button(new Rect(buttonX+buttonWidth+12,buttonY,buttonWidth,buttonHeight),"Bảng xếp hạng",!client.Campaign.Pending,true)){campaignPage=2;campaignScroll=Vector2.zero;client.CampaignCommand(3);}
             if((canResume||needsSave)&&CampaignUI.Button(new Rect(buttonX+(buttonWidth+12)*2,buttonY,buttonWidth,buttonHeight),resumeLabel,!client.Campaign.Pending,false,true))campaignPage=3;
-            DrawCampaignBack();
+            DrawCampaignBack(headerHeight);
         }
-        void DrawCampaignBack(){
-            DrawSettingsButton(new Rect(viewWidth-294,26,110,46));
-            if(CampaignUI.Button(new Rect(viewWidth-174,26,144,CampaignButtonHeight("Về menu",144)),"Về menu",!client.Campaign.Pending,true))campaignPage=0;
+        void DrawCampaignBack(float headerHeight){
+            InitMenuCards();
+            float height=Mathf.Max(46,ButtonHeight("Cài đặt",headerRowButton,110),ButtonHeight("Về menu",headerBackButton,144)),top=(headerHeight-height)/2;
+            DrawSettingsButton(new Rect(viewWidth-294,top,110,height),headerRowButton);
+            bool previous=GUI.enabled;GUI.enabled=previous&&!client.Campaign.Pending;
+            GUI.SetNextControlName("Về menu");
+            bool back=GUI.Button(new Rect(viewWidth-174,top,144,height),"Về menu",headerBackButton);
+            GUI.enabled=previous;
+            if(back)campaignPage=0;
         }
         void DrawCampaignNationCard(Rect rect,int index){
             var nation=CampaignNation.For(campaignNations[index]);

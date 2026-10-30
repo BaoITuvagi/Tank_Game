@@ -25,7 +25,7 @@ namespace Tank  {
         int observedAccountRevision;
         readonly System.Collections.Generic.Dictionary<GUIStyle,GUIStyle> flexibleButtons=new System.Collections.Generic.Dictionary<GUIStyle,GUIStyle>();
         GUIStyle cardName,cardText,cardSmall,cardHeading,plainCardButton,compactAction,centerCardHeading,centerCardText,centerSection,centerHint;
-        GUIStyle depotKicker,depotTitle,depotText,depotName,depotSmall,depotNumber,depotAction;
+        GUIStyle depotKicker,depotTitle,depotText,depotName,depotSmall,depotNumber,depotAction,headerRowButton,headerBackButton;
         void InitMenuCards() {
             if(cardName!=null)return;
             cardName=CartoonUi.Label(18,CartoonUi.Ink);cardText=CartoonUi.Label(16,CartoonUi.Ink);
@@ -39,6 +39,8 @@ namespace Tank  {
             depotText=CartoonUi.Label(16,CartoonUi.Text);depotName=CartoonUi.Label(19,CartoonUi.Text);
             depotSmall=CartoonUi.Label(14,CartoonUi.Muted);depotNumber=CartoonUi.Label(28,CartoonUi.Gold,true);
             depotAction=new GUIStyle(compactAction){fixedHeight=42,wordWrap=false,padding=new RectOffset(12,12,4,6)};
+            headerRowButton=new GUIStyle(menu.HeaderButton){fixedHeight=0};
+            headerBackButton=new GUIStyle(menu.Secondary){fixedHeight=0,fontSize=headerRowButton.fontSize,padding=new RectOffset(headerRowButton.padding.left,headerRowButton.padding.right,headerRowButton.padding.top,headerRowButton.padding.bottom)};
         }
         void DepotRule(Rect rect,Color color) {
             ArenaRenderer.Fill(new Rect(rect.x,rect.y,Mathf.Min(36,rect.width),rect.height),color);
@@ -98,21 +100,26 @@ namespace Tank  {
         void DrawHeader(bool playing) {
             InitMenuCards();
             if(playing)menu.Logo(new Rect(16,5,48,48));
-            else {
-                if(client.Phase<=ClientPhase.AUTHENTICATING&&Screen.width<1100)menu.Logo(new Rect((viewWidth-72)/2,2,72,72));
-                else menu.Logo(new Rect(24,2,72,72));
-            }
+            else menu.Logo(new Rect(24,2,72,72));
             if(!playing&&((client.Phase>=ClientPhase.LOBBY&&viewWidth>=1000)||Screen.width>=1100)) {
                 GUI.Label(new Rect(112,15,240,30),"TANK BATTLE",menu.Header);
                 GUI.Label(new Rect(114,46,240,18),"SẴN SÀNG XUẤT KÍCH",depotKicker);
             }
+            float buttonHeight=46,buttonY=((playing?68:76)-buttonHeight)/2;
             if(client.Phase>=ClientPhase.LOBBY) {
-                float profileWidth=viewWidth<1100?116:190,walletWidth=viewWidth<1100?140:180,profileX=viewWidth-138-profileWidth;
-                string profileLabel=WrapMenuText(string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname,menu.HeaderButton,profileWidth);
-                float buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,menu.HeaderButton,profileWidth));
-                float buttonY=((playing?68:76)-buttonHeight)/2;
-                DrawWalletBadge(new Rect(profileX-10-walletWidth,((playing?68:76)-40)/2,walletWidth,40));
-                if(GUI.Button(new Rect(profileX,buttonY,profileWidth,buttonHeight),profileLabel,menu.HeaderButton)) {
+                string name=string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname;
+                float profileWidth=viewWidth<1100?116:190;
+                string profileLabel=WrapMenuText(name,headerRowButton,profileWidth);
+                buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,headerRowButton,profileWidth));
+                while(viewWidth<1100&&buttonHeight>60&&profileWidth<220) {
+                    profileWidth=Mathf.Min(220,profileWidth+8);
+                    profileLabel=WrapMenuText(name,headerRowButton,profileWidth);
+                    buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,headerRowButton,profileWidth));
+                }
+                float walletWidth=viewWidth<1100?140:180,profileX=viewWidth-138-profileWidth;
+                buttonY=Mathf.Max(0,((playing?68:76)-buttonHeight)/2);
+                DrawWalletBadge(new Rect(profileX-10-walletWidth,buttonY,walletWidth,buttonHeight));
+                if(GUI.Button(new Rect(profileX,buttonY,profileWidth,buttonHeight),profileLabel,headerRowButton)) {
                     displayName=client.Nickname;
                     profileForm=true;
                     formError="";
@@ -120,7 +127,7 @@ namespace Tank  {
                     GUI.FocusControl(null);
                 }
             }
-            DrawSettingsButton(new Rect(viewWidth-128,((playing?68:76)-42)/2,104,42));
+            DrawSettingsButton(new Rect(viewWidth-128,buttonY,104,buttonHeight),headerRowButton);
         }
         bool Button(string label,bool enabled=true,bool secondary=false,GUIStyle style=null) {
             bool prior=GUI.enabled;

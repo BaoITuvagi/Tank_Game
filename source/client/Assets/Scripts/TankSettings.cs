@@ -18,7 +18,7 @@ namespace Tank {
         }
         void OpenPreferences(){settingsDraft=ClientPreferences.Active.Copy();ResetBindingText();settingsOpen=true;settingsScroll=Vector2.zero;settingsMessage=settingsLoadWarning;GUI.FocusControl(null);}
         void ClosePreferences(){settingsOpen=false;settingsDraft=null;primaryBindingText=secondaryBindingText=null;fieldFocusRequest=null;GUI.FocusControl(null);queuedCampaignAction=-1;nextCampaignRepeat=Time.unscaledTimeAsDouble+.18;}
-        void DrawSettingsButton(Rect rect){if(GUI.Button(rect,"Cài đặt",menu.HeaderButton))OpenPreferences();}
+        void DrawSettingsButton(Rect rect,GUIStyle style=null){if(GUI.Button(rect,"Cài đặt",style??menu.HeaderButton))OpenPreferences();}
         void SavePreferences(){
             if(!settingsDraft.TryUpdateBindingText(primaryBindingText,secondaryBindingText,out settingsMessage)||!settingsDraft.Save(PreferencesPath,out settingsMessage))return;
             ClientPreferences.Activate(settingsDraft);if(!settingsDraft.SoundEnabled){skillAudio?.Stop();campaignAudio?.Silence();}
