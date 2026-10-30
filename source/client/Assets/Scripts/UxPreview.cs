@@ -18,7 +18,7 @@ namespace Tank  {
                 settingsDraft.TryBind(ControlAction.Fire,true,KeyCode.KeypadEnter,out ignored);
                 settingsDraft.TryBind(ControlAction.CampaignSkill,false,KeyCode.PageDown,out ignored);
             }
-            if(settingsDraft!=null&&Array.IndexOf(args,"--preview-binding-capture")>=0){captureAction=(int)ControlAction.Sprint;captureSecondary=false;}
+            if(settingsDraft!=null&&Array.IndexOf(args,"--preview-binding-capture")>=0)fieldFocusRequest=BindingControlName((int)ControlAction.Sprint,false);
             if(Array.IndexOf(args,"--preview-long-text")>=0) {
                 username="tank_battle_commander_123";
                 password=roomPassword=joinPassword="menu-preview-only-2026";
