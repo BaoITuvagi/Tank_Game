@@ -18,11 +18,11 @@ namespace Tank {
             CampaignUI.Background(new Rect(0,0,viewWidth,viewHeight));
             string heading=campaignPage==2?"BẢNG CHỈ HUY":"CHIẾN DỊCH GIẢI CỨU";
             string subtitle=campaignPage==2?"Những chuyến đi được ghi vào chiến sử":"CHỌN CHIẾN XA  /  NHẬN NHIỆM VỤ  /  XUẤT KÍCH";
-            float headingHeight=CampaignLabelHeight(CampaignUI.Header,heading,viewWidth-310,34),subtitleHeight=CampaignLabelHeight(CampaignUI.SmallLight,subtitle,viewWidth-310,25);
+            float headingHeight=CampaignLabelHeight(CampaignUI.Header,heading,viewWidth-440,34),subtitleHeight=CampaignLabelHeight(CampaignUI.SmallLight,subtitle,viewWidth-440,25);
             float headerHeight=Mathf.Max(90,headingHeight+subtitleHeight+28),contentTop=headerHeight+16;
             CampaignUI.Logo(new Rect(22,10,84,84));
-            GUI.Label(new Rect(120,21,viewWidth-310,headingHeight),heading,CampaignUI.Header);
-            GUI.Label(new Rect(122,27+headingHeight,viewWidth-310,subtitleHeight),subtitle,CampaignUI.SmallLight);
+            GUI.Label(new Rect(120,21,viewWidth-440,headingHeight),heading,CampaignUI.Header);
+            GUI.Label(new Rect(122,27+headingHeight,viewWidth-440,subtitleHeight),subtitle,CampaignUI.SmallLight);
             CampaignUI.Rule(new Rect(24,headerHeight,viewWidth-48,2),CartoonUi.Gold);
             if(client.Phase!=ClientPhase.LOBBY){DrawCampaignBack();CampaignUI.Notice(new Rect(28,126,viewWidth-56,72),"Đăng nhập để bắt đầu chiến dịch và lưu vàng, điểm số.");if(CampaignUI.Button(new Rect(40,218,220,48),"Về đăng nhập"))campaignPage=0;return;}
             if(campaignPage==2){DrawCampaignRanking(contentTop);DrawCampaignBack();return;}
@@ -39,7 +39,8 @@ namespace Tank {
             bool wide=frameWidth>=800;float railWidth=wide?244:frameWidth,railHeight=wide?326:130;
             float dossierWidth=wide?frameWidth-railWidth-18:frameWidth,dossierHeight=CampaignDossierHeight(dossierWidth),dossierY=wide?4:railHeight+20;
             float firstHeight=wide?Mathf.Max(railHeight,dossierHeight):dossierY+dossierHeight;
-            const string missionTitle="HỒ SƠ NHIỆM VỤ · 10.000 M",missionText="Tổ chức Vu-a-lo đã bắt giữ tổng thống Đô-na-tri và gia đình, là 1 chỉ huy đại tài hãy lên đường giải cứu ngài tổng thống",controls="WASD / Mũi tên: di chuyển\nI: bắn · O: kỹ năng · P: tiếp tế\nGiữ hướng xe khi bắn";
+            const string missionTitle="HỒ SƠ NHIỆM VỤ · 10.000 M",missionText="Tổ chức Vu-a-lo đã bắt giữ tổng thống Đô-na-tri và gia đình, là 1 chỉ huy đại tài hãy lên đường giải cứu ngài tổng thống";
+            string controls="Di chuyển: "+ClientPreferences.Active.Label(ControlAction.Up)+", "+ClientPreferences.Active.Label(ControlAction.Down)+", "+ClientPreferences.Active.Label(ControlAction.Left)+", "+ClientPreferences.Active.Label(ControlAction.Right)+"\n"+ClientPreferences.Active.Label(ControlAction.CampaignFire)+": bắn · "+ClientPreferences.Active.Label(ControlAction.CampaignSkill)+": kỹ năng · "+ClientPreferences.Active.Label(ControlAction.CampaignShop)+": tiếp tế\nGiữ hướng xe khi bắn";
             float missionWidth=wide?frameWidth*.67f:frameWidth,missionTitleHeight=CampaignLabelHeight(CampaignUI.DialogueTitle,missionTitle,missionWidth-40,26),missionTextHeight=CampaignLabelHeight(CampaignUI.DialogueText,missionText,missionWidth-40),controlsWidth=wide?frameWidth-missionWidth-28:frameWidth-40;
             float controlsHeight=CampaignLabelHeight(CampaignUI.DialogueText,controls,controlsWidth,58),guideHeight=wide?Mathf.Max(missionTitleHeight+missionTextHeight+34,controlsHeight+32):missionTitleHeight+missionTextHeight+controlsHeight+54;
             float stackHeight=firstHeight+18+guideHeight;
@@ -71,6 +72,7 @@ namespace Tank {
             DrawCampaignBack();
         }
         void DrawCampaignBack(){
+            DrawSettingsButton(new Rect(viewWidth-294,26,110,46));
             if(CampaignUI.Button(new Rect(viewWidth-174,26,144,CampaignButtonHeight("Về menu",144)),"Về menu",!client.Campaign.Pending,true))campaignPage=0;
         }
         void DrawCampaignNationCard(Rect rect,int index){
@@ -90,7 +92,7 @@ namespace Tank {
         float CampaignDossierHeight(float width){
             var nation=CampaignNation.For(campaignNations[Mathf.Clamp(campaignChoice,0,2)]);bool side=width>=580;
             float detailWidth=side?width*.52f-34:width-40;
-            float skillTitle=CampaignLabelHeight(CampaignUI.DialogueTitle,"O · "+nation.SkillName+" · "+nation.SkillCooldown+" lượt",width-48,26),skillText=CampaignLabelHeight(CampaignUI.DialogueText,nation.SkillDescription,width-48);
+            float skillTitle=CampaignLabelHeight(CampaignUI.DialogueTitle,ClientPreferences.Active.Label(ControlAction.CampaignSkill)+" · "+nation.SkillName+" · "+nation.SkillCooldown+" lượt",width-48,26),skillText=CampaignLabelHeight(CampaignUI.DialogueText,nation.SkillDescription,width-48);
             float top=side?260:360;
             return top+skillTitle+skillText+48+CampaignLabelHeight(CampaignUI.Hint,"Cận chiến "+nation.MeleeDamage+" · Hồi bắn 5 lượt",detailWidth,24);
         }
@@ -114,7 +116,7 @@ namespace Tank {
             float meleeY=side?sy+111:sy+104,meleeHeight=CampaignLabelHeight(CampaignUI.Hint,melee,sw,24);
             GUI.Label(new Rect(sx,meleeY,sw,meleeHeight),melee,CampaignUI.Hint);
             float skillY=side?Mathf.Max(portrait.yMax+18,meleeY+meleeHeight+14):meleeY+meleeHeight+18;
-            string skillTitle="O · "+nation.SkillName+" · "+nation.SkillCooldown+" lượt";float titleHeight=CampaignLabelHeight(CampaignUI.DialogueTitle,skillTitle,rect.width-48,26),textHeight=CampaignLabelHeight(CampaignUI.DialogueText,nation.SkillDescription,rect.width-48);
+            string skillTitle=ClientPreferences.Active.Label(ControlAction.CampaignSkill)+" · "+nation.SkillName+" · "+nation.SkillCooldown+" lượt";float titleHeight=CampaignLabelHeight(CampaignUI.DialogueTitle,skillTitle,rect.width-48,26),textHeight=CampaignLabelHeight(CampaignUI.DialogueText,nation.SkillDescription,rect.width-48);
             CampaignUI.Rule(new Rect(rect.x+22,skillY-10,rect.width-44,1),CartoonUi.Outline);
             GUI.Label(new Rect(rect.x+24,skillY,rect.width-48,titleHeight),skillTitle,CampaignUI.DialogueTitle);
             GUI.Label(new Rect(rect.x+24,skillY+titleHeight+7,rect.width-48,textHeight),nation.SkillDescription,CampaignUI.DialogueText);

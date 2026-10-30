@@ -20,11 +20,12 @@ namespace Tank {
         }
         void UpdateRoleplayShop() {
             UpdateShopOpeningNotice();
+            if(settingsOpen)return;
             if(client.Phase!=ClientPhase.PLAYING||client.RoomMode!=RoomMode.ROLEPLAY||client.ItemWave==0){roleplayShopOpen=false;return;}
             if(!string.IsNullOrEmpty(walletNotice))return;
             if(!GameWindowFocus.IsForeground)return;
             if(roleplayShopOpen&&Input.GetKeyDown(KeyCode.Escape)){roleplayShopOpen=false;return;}
-            if(Input.GetKeyDown(KeyCode.E)&&!leaveMatchForm&&!profileForm&&!joinForm) {
+            if(ClientPreferences.Active.Pressed(ControlAction.Shop,!roleplayShopOpen&&PointerInArena())&&!leaveMatchForm&&!profileForm&&!joinForm) {
                 roleplayShopOpen=!roleplayShopOpen;
                 if(roleplayShopOpen){client.ShopNotice="";client.RefreshWallet();roleplayShopScroll=Vector2.zero;}
             }
@@ -92,7 +93,7 @@ namespace Tank {
                 GUI.enabled=enabled;
             }
             GUILayout.EndVertical();GUILayout.EndScrollView();GUILayout.EndArea();
-            GUI.Label(new Rect(card.x+28,card.yMax-57,card.width-250,28),"E / Esc · Trở lại trận đấu",menu.Hint);
+            GUI.Label(new Rect(card.x+28,card.yMax-57,card.width-250,28),ClientPreferences.Active.Label(ControlAction.Shop)+" / Esc · Trở lại trận đấu",menu.Hint);
             if(GUI.Button(new Rect(card.xMax-202,card.yMax-64,178,48),"Đóng",menu.Secondary))roleplayShopOpen=false;
         }
     }

@@ -40,7 +40,7 @@ namespace Tank.Campaign {
     }
 
     // Own sources/listener are children of TankApp, so destruction cleans them up.
-    // No shared audio settings, menu skin, multiplayer or roleplay audio are changed.
+    // Sources respect the client's master sound setting; menu styles remain independent.
     public sealed class CampaignAudio : MonoBehaviour {
         public static readonly string[] ClipNames={"shot","hit","explosion","airstrike","fortress","pierce","heal","purchase","victory","shop_open","shop_close"};
         readonly CampaignAudioTimeline timeline=new CampaignAudioTimeline();
@@ -68,7 +68,7 @@ namespace Tank.Campaign {
         }
         void Update(){
             if(readState==null)return;
-            bool active=isCampaignRun()&&(Tank.GameWindowFocus.IsForeground||preview);
+            bool active=ClientPreferences.Active.SoundEnabled&&isCampaignRun()&&(Tank.GameWindowFocus.IsForeground||preview);
             double now=Time.unscaledTimeAsDouble;
             timeline.Observe(readState(),now,active);
             if(!active){
@@ -80,7 +80,7 @@ namespace Tank.Campaign {
             foreach(var cue in timeline.TakeDue(now))Play(cue.Clip,cue.Volume,now);
         }
         void Play(string name,float volume,double now){
-            if(!wasActive)return;
+            if(!wasActive||!ClientPreferences.Active.SoundEnabled)return;
             double last;if(lastPlayed.TryGetValue(name,out last)&&now-last<.045)return;
             AudioClip clip;if(!clips.TryGetValue(name,out clip))return;
             bool ui=name=="purchase"||name=="victory"||name.StartsWith("shop_");
@@ -92,6 +92,7 @@ namespace Tank.Campaign {
             if(preview)Debug.Log("Campaign sound: "+name);
         }
         public void ShopToggle(bool open){if(wasActive)Play(open?"shop_open":"shop_close",.27f,Time.unscaledTimeAsDouble);}
+        public void Silence(){timeline.Clear();if(voices!=null)foreach(var source in voices)if(source!=null)source.Stop();wasActive=false;}
         void OnDisable(){
             timeline.Clear();if(voices!=null)foreach(var source in voices)if(source!=null)source.Stop();
             if(ownedListener!=null)ownedListener.enabled=false;wasActive=false;

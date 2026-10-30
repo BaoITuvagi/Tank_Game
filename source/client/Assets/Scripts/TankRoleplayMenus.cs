@@ -13,7 +13,7 @@ namespace Tank {
             var layout=new NationCardLayout {
                 Name=WrapMenuText(RoleplayContent.NationNames[nation],depotName,width-82),
                 Status=selected?"ĐANG CHỌN":taken?"ĐÃ CÓ NGƯỜI":"",
-                Skill=WrapMenuText("Q · "+RoleplayContent.QNames[nation],depotSmall,width-24)
+                Skill=WrapMenuText(ClientPreferences.Active.Label(ControlAction.Skill)+" · "+RoleplayContent.QNames[nation],depotSmall,width-24)
             };
             layout.NameHeight=MenuTextHeight(layout.Name,depotName,width-82);
             layout.Status=WrapMenuText(layout.Status,depotKicker,width-82);
@@ -70,7 +70,7 @@ namespace Tank {
                 GUILayout.EndHorizontal();
                 if((row+1)*columns<8)GUILayout.Space(8);
             }
-            if(!compact&&local.Nation>=0)GUILayout.Label("Q · "+RoleplayContent.QNames[local.Nation]+"\n"+RoleplayContent.NationDescriptions[local.Nation],menu.Text);
+            if(!compact&&local.Nation>=0)GUILayout.Label(ClientPreferences.Active.Label(ControlAction.Skill)+" · "+RoleplayContent.QNames[local.Nation]+"\n"+ClientPreferences.Active.NationDescription(local.Nation),menu.Text);
             if(!compact&&local.Ready)GUILayout.Label("Hủy sẵn sàng trước khi đổi phe.",menu.Hint);
         }
         string PreparationLabel() {

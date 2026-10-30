@@ -389,13 +389,14 @@ namespace Tank  {
             GUI.EndScrollView();
             if(hasSkill)SkillHud(client,local,panelX+16,r.yMax-112-skillBlockHeight,width-32,skillLabel,skillNotice,skillHeight,statusHeight);
             Fill(new Rect(panelX+18,r.yMax-108,width-36,1),CartoonUi.PanelColor);
-            GUI.Label(new Rect(panelX+18,r.yMax-101,width-36,18),"WASD / mũi tên · Shift: tăng tốc",body);
-            GUI.Label(new Rect(panelX+18,r.yMax-83,width-36,18),"Chuột phải: tự bắn "+(autoFire?"BẬT":"TẮT"),body);
+            GUI.Label(new Rect(panelX+18,r.yMax-101,width-36,18),"Di chuyển / tăng tốc: xem Cài đặt",body);
+            GUI.Label(new Rect(panelX+18,r.yMax-83,width-36,18),ClientPreferences.Active.Label(ControlAction.AutoFire)+": tự bắn "+(autoFire?"BẬT":"TẮT"),body);
             string warning=!GameWindowFocus.IsForeground&&!ArenaPreview.Enabled?"Bấm vào game để điều khiển":stale?"Mạng chậm — chờ trạng thái":"";
             if(warning.Length>0)GUI.Label(new Rect(panelX+18,r.yMax-64,width-36,22),warning,body);
             else if(roleplay) {
                 int next=((int)client.EstimatedSkillTick/GameRules.RoleplayItemIntervalTicks+1)*GameRules.RoleplayItemIntervalTicks;
-                string shop=client.ItemWave>0?"E: Mở shop · còn "+Math.Max(0,(int)Math.Ceiling((Math.Min(client.ItemMatchTicks,client.ItemWave*GameRules.RoleplayItemIntervalTicks+GameRules.RoleplayItemWindowTicks)-(double)client.EstimatedSkillTick)/30))+"s":next<client.ItemMatchTicks?"E: Mở shop · sau "+Math.Max(0,(int)Math.Ceiling((next-(double)client.EstimatedSkillTick)/30))+"s":"E: Mở shop · đã hết đợt";
+                string shopKey=ClientPreferences.Active.Label(ControlAction.Shop)+": Mở shop";
+                string shop=client.ItemWave>0?shopKey+" · còn "+Math.Max(0,(int)Math.Ceiling((Math.Min(client.ItemMatchTicks,client.ItemWave*GameRules.RoleplayItemIntervalTicks+GameRules.RoleplayItemWindowTicks)-(double)client.EstimatedSkillTick)/30))+"s":next<client.ItemMatchTicks?shopKey+" · sau "+Math.Max(0,(int)Math.Ceiling((next-(double)client.EstimatedSkillTick)/30))+"s":shopKey+" · đã hết đợt";
                 GUI.Label(new Rect(panelX+18,r.yMax-64,width-36,22),shop,body);
             }
             return GUI.Button(new Rect(panelX+16,r.yMax-42,width-32,34),"Rời trận",leaveButton);
@@ -417,10 +418,11 @@ namespace Tank  {
             int index=tank.Nation;
             int remaining=Math.Max(0,client.SkillReadyTick(0)-(int)client.EstimatedSkillTick);
             bool aiming=tank.Nation==1&&tank.QStage==1;
-            string state=client.SkillPending(0)?"Đang chờ server":aiming?"Đang ngắm · Q để chốt":remaining>0?"Đang hồi "+Math.Ceiling(remaining/30.0)+"s":"Sẵn sàng";
+            string skillKey=ClientPreferences.Active.Label(ControlAction.Skill);
+            string state=client.SkillPending(0)?"Đang chờ server":aiming?"Đang ngắm · "+skillKey+" để chốt":remaining>0?"Đang hồi "+Math.Ceiling(remaining/30.0)+"s":"Sẵn sàng";
             int active=Math.Max(0,tank.QEndTick-(int)client.EstimatedSkillTick);
-            if(active>0&&!client.SkillPending(0))state=(aiming?"Ngắm "+Math.Ceiling(active/30.0)+"s · Q chốt":"Hiệu lực "+Math.Ceiling(active/30.0)+"s")+(remaining>0?" · Hồi "+Math.Ceiling(remaining/30.0)+"s":"");
-            return "Q · "+RoleplayContent.QNames[index]+"\n"+state;
+            if(active>0&&!client.SkillPending(0))state=(aiming?"Ngắm "+Math.Ceiling(active/30.0)+"s · "+skillKey+" chốt":"Hiệu lực "+Math.Ceiling(active/30.0)+"s")+(remaining>0?" · Hồi "+Math.Ceiling(remaining/30.0)+"s":"");
+            return skillKey+" · "+RoleplayContent.QNames[index]+"\n"+state;
         }
         void SkillHud(ClientCore client,TankState tank,float left,float top,float width,string label,string notice,float buttonHeight,float statusHeight) {
             int index=tank.Nation,remaining=Math.Max(0,client.SkillReadyTick(0)-(int)client.EstimatedSkillTick);
@@ -449,7 +451,7 @@ namespace Tank  {
             if(tank.RocketSlowStacks>0&&client.Latest.Tick<tank.RocketSlowEndTick)statuses+="Chậm tên lửa "+Math.Round((1-Math.Pow(GameRules.RocketSlowSpeedPercent/100.0,tank.RocketSlowStacks))*100,1)+"% · "+tank.RocketSlowStacks+" lần trúng · "+Math.Ceiling(Math.Max(0,tank.RocketSlowEndTick-client.EstimatedSkillTick)/30.0)+"s  ";
             int areaSlowEnd=SkillGeometry.KatyushaSlowEnd(tank,client.Latest.Tick,client.Latest.World.Effects);
             if(areaSlowEnd>client.Latest.Tick)statuses+="Chậm vùng "+RoleplayContent.NationNames[1]+" "+(100-GameRules.KatyushaSlowSpeedPercent)+"% "+Math.Ceiling(Math.Max(0,areaSlowEnd-client.EstimatedSkillTick)/30.0)+"s  ";
-            if(client.Latest.Tick<tank.ConfusionEndTick)statuses+="Đảo WASD/mũi tên / khóa nòng "+Math.Ceiling(Math.Max(0,tank.ConfusionEndTick-client.EstimatedSkillTick)/30.0)+"s  ";
+            if(client.Latest.Tick<tank.ConfusionEndTick)statuses+="Đảo hướng di chuyển / khóa nòng "+Math.Ceiling(Math.Max(0,tank.ConfusionEndTick-client.EstimatedSkillTick)/30.0)+"s  ";
             if(client.Latest.Tick<tank.FireLockEndTick)statuses+="Khóa bắn "+Math.Ceiling(Math.Max(0,tank.FireLockEndTick-client.EstimatedSkillTick)/30.0)+"s  ";
             if(client.Latest.Tick<tank.FogEndTick)statuses+="Sương mù "+Math.Ceiling(Math.Max(0,tank.FogEndTick-client.EstimatedSkillTick)/30.0)+"s";
             return statuses.Length>0?statuses:client.SkillNotice=="Q đã được kích hoạt"?"":client.SkillNotice;

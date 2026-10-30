@@ -10,6 +10,15 @@ namespace Tank  {
         void SetupMenuPreviewQa() {
             if(!IsMenuPreview)return;
             var args=Environment.GetCommandLineArgs();
+            if(settingsDraft!=null&&Array.IndexOf(args,"--preview-custom-bindings")>=0){
+                string ignored;
+                settingsDraft.TryBind(ControlAction.Up,false,KeyCode.Keypad8,out ignored);
+                settingsDraft.TryBind(ControlAction.Sprint,false,KeyCode.RightControl,out ignored);
+                settingsDraft.TryBind(ControlAction.Sprint,true,KeyCode.LeftControl,out ignored);
+                settingsDraft.TryBind(ControlAction.Fire,true,KeyCode.KeypadEnter,out ignored);
+                settingsDraft.TryBind(ControlAction.CampaignSkill,false,KeyCode.PageDown,out ignored);
+            }
+            if(settingsDraft!=null&&Array.IndexOf(args,"--preview-binding-capture")>=0){captureAction=(int)ControlAction.Sprint;captureSecondary=false;}
             if(Array.IndexOf(args,"--preview-long-text")>=0) {
                 username="tank_battle_commander_123";
                 password=roomPassword=joinPassword="menu-preview-only-2026";
@@ -34,6 +43,7 @@ namespace Tank  {
             if(Array.IndexOf(args,"--preview-guest")>=0)client.Host=1;
             if(Array.IndexOf(args,"--preview-scroll-bottom")>=0) {
                 scroll=roleplayInfoScroll=dialogScroll=lobbyActionScroll=new Vector2(0,10000);
+                settingsScroll=new Vector2(0,10000);
                 menuViewport=new Vector2(10000,10000);
             }
         }
@@ -45,6 +55,7 @@ namespace Tank  {
             bool preparing=page=="roleplay-preparing";
             if(preparing)page="roleplay-room";
             if(page=="login")return;
+            if(page=="settings"){settingsDraft=ClientPreferences.Active.Copy();settingsOpen=true;return;}
             if(page=="login-loading") {client.Phase=ClientPhase.CONNECTING;username="commander";return;}
             if(page=="register") {
                 registerTab=true;

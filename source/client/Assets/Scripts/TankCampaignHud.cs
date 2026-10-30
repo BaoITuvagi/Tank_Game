@@ -33,18 +33,17 @@ namespace Tank {
             string distance=run.Distance.ToString("N0")+" / 10.000 m   ·   Trùm "+run.Bosses+"/"+CampaignClient.BossCount;
             GUI.Label(new Rect(journeyX,distanceY,journeyWidth,CampaignLabelHeight(hintStyle,distance,journeyWidth,22)),distance,hintStyle);
             CampaignUI.Meter(new Rect(journeyX,75,journeyWidth,9),run.Distance/(float)CampaignClient.GoalDistance,CartoonUi.Gold);
-            bool active=!campaignShopOpen&&!campaignEndConfirm&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now);
+            bool active=!settingsOpen&&!campaignShopOpen&&!campaignEndConfirm&&!client.Campaign.Pending&&!run.Finished&&!campaignPresentation.Busy(now);
             float leaveWidth=compact?122:150,leaveX=viewWidth-leaveWidth-18;
             if(CampaignUI.Button(new Rect(leaveX,10,leaveWidth,CampaignButtonHeight("Kết thúc",leaveWidth)),"Kết thúc",active,true,false,"",true))campaignEndConfirm=true;
-            CartoonUi.Icon(new Rect(leaveX+6,62,compact?17:21,compact?17:21),UiIcon.Damage,CartoonUi.Danger);
-            GUI.Label(new Rect(leaveX+35,60,leaveWidth-32,25),run.Kills+" địch đã hạ",hintStyle);
+            DrawSettingsButton(new Rect(leaveX,60,leaveWidth,28));
             float hotbarWidth=Mathf.Min(1100,viewWidth-40),x=(viewWidth-hotbarWidth)/2,width=(hotbarWidth-20)/3;
             string waiting=run.Finished?"Đã kết thúc":client.Campaign.Pending?"Đang xử lý…":campaignShopOpen?"Đang tiếp tế":campaignEndConfirm?"Đang xác nhận":campaignPresentation.Busy(now)?"Đang hành động…":"";
-            if(DrawCampaignSkill(new Rect(x,viewHeight-88,width,64),"I","Bắn",UiIcon.Fire,run.Shot,run.ShotCooldown,run.ShotDamage+" sát thương · "+run.ShotRange+" ô",active,waiting))client.CampaignCommand(1,4);
+            if(DrawCampaignSkill(new Rect(x,viewHeight-88,width,64),ClientPreferences.Active.Label(ControlAction.CampaignFire),"Bắn",UiIcon.Fire,run.Shot,run.ShotCooldown,run.ShotDamage+" sát thương · "+run.ShotRange+" ô",active,waiting))client.CampaignCommand(1,4);
             UiIcon skillIcon=run.Nation==0?UiIcon.Airstrike:run.Nation==1?UiIcon.Armor:UiIcon.Skill;
-            if(DrawCampaignSkill(new Rect(x+width+10,viewHeight-88,width,64),"O",nation.SkillName,skillIcon,run.Skill,run.SkillCooldown,"Sẵn sàng · hồi "+run.SkillCooldown+" lượt",active,waiting))client.CampaignCommand(1,5);
-            if(DrawCampaignSkill(new Rect(x+2*(width+10),viewHeight-88,width,64),"P","Tiếp tế",UiIcon.Supply,0,1,run.Gold+" vàng · Vật phẩm",active,waiting))ToggleCampaignShop();
-            GUI.Label(new Rect(18,viewHeight-22,viewWidth-36,21),"WASD / Mũi tên: di chuyển   ·   Khiên "+run.Shields+" / "+run.MaxBuff+"   ·   Đòn x2: "+run.DoubleHits,hintStyle);
+            if(DrawCampaignSkill(new Rect(x+width+10,viewHeight-88,width,64),ClientPreferences.Active.Label(ControlAction.CampaignSkill),nation.SkillName,skillIcon,run.Skill,run.SkillCooldown,"Sẵn sàng · hồi "+run.SkillCooldown+" lượt",active,waiting))client.CampaignCommand(1,5);
+            if(DrawCampaignSkill(new Rect(x+2*(width+10),viewHeight-88,width,64),ClientPreferences.Active.Label(ControlAction.CampaignShop),"Tiếp tế",UiIcon.Supply,0,1,run.Gold+" vàng · Vật phẩm",active,waiting))ToggleCampaignShop();
+            GUI.Label(new Rect(18,viewHeight-22,viewWidth-36,21),"Khiên "+run.Shields+" / "+run.MaxBuff+"   ·   Đòn x2: "+run.DoubleHits+"   ·   "+run.Kills+" địch đã hạ",hintStyle);
         }
         bool DrawCampaignSkill(Rect rect,string key,string title,UiIcon icon,int cooldown,int maximum,string readyLabel,bool active,string waiting){
             bool available=active&&cooldown==0;
@@ -55,9 +54,10 @@ namespace Tank {
             CampaignUI.Rule(new Rect(rect.x+2,rect.y+3,4,rect.height-6),available?CartoonUi.Gold:CartoonUi.PanelColor);
             bool compact=rect.width<240;
             CartoonUi.Icon(new Rect(rect.x+12,rect.y+(compact?7:20),compact?20:24,compact?20:24),icon,available?CartoonUi.Ink:CartoonUi.Text);
-            CartoonUi.Badge(new Rect(rect.x+(compact?10:43),rect.y+(compact?33:18),26,compact?23:27),key,CartoonUi.PanelDark);
+            float keyWidth=Mathf.Clamp(CampaignUI.SmallLight.CalcSize(new GUIContent(key)).x+16,26,Mathf.Min(120,rect.width*.4f));
+            CartoonUi.Badge(new Rect(rect.x+(compact?10:43),rect.y+(compact?33:18),keyWidth,compact?23:27),key,CartoonUi.PanelDark);
             var titleStyle=compact?(available?campaignHudTextCompact:campaignHudLightCompact):available?CampaignUI.Text:CampaignUI.SkillTitleLight;
-            float textX=rect.x+(compact?46:78),textWidth=rect.width-(compact?54:86),titleHeight=CampaignLabelHeight(titleStyle,title,textWidth,22);
+            float textX=rect.x+(compact?20:53)+keyWidth,textWidth=rect.xMax-textX-8,titleHeight=CampaignLabelHeight(titleStyle,title,textWidth,22);
             GUI.Label(new Rect(textX,rect.y+5,textWidth,titleHeight),title,titleStyle);
             string state=cooldown>0?"Hồi "+cooldown+" lượt":!string.IsNullOrEmpty(waiting)?waiting:readyLabel;
             var stateStyle=compact?(available?campaignHudDarkHintCompact:campaignHudHintCompact):available?CampaignUI.Hint:CampaignUI.SmallLight;

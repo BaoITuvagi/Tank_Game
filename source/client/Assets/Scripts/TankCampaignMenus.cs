@@ -5,6 +5,8 @@ namespace Tank {
     public partial class TankApp {
         int campaignPage,campaignChoice=-1,campaignAccountRevision;
         Vector2 campaignScroll;
+        Rect campaignPointerArea;
+        bool CampaignMouseInMap(){return campaignPointerArea.Contains(new Vector2(Input.mousePosition.x,Screen.height-Input.mousePosition.y));}
         readonly CampaignPresentation campaignPresentation=new CampaignPresentation();
         CampaignAudio campaignAudio;
         void EnsureCampaignAudio(){
@@ -71,23 +73,23 @@ namespace Tank {
             if(!CampaignOpen||client.Phase!=ClientPhase.LOBBY||!GameWindowFocus.IsForeground||AnyDialog){queuedCampaignAction=-1;return;}
             if(campaignPage!=3||run==null||run.Finished){campaignShopOpen=false;return;}
             if(campaignEndConfirm){queuedCampaignAction=-1;if(Input.GetKeyDown(KeyCode.Escape))campaignEndConfirm=false;return;}
-            if(Input.GetKeyDown(KeyCode.P)){ToggleCampaignShop();return;}
+            if(ClientPreferences.Active.Pressed(ControlAction.CampaignShop,!campaignShopOpen&&CampaignMouseInMap())){ToggleCampaignShop();return;}
             if(campaignShopOpen){queuedCampaignAction=-1;if(Input.GetKeyDown(KeyCode.Escape))ToggleCampaignShop();return;}
             int action=-1;
-            if(Input.GetKeyDown(KeyCode.W)||Input.GetKeyDown(KeyCode.UpArrow))action=0;
-            else if(Input.GetKeyDown(KeyCode.D)||Input.GetKeyDown(KeyCode.RightArrow))action=1;
-            else if(Input.GetKeyDown(KeyCode.S)||Input.GetKeyDown(KeyCode.DownArrow))action=2;
-            else if(Input.GetKeyDown(KeyCode.A)||Input.GetKeyDown(KeyCode.LeftArrow))action=3;
-            else if(Input.GetKeyDown(KeyCode.I))action=4;
-            else if(Input.GetKeyDown(KeyCode.O))action=5;
+            if(ClientPreferences.Active.Pressed(ControlAction.Up,CampaignMouseInMap()))action=0;
+            else if(ClientPreferences.Active.Pressed(ControlAction.Right,CampaignMouseInMap()))action=1;
+            else if(ClientPreferences.Active.Pressed(ControlAction.Down,CampaignMouseInMap()))action=2;
+            else if(ClientPreferences.Active.Pressed(ControlAction.Left,CampaignMouseInMap()))action=3;
+            else if(ClientPreferences.Active.Pressed(ControlAction.CampaignFire,CampaignMouseInMap()))action=4;
+            else if(ClientPreferences.Active.Pressed(ControlAction.CampaignSkill,CampaignMouseInMap()))action=5;
             if(action>=0)queuedCampaignAction=action;
             if(client.Campaign.Pending||campaignPresentation.Busy(now))return;
             action=queuedCampaignAction;queuedCampaignAction=-1;
             if(action<0&&now>=nextCampaignRepeat) {
-                if(Input.GetKey(KeyCode.W)||Input.GetKey(KeyCode.UpArrow))action=0;
-                else if(Input.GetKey(KeyCode.D)||Input.GetKey(KeyCode.RightArrow))action=1;
-                else if(Input.GetKey(KeyCode.S)||Input.GetKey(KeyCode.DownArrow))action=2;
-                else if(Input.GetKey(KeyCode.A)||Input.GetKey(KeyCode.LeftArrow))action=3;
+                if(ClientPreferences.Active.Held(ControlAction.Up,CampaignMouseInMap()))action=0;
+                else if(ClientPreferences.Active.Held(ControlAction.Right,CampaignMouseInMap()))action=1;
+                else if(ClientPreferences.Active.Held(ControlAction.Down,CampaignMouseInMap()))action=2;
+                else if(ClientPreferences.Active.Held(ControlAction.Left,CampaignMouseInMap()))action=3;
             }
             if(action>=0){client.CampaignCommand(1,action);nextCampaignRepeat=now+.18;}
         }
@@ -98,6 +100,7 @@ namespace Tank {
             float playHeight=viewHeight-mapTop-mapFooter;
             float cell=Mathf.Max(1,Mathf.Min((viewWidth-32)/13,playHeight/rows));
             float bw=13*cell,bh=rows*cell,bx=(viewWidth-bw)/2,by=mapTop+(playHeight-bh)/2;
+            campaignPointerArea=new Rect(bx,by,bw,bh);
             double now=Time.unscaledTimeAsDouble;
             campaignPresentation.Observe(run,now);
             float bottom=campaignPresentation.CameraBottom(rows,now);

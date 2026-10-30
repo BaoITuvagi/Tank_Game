@@ -84,7 +84,7 @@ namespace Tank {
             foreach(var v in voices)if(v!=null&&v.Prepared&&(Marshal.PtrToStructure<WaveHeader>(v.Header).Flags&1)!=0)Release(v,false);
         }
         void Play(int kind,bool priority=false,float gain=1) {
-            if(disposed)return;Poll();Voice voice=null;
+            if(disposed||!ClientPreferences.Active.SoundEnabled)return;Poll();Voice voice=null;
             for(int i=priority?0:2;i<(priority?2:voices.Length);i++)if(voices[i]!=null&&!voices[i].Prepared) {voice=voices[i];break;}
             if(voice==null&&priority) {voice=voices[0]??voices[1];if(voice!=null&&!Release(voice,true))voice=null;}
             if(voice==null)return;

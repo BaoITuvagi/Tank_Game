@@ -21,6 +21,7 @@ namespace Tank  {
         }
         void Awake() {
             Directory.CreateDirectory(Application.persistentDataPath);
+            LoadPreferences();
             Application.runInBackground=true;
             Application.targetFrameRate=60;
             client=MapLoader.CreateClient(out map);
@@ -47,7 +48,7 @@ namespace Tank  {
         }
         void Update() {
             if(client.Phase!=ClientPhase.PLAYING)leaveMatchForm=false;
-            if(GameWindowFocus.IsForeground&&(Input.GetKeyDown(KeyCode.F11)||(Input.GetKey(KeyCode.LeftAlt)&&Input.GetKeyDown(KeyCode.Return))))ToggleFullscreen();
+            if(!settingsOpen&&GameWindowFocus.IsForeground&&(Input.GetKeyDown(KeyCode.F11)||(Input.GetKey(KeyCode.LeftAlt)&&Input.GetKeyDown(KeyCode.Return))))ToggleFullscreen();
             if(IsMenuPreview)return;
             if(ArenaPreview.Enabled) {
                 ArenaPreview.Animate(client);
@@ -64,7 +65,7 @@ namespace Tank  {
             UpdateRoleplayShop();
             UpdateCampaign();
             client.Smooth(Time.unscaledDeltaTime);
-            autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog,client.Phase==ClientPhase.PLAYING&&Input.GetMouseButtonDown(1)&&PointerInArena());
+            autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog,client.Phase==ClientPhase.PLAYING&&ClientPreferences.Active.Pressed(ControlAction.AutoFire,PointerInArena()));
             if(client.Phase!=ClientPhase.PLAYING) {
                 nextStep=ClientCore.NowUs;
                 inputWasActive=false;
@@ -80,10 +81,10 @@ namespace Tank  {
             if(active) {
                 float mouseX=Input.mousePosition.x/Mathf.Max(.01f,uiScale),mouseY=(Screen.height-Input.mousePosition.y)/Mathf.Max(.01f,uiScale);
                 SkillGeometry.TryAim(mouseX,mouseY,arenaX,arenaY,scale,map.width,map.height,arenaRenderer.Shake.x,arenaRenderer.Shake.y,ref client.SkillAimX,ref client.SkillAimY);
-                if(Input.GetKeyDown(KeyCode.Q))client.UseSkill(0);
+                if(ClientPreferences.Active.Pressed(ControlAction.Skill,PointerInArena()))client.UseSkill(0);
                 SkillAudio();
-                buttons=GameplayInput.MovementButtons(Input.GetKey(KeyCode.W),Input.GetKey(KeyCode.S),Input.GetKey(KeyCode.A),Input.GetKey(KeyCode.D),Input.GetKey(KeyCode.UpArrow),Input.GetKey(KeyCode.DownArrow),Input.GetKey(KeyCode.LeftArrow),Input.GetKey(KeyCode.RightArrow))|((Input.GetMouseButton(0)&&PointerInArena())||Input.GetKey(KeyCode.Space)?16:0);
-                if(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift))buttons|=32;
+                buttons=ClientPreferences.Active.MovementButtons(PointerInArena())|(ClientPreferences.Active.Held(ControlAction.Fire,PointerInArena())?16:0);
+                if(ClientPreferences.Active.Held(ControlAction.Sprint,PointerInArena()))buttons|=32;
                 if(PointerInArena())aim=GameplayAim.Angle(Input.mousePosition.x,Screen.height-Input.mousePosition.y,uiScale,arenaX+arenaRenderer.Shake.x,arenaY+arenaRenderer.Shake.y,scale,map.height,client.Predicted);
                 lastAim=aim;
             }
@@ -118,7 +119,7 @@ namespace Tank  {
                 if(playing)arenaTheme.Background(viewWidth,viewHeight);
                 else {
                     menu.Background(viewWidth,viewHeight,!CampaignOpen&&(roomForm||client.Phase<=ClientPhase.AUTHENTICATING||client.Phase==ClientPhase.LOBBY&&!history));
-                    if(CampaignOpen){DrawCampaign();return;}
+                    if(CampaignOpen){GUI.enabled=!settingsOpen;DrawCampaign();GUI.enabled=true;DrawPreferencesDialog();return;}
                     var layout=MenuLayout.Fit(Screen.width,Screen.height);
                     viewport=layout.Width>Screen.width||layout.Height>Screen.height;
                     viewWidth=layout.Width;viewHeight=layout.Height;
@@ -133,6 +134,7 @@ namespace Tank  {
                 DrawDialogs();
                 FocusedControl=GUI.GetNameOfFocusedControl();
                 if(viewport)GUI.EndScrollView();
+                DrawPreferencesDialog();
             }
             finally {
                 GUI.skin=previousSkin;

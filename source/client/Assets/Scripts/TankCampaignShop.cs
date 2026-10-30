@@ -15,7 +15,8 @@ namespace Tank {
             float width=Mathf.Min(960,viewWidth-32),height=Mathf.Min(700,viewHeight-32);
             Rect card=new Rect((viewWidth-width)/2,(viewHeight-height)/2,width,height);CartoonUi.Panel(card,CartoonUi.PanelDark,10,0);
             CampaignUI.Rule(new Rect(card.x+20,card.y+1,width-40,4),CartoonUi.Gold);
-            const string title="CỬA HÀNG TIẾP TẾ",close="Trở lại chiến trường · P / Esc";
+            const string title="CỬA HÀNG TIẾP TẾ";
+            string close="Trở lại chiến trường · "+ClientPreferences.Active.Label(ControlAction.CampaignShop)+" / Esc";
             string summary=run.Gold+" vàng · "+run.Distance+" m · Mua không tốn lượt",stock="HP "+run.Hp+"/"+run.MaxHp+"   ·   Khiên "+run.Shields+"/"+run.MaxBuff+"   ·   Đòn x2 "+run.DoubleHits+"/"+run.MaxBuff;
             float titleHeight=CampaignLabelHeight(CampaignUI.Header,title,width-116,34),summaryHeight=CampaignLabelHeight(CampaignUI.SmallLight,summary,width-116,24),stockHeight=CampaignLabelHeight(CampaignUI.SmallLight,stock,width-64,24),headerHeight=titleHeight+summaryHeight+stockHeight+30;
             CartoonUi.Icon(new Rect(card.x+30,card.y+30,38,38),UiIcon.Supply,CartoonUi.Gold);
@@ -26,7 +27,7 @@ namespace Tank {
             float closeHeight=CampaignButtonHeight(close,width-52),closeY=card.yMax-14-closeHeight,noticeHeight=CampaignLabelHeight(CampaignUI.DialogueText,feedback,width-76,26)+26,noticeY=closeY-10-noticeHeight;
             Rect viewport=new Rect(card.x+20,card.y+30+headerHeight,width-40,Mathf.Max(60,noticeY-card.y-headerHeight-42));
             string[] titles={"Hồi máu","Khiên bảo vệ","Tăng sát thương"};
-            string[] descriptions={"Hồi ngay 25 HP, tối đa "+run.MaxHp+" HP của xe.","Nhận 3 khiên. Mỗi khiên chặn trọn một đòn.","Nhận 3 đòn x2 cho I hoặc cận chiến.\nChỉ trừ khi đánh trúng; không áp dụng cho O."};
+            string[] descriptions={"Hồi ngay 25 HP, tối đa "+run.MaxHp+" HP của xe.","Nhận 3 khiên. Mỗi khiên chặn trọn một đòn.","Nhận 3 đòn x2 cho "+ClientPreferences.Active.Label(ControlAction.CampaignFire)+" hoặc cận chiến.\nChỉ trừ khi đánh trúng; không áp dụng cho kỹ năng."};
             int[] icons={0,2,1};
             bool columns=width>=760;
             string[] reasons=new string[3];float[] rowHeights=new float[3],titleHeights=new float[3],descriptionHeights=new float[3],reasonHeights=new float[3],priceHeights=new float[3];float contentHeight=0,rowWidth=columns?(viewport.width-44)/3:viewport.width-22,textWidth=columns?rowWidth-32:rowWidth-266;

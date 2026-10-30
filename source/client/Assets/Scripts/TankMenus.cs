@@ -75,7 +75,7 @@ namespace Tank  {
         }
         bool AnyDialog  {
             get {
-                return profileForm||joinForm||leaveMatchForm||roleplayShopOpen||!string.IsNullOrEmpty(walletNotice);
+                return settingsOpen||profileForm||joinForm||leaveMatchForm||roleplayShopOpen||!string.IsNullOrEmpty(walletNotice);
             }
         }
         public ClientCore Core  {
@@ -104,15 +104,16 @@ namespace Tank  {
                 GUI.Label(new Rect(114,46,240,18),"SẴN SÀNG XUẤT KÍCH",depotKicker);
             }
             if(client.Phase>=ClientPhase.LOBBY) {
-                string profileLabel=WrapMenuText(string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname,menu.HeaderButton,190);
-                float buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,menu.HeaderButton,190));
+                float profileWidth=viewWidth<1100?116:190,walletWidth=viewWidth<1100?140:180,profileX=viewWidth-252-profileWidth;
+                string profileLabel=WrapMenuText(string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname,menu.HeaderButton,profileWidth);
+                float buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,menu.HeaderButton,profileWidth));
                 float buttonY=((playing?68:76)-buttonHeight)/2;
-                DrawWalletBadge(new Rect(viewWidth-534,((playing?68:76)-40)/2,180,40));
-                if(GUI.Button(new Rect(viewWidth-136,buttonY,112,buttonHeight),"Đăng xuất",menu.HeaderButton)) {
+                DrawWalletBadge(new Rect(profileX-10-walletWidth,((playing?68:76)-40)/2,walletWidth,40));
+                if(GUI.Button(new Rect(viewWidth-242,buttonY,104,buttonHeight),"Đăng xuất",menu.HeaderButton)) {
                     client.Logout();
                     roomForm=profileForm=joinForm=false;
                 }
-                if(GUI.Button(new Rect(viewWidth-342,buttonY,190,buttonHeight),profileLabel,menu.HeaderButton)) {
+                if(GUI.Button(new Rect(profileX,buttonY,profileWidth,buttonHeight),profileLabel,menu.HeaderButton)) {
                     displayName=client.Nickname;
                     profileForm=true;
                     formError="";
@@ -120,6 +121,7 @@ namespace Tank  {
                     GUI.FocusControl(null);
                 }
             }
+            DrawSettingsButton(new Rect(viewWidth-128,((playing?68:76)-42)/2,104,42));
         }
         bool Button(string label,bool enabled=true,bool secondary=false,GUIStyle style=null) {
             bool prior=GUI.enabled;
@@ -542,8 +544,8 @@ namespace Tank  {
                 GUILayout.Space(12);
                 var selected=client.Players.Find(p=>p.Slot==client.Slot);
                 if(selected!=null&&selected.Nation>=0) {
-                    GUILayout.Label("Q · "+RoleplayContent.QNames[selected.Nation],menu.Section);
-                    GUILayout.Label(RoleplayContent.NationDescriptions[selected.Nation],menu.Text);
+                    GUILayout.Label(ClientPreferences.Active.Label(ControlAction.Skill)+" · "+RoleplayContent.QNames[selected.Nation],menu.Section);
+                    GUILayout.Label(ClientPreferences.Active.NationDescription(selected.Nation),menu.Text);
                     GUILayout.Label("Hồi chiêu "+(RoleplayContent.NationCooldowns[selected.Nation]/30f).ToString("0.#")+" giây",menu.Hint);
                 }
                 else GUILayout.Label("Chọn thẻ phe để xem kỹ năng Q và sẵn sàng.",menu.Hint);
@@ -725,6 +727,7 @@ namespace Tank  {
             if(!layout.Narrow)GUI.Label(new Rect(r.xMax-226,r.center.y-layout.StatsHeight/2,210,layout.StatsHeight),layout.Stats,cardText);
         }
         void DrawDialogs() {
+            if(settingsOpen)return;
             if(roleplayShopOpen) {
                 bool enabled=GUI.enabled;GUI.enabled=enabled&&string.IsNullOrEmpty(walletNotice);DrawRoleplayShop();GUI.enabled=enabled;
                 if(string.IsNullOrEmpty(walletNotice))return;

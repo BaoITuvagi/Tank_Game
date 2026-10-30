@@ -23,6 +23,14 @@ Dùng Unity **6000.3.24f1**, theo [ProjectVersion.txt](../source/client/ProjectS
 
 Client cố định server `13.75.2.41`, TCP `8888`, UDP `8889` bằng các hằng trong [TankApp](../source/client/Assets/Scripts/TankApp.cs). Đăng nhập và đăng ký luôn dùng địa chỉ này. Đã bỏ nút/màn hình Kết nối và file cấu hình StreamingAssets; `connection.json` từng lưu trên máy không còn được đọc. Muốn đổi endpoint phải sửa hằng và build lại client. Smoke/test harness vẫn có endpoint riêng để kiểm thử.
 
+## Cài đặt trên máy người chơi
+
+Nút **Cài đặt** có ở màn đăng nhập, lobby, trận multiplayer và chiến dịch. Người chơi có thể gán hai phím bàn phím/nút chuột cho mỗi thao tác: di chuyển chung; bắn, tăng tốc, tự bắn, kỹ năng và shop multiplayer; bắn, kỹ năng và tiếp tế chiến dịch. Phím trùng trong cùng chế độ bị từ chối; Esc và F11 được giữ cho giao diện. Nút × bỏ gán, Mặc định khôi phục thiết lập ban đầu, Hủy bỏ thay đổi; Lưu ghi và áp dụng thiết lập. Nút chuột dùng để điều khiển chỉ có tác dụng trên vùng bản đồ, tránh kích hoạt khi bấm giao diện.
+
+Bật/tắt âm thanh áp dụng cho cả PCM WinMM và Unity AudioSource. Màn này có nút mở repository GitHub và Facebook `https://www.facebook.com/huy.huu.nguyen.266934` bằng trình duyệt. Thiết lập lưu tại `Application.persistentDataPath/settings.json`, độc lập tài khoản, server và file kết nối cũ; file thiếu/hỏng dùng lại mặc định. Nhãn phím trong HUD cập nhật theo thiết lập đã lưu.
+
+Mã chính: `ClientPreferences.cs` (mapping, kiểm tra và lưu file), `TankSettings.cs` (giao diện). `ClientPreferencesTests` kiểm tra gán phím, xung đột giữa chế độ, lọc chuột ngoài bản đồ, ghi/đọc và thay thế file, cấu hình hỏng và master audio. Preview offline: `--menu-preview settings`.
+
 <a id="ui"></a>
 ## Giao diện và render arena
 
