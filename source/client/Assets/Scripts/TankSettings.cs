@@ -45,6 +45,13 @@ namespace Tank {
             Rect links=GUILayoutUtility.GetRect(contentWidth,44,GUILayout.Width(contentWidth),GUILayout.Height(44));
             if(GUI.Button(new Rect(links.x,links.y,(contentWidth-12)/2,44),"GitHub",bindingButton))Application.OpenURL(GithubUrl);
             if(GUI.Button(new Rect(links.x+(contentWidth+12)/2,links.y,(contentWidth-12)/2,44),"Facebook",bindingButton))Application.OpenURL(FacebookUrl);
+            if(client.Phase>=ClientPhase.LOBBY){
+                GUILayout.Space(12);
+                if(GUILayout.Button("Đăng xuất",menu.Danger,GUILayout.Height(44))){
+                    ClosePreferences();client.Logout();roomForm=profileForm=joinForm=false;campaignPage=0;
+                    GUILayout.EndVertical();GUILayout.EndScrollView();GUILayout.EndArea();GUI.skin=previousSkin;return;
+                }
+            }
             GUILayout.Space(24);
             GUILayout.Label("GÁN PHÍM ĐIỀU KHIỂN",menu.Section);
             GUILayout.Space(8);

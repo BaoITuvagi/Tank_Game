@@ -104,15 +104,11 @@ namespace Tank  {
                 GUI.Label(new Rect(114,46,240,18),"SẴN SÀNG XUẤT KÍCH",depotKicker);
             }
             if(client.Phase>=ClientPhase.LOBBY) {
-                float profileWidth=viewWidth<1100?116:190,walletWidth=viewWidth<1100?140:180,profileX=viewWidth-252-profileWidth;
+                float profileWidth=viewWidth<1100?116:190,walletWidth=viewWidth<1100?140:180,profileX=viewWidth-138-profileWidth;
                 string profileLabel=WrapMenuText(string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname,menu.HeaderButton,profileWidth);
                 float buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,menu.HeaderButton,profileWidth));
                 float buttonY=((playing?68:76)-buttonHeight)/2;
                 DrawWalletBadge(new Rect(profileX-10-walletWidth,((playing?68:76)-40)/2,walletWidth,40));
-                if(GUI.Button(new Rect(viewWidth-242,buttonY,104,buttonHeight),"Đăng xuất",menu.HeaderButton)) {
-                    client.Logout();
-                    roomForm=profileForm=joinForm=false;
-                }
                 if(GUI.Button(new Rect(profileX,buttonY,profileWidth,buttonHeight),profileLabel,menu.HeaderButton)) {
                     displayName=client.Nickname;
                     profileForm=true;
