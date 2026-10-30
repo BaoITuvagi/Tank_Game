@@ -119,7 +119,7 @@ namespace Tank  {
                 bool viewport=false;
                 if(playing)arenaTheme.Background(viewWidth,viewHeight);
                 else {
-                    menu.Background(viewWidth,viewHeight,!CampaignOpen&&(roomForm||client.Phase<=ClientPhase.AUTHENTICATING||client.Phase==ClientPhase.LOBBY&&!history));
+                    menu.Background(viewWidth,viewHeight,!CampaignOpen&&(roomForm||client.Phase<=ClientPhase.AUTHENTICATING||client.Phase==ClientPhase.LOBBY));
                     if(CampaignOpen){GUI.enabled=!settingsOpen;DrawCampaign();GUI.enabled=true;DrawPreferencesDialog();return;}
                     var layout=MenuLayout.Fit(Screen.width,Screen.height);
                     viewport=layout.Width>Screen.width||layout.Height>Screen.height;

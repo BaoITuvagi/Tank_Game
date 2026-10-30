@@ -38,7 +38,7 @@ namespace Tank  {
             depotKicker=CartoonUi.Label(12,CartoonUi.Gold);depotTitle=CartoonUi.Label(28,CartoonUi.Text,true);
             depotText=CartoonUi.Label(16,CartoonUi.Text);depotName=CartoonUi.Label(19,CartoonUi.Text);
             depotSmall=CartoonUi.Label(14,CartoonUi.Muted);depotNumber=CartoonUi.Label(28,CartoonUi.Gold,true);
-            depotAction=new GUIStyle(compactAction){fixedHeight=42,padding=new RectOffset(12,12,4,6)};
+            depotAction=new GUIStyle(compactAction){fixedHeight=42,wordWrap=false,padding=new RectOffset(12,12,4,6)};
         }
         void DepotRule(Rect rect,Color color) {
             ArenaRenderer.Fill(new Rect(rect.x,rect.y,Mathf.Min(36,rect.width),rect.height),color);
@@ -297,17 +297,20 @@ namespace Tank  {
             GUILayout.EndArea();
             Rect browser=new Rect(area.x,area.y+164,area.width,area.height-164);
             CartoonUi.Panel(browser,CartoonUi.PanelDark,8,0);
-            GUI.Label(new Rect(browser.x+22,browser.y+18,browser.width-402,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
-            float actionX=browser.xMax-370;
-            if(GUI.Button(new Rect(actionX,browser.y+14,112,42),"Tạo phòng",depotAction))OpenRoomForm(false);
-            if(GUI.Button(new Rect(actionX+120,browser.y+14,94,42),"Làm mới",depotAction)) {
+            float createWidth=Mathf.Max(112,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Tạo phòng")).x));
+            float refreshWidth=Mathf.Max(94,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Làm mới")).x));
+            float toggleWidth=Mathf.Max(128,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Danh sách phòng")).x),Mathf.Ceil(depotAction.CalcSize(new GUIContent("Lịch sử")).x));
+            float actionX=browser.xMax-20-createWidth-refreshWidth-toggleWidth-16;
+            GUI.Label(new Rect(browser.x+22,browser.y+18,actionX-browser.x-38,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
+            if(GUI.Button(new Rect(actionX,browser.y+14,createWidth,42),"Tạo phòng",depotAction))OpenRoomForm(false);
+            if(GUI.Button(new Rect(actionX+createWidth+8,browser.y+14,refreshWidth,42),"Làm mới",depotAction)) {
                 if(history) {
                     client.CloseHistoryDetail();
                     client.GetHistory();
                 }
                 else client.Refresh();
             }
-            if(GUI.Button(new Rect(actionX+222,browser.y+14,128,42),history?"Danh sách phòng":"Lịch sử",depotAction)) {
+            if(GUI.Button(new Rect(actionX+createWidth+refreshWidth+16,browser.y+14,toggleWidth,42),history?"Danh sách phòng":"Lịch sử",depotAction)) {
                 history=!history;
                 client.CloseHistoryDetail();
                 scroll=Vector2.zero;
