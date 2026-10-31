@@ -121,6 +121,7 @@ namespace Tank  {
             return op==Op.RegisterResult||op==Op.LoginResult||op==Op.LogoutResult||op==Op.ActionResult|| op==Op.RoomListResult||op==Op.HistoryResult||op==Op.HistoryDetailResult||op==Op.DisplayNameResult||op==Op.HeartbeatAck;
         }
         void ClearAccountState()  {
+            ClearChat();
             ClearWallet();
             Campaign=new Tank.Campaign.CampaignClient();
             ClearRoleplayMatch();RoomMode=RoomMode.NORMAL;PreparationError="";

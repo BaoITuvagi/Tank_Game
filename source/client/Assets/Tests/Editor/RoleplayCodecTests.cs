@@ -23,7 +23,7 @@ public class RoleplayCodecTests {
             byte[] bytes=Bytes(line.Split('\t')[1]);var packet=Protocol.Decode(bytes);
             CollectionAssert.AreEqual(bytes,Protocol.Frame(packet.Op,packet.Sequence,packet.Payload));seen.Add(packet.Op);
         }
-        Assert.AreEqual(46,seen.Count);foreach(byte op in new byte[]{80,84,85,86,87})Assert.IsTrue(seen.Contains(op));
+        Assert.AreEqual(48,seen.Count);foreach(byte op in new byte[]{80,84,85,86,87,88,89})Assert.IsTrue(seen.Contains(op));
         var old=Protocol.Frame(Op.Heartbeat,1,new byte[0]);old[2]=3;Assert.Throws<InvalidDataException>(()=>Protocol.Decode(old));
     }
     [Test] public void InvalidEffectMaskLeavesBaseUntouched() {

@@ -1,6 +1,6 @@
 # Tank Battle Multiplayer
 
-Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3): giao thức **16**, nội dung **7**, khớp client 1.0.3 do Launcher tải. Phần gameplay, đồ họa, map, item, shop và chiến dịch giữ theo bản của Bảo; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
+Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3). Working tree bổ sung chat trong trận dùng giao thức **17**, nội dung **7** với hash được sinh lại; cần server và client build cùng đợt. Phần gameplay, đồ họa, map, item, shop và chiến dịch giữ theo bản của Bảo; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
 
 Các lệnh CMD chạy tại thư mục gốc repository:
 
@@ -10,7 +10,9 @@ scripts\init-admin.cmd -Name admin
 scripts\start-server.cmd
 ```
 
-Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; server phải dừng khi khởi tạo. Bản Launcher 1.0.3 hiện có kết nối được server này. Hộp nổi admin mới cần client được build từ source tích hợp này; website/server không tự thay file client trong Launcher.
+Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; server phải dừng khi khởi tạo. Client cũ dùng giao thức 16 không kết nối được server 17. Chat và hộp nổi admin cần client được build từ source tích hợp này; website/server không tự thay file client trong Launcher. Build local chưa cập nhật bản phân phối Launcher.
+
+**Chat trong trận Thường/Nhập vai:** bấm khung Chat ở sidebar bên phải rồi bấm ô nhập; Enter gửi, Esc hủy. Tên có màu theo xe của người gửi; khi đang gõ, xe ngừng nhận điều khiển và tự bắn tắt. Cửa sổ thấp dùng tab Xếp hạng/Chat. Khi vào lại cùng trận, khôi phục tối đa 100 tin gần nhất; không lưu chat sau trận. Xem [giao diện](docs/client.md) và [giao thức chat](docs/protocol.md#match-chat).
 
 Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/).
 

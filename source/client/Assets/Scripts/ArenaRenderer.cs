@@ -316,8 +316,10 @@ namespace Tank  {
             Fill(new Rect(r.x+1,r.y+1,(r.width-2)*Mathf.Clamp01((float)energy/Movement.MaxEnergy),r.height-2),new Color(.12f,.58f,1f,alpha));
         }
         Vector2 rankingScroll,skillStatusScroll;
+        public readonly MatchChatHud Chat=new MatchChatHud();
         public bool Panel(ClientCore client,float panelX,float top,float width,float height,bool stale)  {
             Styles();
+            Chat.Sync(client,Screen.height);
             var r=new Rect(panelX,top,width,height);
             // One instrument rail: the arena, aiming bounds and world presentation stay untouched.
             CartoonUi.Panel(new Rect(panelX+3,top,width-6,height),CartoonUi.PanelDark,5);
@@ -347,21 +349,34 @@ namespace Tank  {
             float itemTop=110,itemHeight=roleplay?60:local==null?32:Mathf.Max(32,body.CalcHeight(new GUIContent(ItemHudText(local,latest.Tick)),width-40)+10);
             if(roleplay) {
                 GUI.Label(new Rect(panelX+20,top+itemTop,width-40,18),"TÚI VẬT PHẨM · BẤM ĐỂ DÙNG",section);
+                bool enabled=GUI.enabled;GUI.enabled=enabled&&!Chat.InputBlocked;
                 InventoryHud(client,panelX+20,top+itemTop+20,width-40);
+                GUI.enabled=enabled;
             }
             else if(local!=null)ItemHud(local,latest.Tick,panelX+20,top+itemTop+4,width-40,itemHeight-8);
             float rankTop=itemTop+itemHeight+26;
-            GUI.Label(new Rect(panelX+20,top+rankTop-23,width-110,18),"XẾP HẠNG",section);
-            GUI.Label(new Rect(panelX+width-72,top+rankTop-23,58,18),"HẠ / TỬ",section);
             var ranked=LiveRanking.Sort(latest.World);
             bool hasSkill=client.RoomMode==RoomMode.ROLEPLAY&&local!=null&&local.Nation>=0&&local.Nation<8;
             string skillLabel=hasSkill?SkillButtonLabel(client,local):"",skillNotice=hasSkill?SkillStatus(client,local):"";
             float footerHeight=stale?78:54;
             float skillHeight=hasSkill?Mathf.Max(54,skillUnavailableText.CalcHeight(new GUIContent(skillLabel),width-32)):0;
             float noticeHeight=string.IsNullOrEmpty(skillNotice)?0:Mathf.Ceil(body.CalcHeight(new GUIContent(skillNotice),width-48));
-            float noticeSpace=Mathf.Max(lineHeight,Mathf.Floor((height-rankTop-footerHeight-skillHeight-14-64)/lineHeight)*lineHeight);
+            bool compact=Screen.height<720;
+            float chatSpace=compact?0:Chat.Expanded?188:46;
+            float middleMinimum=compact&&Chat.Expanded?150:64;
+            float noticeSpace=Mathf.Max(lineHeight,Mathf.Floor((height-rankTop-footerHeight-skillHeight-14-middleMinimum-chatSpace)/lineHeight)*lineHeight);
             float statusHeight=Mathf.Min(noticeHeight,noticeSpace),skillBlockHeight=skillHeight+(statusHeight>0?6+statusHeight:0);
             float rankHeight=Mathf.Max(32,height-rankTop-(hasSkill?footerHeight+skillBlockHeight+8:footerHeight+8));
+            if(!compact&&rankHeight-chatSpace<64){compact=true;chatSpace=0;}
+            if(compact) {
+                Chat.Tabs(new Rect(panelX+12,top+rankTop-26,width-24,30),client);
+                rankTop+=10;rankHeight=Mathf.Max(32,rankHeight-10);
+            }
+            else {
+                GUI.Label(new Rect(panelX+20,top+rankTop-23,width-110,18),"XẾP HẠNG",section);
+                GUI.Label(new Rect(panelX+width-72,top+rankTop-23,58,18),"HẠ / TỬ",section);
+                rankHeight=Mathf.Max(32,rankHeight-chatSpace);
+            }
             float rowWidth=width-38,statsWidth=52,totalHeight=8;
             foreach(var tank in ranked)statsWidth=Mathf.Max(statsWidth,Mathf.Ceil(rankName.CalcSize(new GUIContent(tank.Kills+" / "+tank.Deaths)).x)+4);
             float nameWidth=rowWidth-64-statsWidth;
@@ -369,26 +384,32 @@ namespace Tank  {
                 string label=CartoonUi.WrapText(RankingLabel(client,tank),body,nameWidth);
                 totalHeight+=Mathf.Max(32,Mathf.Ceil(body.CalcHeight(new GUIContent(label),nameWidth))+12)+4;
             }
-            rankingScroll=GUI.BeginScrollView(new Rect(panelX+10,top+rankTop,width-20,rankHeight),rankingScroll,new Rect(0,0,rowWidth,totalHeight),false,false);
-            float py=0;
-            int rank=0;
-            foreach(var tank in ranked)  {
-                rank++;
-                string label=CartoonUi.WrapText(RankingLabel(client,tank),body,nameWidth);
-                float nameHeight=Mathf.Ceil(body.CalcHeight(new GUIContent(label),nameWidth)),rowHeight=Mathf.Max(32,nameHeight+12);
-                if(tank.Slot==client.Slot) {
-                    CartoonUi.Panel(new Rect(0,py,rowWidth,rowHeight),Color.Lerp(CartoonUi.PanelDark,CartoonUi.Ready,.22f),4);
-                    Fill(new Rect(0,py+5,3,rowHeight-10),CartoonUi.Ready);
+            if(!compact||!Chat.Expanded) {
+                rankingScroll=GUI.BeginScrollView(new Rect(panelX+10,top+rankTop,width-20,rankHeight),rankingScroll,new Rect(0,0,rowWidth,totalHeight),false,false);
+                float py=0;
+                int rank=0;
+                foreach(var tank in ranked)  {
+                    rank++;
+                    string label=CartoonUi.WrapText(RankingLabel(client,tank),body,nameWidth);
+                    float nameHeight=Mathf.Ceil(body.CalcHeight(new GUIContent(label),nameWidth)),rowHeight=Mathf.Max(32,nameHeight+12);
+                    if(tank.Slot==client.Slot) {
+                        CartoonUi.Panel(new Rect(0,py,rowWidth,rowHeight),Color.Lerp(CartoonUi.PanelDark,CartoonUi.Ready,.22f),4);
+                        Fill(new Rect(0,py+5,3,rowHeight-10),CartoonUi.Ready);
+                    }
+                    else Fill(new Rect(8,py+rowHeight+1,rowWidth-12,1),Color.Lerp(CartoonUi.PanelDark,CartoonUi.PanelColor,.65f));
+                    GUI.Label(new Rect(6,py+6,24,lineHeight),"#"+rank,section);
+                    GUI.DrawTexture(new Rect(32,py+7,18,18),TankPalette.Body(tank.Nation>=0?tank.Nation:tank.Slot));
+                    GUI.Label(new Rect(56,py+6,nameWidth,nameHeight),label,body);
+                    GUI.Label(new Rect(rowWidth-statsWidth-2,py+6,statsWidth,lineHeight),tank.Kills+" / "+tank.Deaths,rankName);
+                    py+=rowHeight+4;
                 }
-                else Fill(new Rect(8,py+rowHeight+1,rowWidth-12,1),Color.Lerp(CartoonUi.PanelDark,CartoonUi.PanelColor,.65f));
-                GUI.Label(new Rect(6,py+6,24,lineHeight),"#"+rank,section);
-                GUI.DrawTexture(new Rect(32,py+7,18,18),TankPalette.Body(tank.Nation>=0?tank.Nation:tank.Slot));
-                GUI.Label(new Rect(56,py+6,nameWidth,nameHeight),label,body);
-                GUI.Label(new Rect(rowWidth-statsWidth-2,py+6,statsWidth,lineHeight),tank.Kills+" / "+tank.Deaths,rankName);
-                py+=rowHeight+4;
+                GUI.EndScrollView();
             }
-            GUI.EndScrollView();
+            if(compact&&Chat.Expanded)Chat.Draw(new Rect(panelX+12,top+rankTop,width-24,rankHeight),client,false);
+            else if(!compact)Chat.Draw(new Rect(panelX+12,top+rankTop+rankHeight+6,width-24,chatSpace-6),client);
+            bool skillEnabled=GUI.enabled;GUI.enabled=skillEnabled&&!Chat.InputBlocked;
             if(hasSkill)SkillHud(client,local,panelX+16,r.yMax-footerHeight-skillBlockHeight,width-32,skillLabel,skillNotice,skillHeight,statusHeight);
+            GUI.enabled=skillEnabled;
             Fill(new Rect(panelX+18,r.yMax-footerHeight+4,width-36,1),CartoonUi.PanelColor);
             if(stale)GUI.Label(new Rect(panelX+18,r.yMax-72,width-36,22),"Mạng chậm — chờ trạng thái",body);
             return GUI.Button(new Rect(panelX+16,r.yMax-42,width-32,34),"Rời trận",leaveButton);

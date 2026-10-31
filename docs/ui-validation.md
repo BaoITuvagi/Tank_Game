@@ -1,4 +1,30 @@
-# Kiểm tra giao diện — 25/10/2026
+# Kiểm tra giao diện
+
+## Chat trong trận — 31/10/2026
+
+**Chỉnh style theo phản hồi sau kiểm thử:** bỏ dấu cộng/trừ khỏi tiêu đề, căn CHAT góc trên trái; tiêu đề/Gửi dùng nền và viền giống ô nhập ở mọi trạng thái. Bấm Chat để đóng/mở, kể cả tab ở cửa sổ thấp. Đợt chỉnh này chỉ soát source/diff; chưa chạy lại Unity hoặc kiểm hình ảnh, không build theo yêu cầu người dùng. Bằng chứng test/build/ảnh phía dưới thuộc phiên bản trước đợt chỉnh style này.
+
+Người dùng chạy `scripts/build-client.cmd` sau đợt chỉnh style: build Player thất bại với CS1061 ở `MatchChatHud.cs` vì `GUIStyleState.scaledBackgrounds` chỉ có trong Editor. Đã bỏ truy cập thuộc tính này, giữ `background` dùng chung cho các trạng thái nút; người dùng xác nhận bản sửa đã ổn. Không có lượt Unity tests mới từ agent sau bản sửa; lỗi được xác định từ `runtime/unity-build.log`.
+
+**Con trỏ ô nhập chat:** bổ sung vạch kem sáng 2×18 px, nhịp hiện 0,6 giây/chu kỳ 1 giây như ô đổi tên trong `TankMenus.Field`. Dùng `TextEditor.cursorIndex`, `scrollOffset` và style của ô nhập để định vị; chỉ vẽ khi ô có focus, UI cho phép nhập, không chọn văn bản và đang Repaint. Chỉ soát source/diff trong lượt này, chưa chạy Unity tests, build hoặc kiểm tra trực tiếp. Cần kiểm tra ô rỗng, click/di chuyển con trỏ giữa chữ, tin dài cuộn ngang, chọn văn bản và mất focus.
+
+Áp dụng `game-studio:game-ui-frontend` cho sidebar IMGUI hiện có: chat có thể thu gọn, tên theo màu xe, xuống dòng theo từ, tab chung vùng xếp hạng khi cửa sổ thấp. Không đổi vùng bản đồ, dependencies, Unity version, scene hoặc PlayerSettings. Dữ liệu và bản chụp thử riêng tại `runtime/chat-qa/run-c96a1553/`, ngoài Git.
+
+| Kiểm tra | Kết quả và bằng chứng |
+| --- | --- |
+| Contract/server | `python scripts/sync-contracts.py --check` đạt; `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-server.ps1` build thành công, **243/243 Java tests**, gồm `MatchChatTest` (4 test). Log `runtime/chat-server-build.log`, fixture Java được sinh lại ở `source/server/target/interop/`. Lượt đầu còn kỳ vọng v16 trong `ItemCodecTest`; đã cập nhật sang v17 và chạy lại toàn bộ. |
+| Client | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-client.ps1`: **178/178 EditMode tests**, gồm 5 test chat. Sau chỉnh xuống dòng đã chạy lại cùng suite và build `BuildClient.BuildCurrentScene`, exit 0, output `build/client/`. Log `runtime/unity-tests.log`, XML và `runtime/chat-client-build.log`. Các lần thử trước bị chặn bởi sandbox IPC rồi license; người dùng đã kích hoạt license trước lần chạy đạt. |
+| Layout | **6 PNG**, cả NORMAL/RP × 960×600 / 1280×800 / 1920×1080; đã xác minh kích thước, nội dung không đen và hash trong `verified-captures.json`. Đã mở cả sáu ảnh kiểm tra; không che bản đồ, skill/Leave còn đủ chỗ. Ảnh đầu trong desktop sandbox có kích thước sai do cửa sổ bị maximize; đã chụp đè ngoài sandbox sau khi restore. Hai ảnh fullscreen ẩn bị đen đã chụp lại ở foreground và xác minh lại. Log ảnh cuối không có exception/IMGUI error. |
+| Hai client qua mạng thật | Hai trận độc lập 60 giây, NORMAL và ROLEPLAY, mỗi trận hai Unity player `--smoke --chat`, server local **52861/54255**. Cả bốn JSON `normal-host/peer`, `roleplay-host/peer` có `success=true`, tick 1800, `invalid=0`, `chatSent=true`, `chatColorsValid=true`, `chatSlots=3`. RP dùng nation offset 3 để màu khác slot. Đây là smoke tự động qua ClientCore. |
+| Thao tác trực tiếp | Computer Use: mở tab chat tại 960×600, nhập tiếng Việt/markup, Esc hủy và trả focus. Trận RP thật với một client UI và hai peer tự động: tự bắn trước nhập là true/input 16; trong nhập là false/input 0, xe giữ tọa độ, Q không tăng skillPress. Enter gửi tin với tên màu cam (palette 5); sau AFK → Vào lại trận, nhận đủ ba tin, tên/nội dung/palette giữ nguyên, invalid 0. Quan sát lưu trong `live-before-typing.json`, `live-during-typing.json`, `live-q-during-typing.json`, `live-after-rejoin.json`. |
+
+Luồng ba client dùng để kiểm thủ công không được tính là smoke tổng hợp đạt: chủ phòng chủ động đóng và nội dung gõ tay khác marker cố định của `--chat`, nên hai `live-peer*.json` báo success/chatColorsValid false dù nhận đủ ba slot và invalid=0. `chatColorsValid` của harness kiểm cả palette lẫn nội dung mẫu; bằng chứng màu/gửi/rejoin trong lượt này là quan sát UI/JSON riêng. Bốn smoke hai người phía trên là các lượt đồng nhất đã đạt.
+
+Hash Main.unity, ProjectSettings và EditorBuildSettings trước/sau build giống nhau. Unity tự thêm block Android vào 21 `.meta` CampaignArt; chỉ các block phát sinh này được loại sau khi so sánh từng file với HEAD, giữ toàn bộ GUID/importer cũ. Không stage/commit/push hoặc cập nhật Launcher/server remote.
+
+Chưa kiểm trực tiếp: IME composition riêng (đã nhập tiếng Việt bằng công cụ), Enter đã được gán cho chiến đấu, mọi tổ hợp modal/mất focus/item và LAN/VPN. Không coi ảnh offline là bằng chứng các tương tác này đã đạt. Hướng dẫn demo trong deployment còn mô tả ô host/cổng đã bỏ khỏi client; lượt này dùng endpoint riêng của `--smoke`/`--ui-test`, không đổi endpoint production.
+
+## Đợt UI — 25/10/2026
 
 Báo cáo cho lần chỉnh UI theo yêu cầu bổ sung sau [plan_UI](../plan/plan_UI.md): font, nút bo góc viền tối, màu và background của menu/phòng/HUD. Working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có sẵn thay đổi ngoài UI. Đợt này không stage/commit/push, không sửa server, contract, dependency, scene hoặc PlayerSettings. Build, log, ảnh và database thử nằm ngoài Git tại `runtime/ui-revision/` và `build/client/`.
 

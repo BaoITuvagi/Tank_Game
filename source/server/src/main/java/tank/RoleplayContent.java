@@ -3,7 +3,7 @@ package tank;
 public final class RoleplayContent {
  private RoleplayContent() {}
  public static final int Version=7;
- public static final String Hash="2575743b09b897ae7707a7b6d5836d791d028190692d43d5e1fc3860b01a7768";
+ public static final String Hash="a39613a93f3a4903445cef65a70ad901332e48b24494b57f778ca8d7a04741ab";
  public static final String Story="Hộp Đen lưu dấu những trận chiến chưa được kể. Tám đội xe tăng bước vào đấu trường để giành quyền mở nó. Người đứng đầu nhận Hộp Đen trong câu chuyện của trận đấu.";
  public static final String[] RequiredSprites={ "tankBody_dark_outline","tankDark_barrel2_outline" };
  public static final int[] NationIds={ 0,1,2,3,4,5,6,7 };

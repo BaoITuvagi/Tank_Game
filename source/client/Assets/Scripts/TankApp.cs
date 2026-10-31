@@ -36,6 +36,9 @@ namespace Tank  {
             if(UxTestDriver.Enabled)new GameObject("UX Test Driver").AddComponent<UxTestDriver>().App=this;
         }
         readonly AutoFireControl autoFire=new AutoFireControl();
+        internal bool ChatTyping {get {return arenaRenderer.Chat.Typing;}}
+        internal bool AutoFireEnabled {get {return autoFire.Enabled;}}
+        internal int LastInputButtons {get;private set;}
         bool inputWasActive;
         int frozenAim,lastAim;
         SkillSounds skillAudio;
@@ -48,6 +51,8 @@ namespace Tank  {
         }
         void Update() {
             if(client.Phase!=ClientPhase.PLAYING)leaveMatchForm=false;
+            arenaRenderer.Chat.Sync(client,Screen.height);
+            arenaRenderer.Chat.BeforeInput(GameWindowFocus.IsForeground,AnyDialog);
             if(!settingsOpen&&GameWindowFocus.IsForeground&&(Input.GetKeyDown(KeyCode.F11)||(Input.GetKey(KeyCode.LeftAlt)&&Input.GetKeyDown(KeyCode.Return))))ToggleFullscreen();
             if(IsMenuPreview)return;
             if(ArenaPreview.Enabled) {
@@ -65,14 +70,15 @@ namespace Tank  {
             UpdateRoleplayShop();
             UpdateCampaign();
             client.Smooth(Time.unscaledDeltaTime);
-            autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog,client.Phase==ClientPhase.PLAYING&&ClientPreferences.Active.Pressed(ControlAction.AutoFire,PointerInArena()));
+            autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog&&!arenaRenderer.Chat.InputBlocked,client.Phase==ClientPhase.PLAYING&&ClientPreferences.Active.Pressed(ControlAction.AutoFire,PointerInArena()));
             if(client.Phase!=ClientPhase.PLAYING) {
+                LastInputButtons=0;
                 nextStep=ClientCore.NowUs;
                 inputWasActive=false;
                 return;
             }
             map=client.ActiveMap;
-            bool active=GameWindowFocus.IsForeground&&!AnyDialog;
+            bool active=GameWindowFocus.IsForeground&&!AnyDialog&&!arenaRenderer.Chat.InputBlocked;
             if(!active&&inputWasActive) {
                 TankState authoritative;
                 frozenAim=client.Latest!=null&&client.Latest.World.Tanks.TryGetValue(client.Slot,out authoritative)?authoritative.Turret:client.Predicted==null?lastAim:client.Predicted.Turret;
@@ -90,6 +96,7 @@ namespace Tank  {
             }
             buttons=autoFire.Apply(buttons);
             var sample=GameplayInput.Resolve(active,buttons,aim,frozenAim);
+            LastInputButtons=sample.Buttons;
             inputWasActive=active;
             double now=ClientCore.NowUs;
             int steps=0;
@@ -137,6 +144,7 @@ namespace Tank  {
                 DrawPreferencesDialog();
             }
             finally {
+                arenaRenderer.Chat.EndGUI(AnyDialog);
                 FocusedControl=GUI.GetNameOfFocusedControl();
                 GUI.skin=previousSkin;
                 GUI.matrix=previous;

@@ -11,6 +11,8 @@ Tank Battle là bài tập lớn môn Lập trình mạng: game xe tăng nhiều
 
 Implementation có đăng ký/đăng nhập, tạo và tham gia phòng, ready, trận Thường/Nhập vai, kỹ năng Q theo đội, item, Red Zone/Bombstorm, kết quả, lịch sử và vào lại trận khi còn đủ điều kiện. Xem luật và giới hạn tại [gameplay](gameplay.md), không dùng các ý tưởng trong `plan/` làm danh sách tính năng đã có.
 
+Chat chung trong trận Thường/Nhập vai dùng TCP v17, khung sidebar có tên theo màu xe; giữ tối đa 100 tin trong RAM để replay khi rejoin, không lưu DB. Xem [client](client.md) và [protocol/chat](protocol.md#match-chat). Bằng chứng kiểm chứng từng đợt ghi riêng, không suy ra từ việc có tính năng.
+
 Code đã merge thêm Chiến dịch với quốc gia, map, shop và bảng xếp hạng riêng, qua `CampaignSession` trên server và `CampaignClient`/`TankCampaign*` trên client. Hướng dẫn chơi ở [README](../README.md#chế-độ-chiến-dịch). Sau merge/stash, cần build lại cả hai ứng dụng và khởi động lại để dùng code/map mới; xem [triển khai](deployment.md).
 
 Vàng còn lại từ Chiến dịch tích lũy vào ví tài khoản, hiển thị bằng huy hiệu đồng xu/số dư/+ và dùng cho shop Nhập vai (E). Item RP sinh mỗi 40 giây, mỗi đợt 20 giây trong vòng tròn trung tâm map; shop chỉ mua được trong các đợt đó, mỗi loại tối đa một lần/người/đợt. Mua cất vào túi của trận, bấm icon sidebar để dùng sau; giữ túi qua chết/rejoin. `RoleplayShop` kiểm tra trên room thread, `WalletStore` trừ/hoàn cùng ví `campaign_profiles` trên DB worker; xem [gameplay/items](gameplay.md#items), [data/accounts](data.md#accounts) và cặp TCP 86/87 ở [protocol](protocol.md#tcp).

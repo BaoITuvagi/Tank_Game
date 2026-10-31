@@ -215,6 +215,10 @@ namespace Tank  {
                 var t=c.Predicted;
                 System.IO.File.WriteAllText(report,JsonUtility.ToJson(new UxObservation {
                     phase=c.Phase.ToString(),width=Screen.width,height=Screen.height,fullscreen=Screen.fullScreen,focused=GameWindowFocus.IsForeground,field=App.FocusedControl,turret=t==null?0:t.Turret,capacity=c.RoomCapacity,seconds=c.RoomSeconds,players=c.Players.Count,map=c.ActiveMap.mapId,tick=c.Latest==null?0:(int)c.Latest.Tick,x=t==null?0:t.X,y=t==null?0:t.Y,decoded=c.Decoded,invalid=c.Invalid,message=c.Message,afk=c.AfkWarning,
+                    chatTyping=App.ChatTyping,autoFire=App.AutoFireEnabled,inputButtons=App.LastInputButtons,chatCount=c.Chat.Messages.Count,chatError=c.ChatError,
+                    chatLastText=c.Chat.Messages.Count==0?"":c.Chat.Messages[c.Chat.Messages.Count-1].Text,
+                    chatLastName=c.Chat.Messages.Count==0?"":c.Chat.Messages[c.Chat.Messages.Count-1].Name,
+                    chatLastPalette=c.Chat.Messages.Count==0?-1:c.Chat.Messages[c.Chat.Messages.Count-1].Palette,
                     mode=c.RoomMode.ToString(),stage=c.PrepareStage.ToString(),loadout=c.LoadoutReady,skillPress=c.SkillPressRevision,skillFeedback=c.SkillFeedbackRevision,skillNotice=c.SkillNotice,qReady=c.SkillReadyTick(0),qPending=c.SkillPending(0)
                 }));
             }
@@ -225,6 +229,9 @@ namespace Tank  {
             public bool fullscreen,afk,focused,loadout,qPending;
             public float x,y;
             public long decoded,invalid;
+            public bool chatTyping,autoFire;
+            public int inputButtons,chatCount,chatLastPalette;
+            public string chatError,chatLastText,chatLastName;
         }
     }
 }
