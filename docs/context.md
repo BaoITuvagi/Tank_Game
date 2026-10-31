@@ -17,6 +17,8 @@ Code đã merge thêm Chiến dịch với quốc gia, map, shop và bảng xế
 
 Vàng còn lại từ Chiến dịch tích lũy vào ví tài khoản, hiển thị bằng huy hiệu đồng xu/số dư/+ và dùng cho shop Nhập vai (E). Item RP sinh mỗi 40 giây, mỗi đợt 20 giây trong vòng tròn trung tâm map; shop chỉ mua được trong các đợt đó, mỗi loại tối đa một lần/người/đợt. Mua cất vào túi của trận, bấm icon sidebar để dùng sau; giữ túi qua chết/rejoin. `RoleplayShop` kiểm tra trên room thread, `WalletStore` trừ/hoàn cùng ví `campaign_profiles` trên DB worker; xem [gameplay/items](gameplay.md#items), [data/accounts](data.md#accounts) và cặp TCP 86/87 ở [protocol](protocol.md#tcp).
 
+Launcher Windows từ 1.2.0 tự cập nhật EXE qua manifest riêng trước khi cập nhật game: helper đợi tiến trình cũ thoát, thay file có backup, đợi giao diện mới xác nhận và rollback khi lỗi. Game/cấu hình được giữ riêng; launcher cũ cần tải bản hỗ trợ một lần. Build local không tự upload lên GitHub Releases. Quy trình và giới hạn khôi phục ở [launcher](../source/launcher/README.md), kiểm tra ở [testing](testing.md#matrix).
+
 <a id="principles"></a>
 ## Nguyên tắc kiến trúc
 

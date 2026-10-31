@@ -26,6 +26,7 @@ Chọn kiểm tra theo hành vi bị ảnh hưởng và các caller/đối tác 
 | Map/metadata | Kiểm tra cả hai phía, validation và hash byte gốc; chạy cả hai suite, build cả hai để phân phối cùng map; manual spawn, đường đi, va chạm, sự kiện và reconnect. |
 | Texture/Combat FX/importer | Giữ `.meta`, GUID và license; chạy test Unity gồm `CombatAssetTests`, build client để chạy validator/đóng gói giấy phép; mở preview/ảnh và manual VFX bị ảnh hưởng. Nếu đổi gameplay/wire thì thêm cả hai suite. |
 | Script/config vận hành | Đọc caller, giá trị mặc định và tác dụng phụ; kiểm tra đúng lệnh build/run/test bị thay, đường dẫn output, cấu hình local/demo và dữ liệu riêng. Chỉ chạy thử các môi trường được phép. |
+| Launcher/đóng gói cập nhật | Chạy `./scripts/test-launcher.ps1` (hai fixture Windows single-file, không thêm package), build standalone bằng `./scripts/build-launcher.ps1`, đối chiếu version/hash/size/URL trong manifest và ZIP. Kiểm tra UI thật cho tiến độ, cancel, tự mở lại, lỗi/offline và hai cửa sổ. Xem [launcher](../source/launcher/README.md#kiểm-tra); fixture dùng core production nhưng không chứng minh UI WinForms. |
 
 Nguồn kiến trúc: [components](architecture.md#components), [gameplay](gameplay.md#movement), [shared contracts](protocol.md#shared-contracts), [schema](data.md#schema). Không có formatter/linter được cấu hình; giữ quy ước mã hiện có và xem diff cuối để tránh thay đổi ngoài phạm vi.
 

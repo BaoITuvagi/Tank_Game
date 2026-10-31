@@ -5,17 +5,71 @@ namespace TankLauncher;
 
 internal static class Program
 {
-    [STAThread]
-    static void Main()
+    internal static string DataRoot
     {
-        using var mutex = new Mutex(true, @"Local\TankBattleLauncher", out bool first);
-        if (!first) { MessageBox.Show("Launcher đang chạy.", "Tank Battle"); return; }
-        ApplicationConfiguration.Initialize();
-        Application.Run(new LauncherForm());
+        get
+        {
+#if LAUNCHER_TEST
+            // Only the UI smoke build accepts an isolated data root; release builds ignore this environment variable.
+            return Path.GetFullPath(Environment.GetEnvironmentVariable("TANK_LAUNCHER_TEST_ROOT")
+                ?? throw new InvalidOperationException("UI smoke build requires TANK_LAUNCHER_TEST_ROOT."));
+#else
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TankBattle");
+#endif
+        }
+    }
+
+    [STAThread]
+    static int Main(string[] args)
+    {
+        string dataRoot = DataRoot;
+        string updateRoot = Path.Combine(dataRoot, "launcher-updates");
+        if (args.Length == 3 && args[0] == "--apply-launcher-update")
+        {
+            try
+            {
+                using var helper = new LauncherSelfUpdate(args[1], args[2]);
+                return helper.RunHelper();
+            }
+            catch { return 1; } // A helper must never open a modal dialog and strand its parent.
+        }
+        bool restored = args.Length == 2 && args[0] == "--launcher-update-restored";
+        string? token = args.Length == 2 && (restored || args[0] == "--launcher-update-ready") ? args[1] : null;
+        using var mutex = new Mutex(false, LauncherSelfUpdate.UiMutexName);
+        bool acquired;
+        try { acquired = mutex.WaitOne(token == null ? TimeSpan.Zero : TimeSpan.FromSeconds(10)); }
+        catch (AbandonedMutexException) { acquired = true; }
+        if (!acquired) { MessageBox.Show("Launcher đang chạy.", "Tank Battle"); return 1; }
+        try
+        {
+            using var selfUpdate = new LauncherSelfUpdate(Environment.ProcessPath!, updateRoot);
+            string? notice = null;
+            bool skip = restored;
+            try
+            {
+                var startup = selfUpdate.InspectStartup(token);
+                if (startup == LauncherStartup.Busy)
+                {
+                    // Do not hold the UI mutex in a modal dialog while the helper is
+                    // trying to start the replacement launcher.
+                    return 1;
+                }
+                if (startup == LauncherStartup.Recover) { selfUpdate.BeginHandoff(true); return 0; }
+                notice = selfUpdate.LastError();
+            }
+            catch (Exception e)
+            {
+                if (token != null && !restored) return 1; // The helper will roll back this failed startup.
+                notice = "Không khôi phục được cập nhật launcher: " + e.Message;
+                skip = true;
+            }
+            ApplicationConfiguration.Initialize();
+            Application.Run(new LauncherForm(selfUpdate, dataRoot, skip, restored ? null : token, notice));
+            return 0;
+        }
+        finally { mutex.ReleaseMutex(); }
     }
 }
-
-public sealed record LauncherConfig(string ManifestUrl, bool AllowLoopbackHttp = false);
 
 sealed class LauncherForm : Form
 {
@@ -29,14 +83,14 @@ sealed class LauncherForm : Form
     CancellationTokenSource? operation;
     bool busy;
 
-    public LauncherForm()
+    public LauncherForm(LauncherSelfUpdate selfUpdate, string dataRoot, bool skipSelfUpdate, string? readyToken, string? notice)
     {
         Text = "Tank Battle Launcher";
         ClientSize = new Size(560, 245);
         MinimumSize = new Size(520, 280);
         Font = new Font("Segoe UI", 10);
         StartPosition = FormStartPosition.CenterScreen;
-        updater = new Updater(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TankBattle"), ReadConfigSafely()?.AllowLoopbackHttp ?? false);
+        updater = new Updater(dataRoot, ReadConfigSafely()?.AllowLoopbackHttp ?? false);
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(22), RowCount = 5, ColumnCount = 1 };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
@@ -55,7 +109,15 @@ sealed class LauncherForm : Form
         check.Click += async (_, _) => await UpdateAsync();
         cancel.Click += (_, _) => operation?.Cancel();
         play.Click += (_, _) => Play();
-        Shown += async (_, _) => await UpdateAsync();
+        Shown += async (_, _) =>
+        {
+            if (readyToken != null)
+            {
+                try { selfUpdate.Acknowledge(readyToken); }
+                catch { Close(); return; }
+            }
+            await UpdateAsync(!skipSelfUpdate, notice);
+        };
         FormClosing += (_, e) => { if (busy) { operation?.Cancel(); e.Cancel = true; status.Text = "Đang hủy tải; hãy đóng lại sau khi hoàn tất."; } };
         FormClosed += (_, _) => updater.Dispose();
     }
@@ -65,6 +127,14 @@ sealed class LauncherForm : Form
         ?? throw new InvalidDataException("launcher.json rỗng.");
 
     static LauncherConfig? ReadConfigSafely() { try { return ReadConfig(); } catch { return null; } }
+
+    static string UpdateError(Exception error) => error switch
+    {
+        HttpRequestException => "Không tải được dữ liệu.",
+        OperationCanceledException => "Hết thời gian chờ máy chủ cập nhật.",
+        UnauthorizedAccessException => "Không có quyền ghi file cập nhật.",
+        _ => error.Message
+    };
 
     void RefreshCurrent()
     {
@@ -80,18 +150,52 @@ sealed class LauncherForm : Form
         catch (Exception e) { play.Enabled = false; version.Text = e.Message; }
     }
 
-    async Task UpdateAsync()
+    async Task UpdateAsync(bool includeLauncher = true, string? notice = null)
     {
         if (busy) return;
         busy = true;
         check.Enabled = false;
         cancel.Enabled = true;
+        play.Enabled = false;
         operation = new CancellationTokenSource();
         progress.Value = 0;
+        bool handoff = false;
         try
         {
+            var config = ReadConfig();
+            if (includeLauncher)
+            {
+                try
+                {
+                    status.Text = "Đang kiểm tra cập nhật launcher " + LauncherVersion.Current + "...";
+                    using var checkTimeout = CancellationTokenSource.CreateLinkedTokenSource(operation.Token);
+                    checkTimeout.CancelAfter(TimeSpan.FromSeconds(20));
+                    // Honor the same localhost setting as the game updater.
+                    using var download = new LauncherSelfUpdate(Environment.ProcessPath!,
+                        Path.Combine(Program.DataRoot, "launcher-updates"), config.AllowLoopbackHttp);
+                    var release = await download.CheckAsync(config.SelfUpdateUri, checkTimeout.Token);
+                    if (LauncherSelfUpdate.IsNewer(release.Version, LauncherVersion.Current))
+                    {
+#pragma warning disable IL3000 // A non-bundled debug build cannot be copied as a standalone helper.
+                        if (!string.IsNullOrEmpty(typeof(Program).Assembly.Location))
+                            throw new IOException("Tự cập nhật cần bản single-file từ scripts/build-launcher.ps1.");
+#pragma warning restore IL3000
+                        await download.PrepareAsync(release, new Progress<UpdateProgress>(p =>
+                        { status.Text = "Launcher: " + p.Message; progress.Value = Math.Clamp(p.Percent, 0, 100); }), operation.Token);
+                        operation.Token.ThrowIfCancellationRequested();
+                        cancel.Enabled = false;
+                        status.Text = "Đang mở lại launcher để áp dụng cập nhật...";
+                        await Task.Run(() => download.BeginHandoff());
+                        handoff = true;
+                        return;
+                    }
+                }
+                catch (Exception e) when (e is not OperationCanceledException || !operation.IsCancellationRequested)
+                { notice = "Chưa cập nhật được launcher: " + UpdateError(e); }
+            }
             status.Text = "Đang kiểm tra cập nhật...";
-            var manifest = await updater.CheckAsync(new Uri(ReadConfig().ManifestUrl), operation.Token);
+            progress.Value = 0;
+            var manifest = await updater.CheckAsync(new Uri(config.ManifestUrl), operation.Token);
             InstalledRelease? current;
             try { current = updater.Current(); }
             catch (Exception e) when (e is InvalidDataException or JsonException) { current = null; }
@@ -101,7 +205,7 @@ sealed class LauncherForm : Form
                 await updater.InstallAsync(manifest, new Progress<UpdateProgress>(p => { status.Text = p.Message; progress.Value = Math.Clamp(p.Percent, 0, 100); }), operation.Token);
         }
         catch (OperationCanceledException) { status.Text = "Đã hủy cập nhật. Bản đã cài được giữ nguyên."; }
-        catch (Exception e) { status.Text = "Không cập nhật được: " + e.Message; }
+        catch (Exception e) { status.Text = "Không cập nhật được: " + UpdateError(e); }
         finally
         {
             busy = false;
@@ -109,7 +213,12 @@ sealed class LauncherForm : Form
             operation = null;
             check.Enabled = true;
             cancel.Enabled = false;
-            RefreshCurrentSafely();
+            if (handoff) Close();
+            else
+            {
+                RefreshCurrentSafely();
+                if (!string.IsNullOrEmpty(notice)) status.Text = notice + "\n" + status.Text;
+            }
         }
     }
 

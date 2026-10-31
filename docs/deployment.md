@@ -7,6 +7,7 @@ Mục lục:
 - [Build server](#build-server)
 - [Chạy và dừng server](#run-server)
 - [Build và phân phối client](#build-client)
+- [Build và phân phối launcher](#build-launcher)
 - [Kết nối qua máy cục bộ, LAN hoặc VPN](#connect)
 - [Cấu hình server và công cụ](#configuration)
 - [Demo nhiều client trên cùng máy](#local-demo)
@@ -76,6 +77,13 @@ Build tự validate Combat FX và chép giấy phép sang `ThirdParty/CookedFX-L
 Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, chép **toàn bộ thư mục `build/client`**, gồm `.exe`, thư mục Data, Unity runtime và `ThirdParty`; chỉ chép `.exe` không đủ. Máy chơi bản client đã build không cần Java, Maven, Python hoặc Unity Editor. Người phát hành cần cung cấp client/server cùng đợt build để khớp [giao thức và nội dung](protocol.md#shared-contracts).
 
 Để chạy trong Editor, mở `source/client`, scene `Assets/Scenes/Main.unity` rồi Play theo [bootstrap client](client.md#bootstrap).
+
+<a id="build-launcher"></a>
+## Build và phân phối launcher
+
+Launcher từ 1.2.0 tự cập nhật EXE trước game bằng `launcher-manifest.json`, độc lập với manifest game. Build bằng `./scripts/build-launcher.ps1`; dùng `-ReleaseBaseUrl` trỏ tag GitHub Releases cố định khi phát hành. Gửi `build/launcher-win64.zip` cho người chơi lần đầu, đồng thời upload EXE có version và manifest riêng do script sinh ra. Latest phải phục vụ cả hai manifest và các asset mà chúng trỏ tới. Xem [hướng dẫn launcher](../source/launcher/README.md) về cấu hình, output, rollback và kiểm tra.
+
+Người chơi launcher cũ tải lại bản có cơ chế tự cập nhật một lần. Các lần sau tự tải/mở lại; giữ `launcher.json`, shortcut và game trong `%LocalAppData%\TankBattle`. Thư mục đặt EXE cần quyền ghi; không yêu cầu quyền admin. Lỗi tải/thay file giữ bản hiện tại; lỗi khởi động bản mới thì helper khôi phục backup. Build server hoặc client không cập nhật các file phát hành này.
 
 <a id="connect"></a>
 ## Kết nối tới server cố định

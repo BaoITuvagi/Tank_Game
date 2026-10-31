@@ -14,7 +14,7 @@ Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; serve
 
 **Chat trong trận Thường/Nhập vai:** bấm khung Chat ở sidebar bên phải rồi bấm ô nhập; Enter gửi, Esc hủy. Tên có màu theo xe của người gửi; khi đang gõ, xe ngừng nhận điều khiển và tự bắn tắt. Cửa sổ thấp dùng tab Xếp hạng/Chat. Khi vào lại cùng trận, khôi phục tối đa 100 tin gần nhất; không lưu chat sau trận. Xem [giao diện](docs/client.md) và [giao thức chat](docs/protocol.md#match-chat).
 
-Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/).
+Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/README.md). Từ bản 1.2.0, launcher tự tải và mở lại khi có phiên bản launcher mới; người dùng bản cũ cần tải bản hỗ trợ một lần. Build local chưa tự phát hành các asset/manifest lên GitHub Releases.
 
 Tank Battle là game xe tăng nhiều người chơi, gồm server Java và client Unity. Người chơi có thể đăng ký tài khoản, tạo hoặc tham gia phòng, đấu với nhau và xem lịch sử trận đấu.
 
