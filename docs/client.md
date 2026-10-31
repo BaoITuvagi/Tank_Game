@@ -23,11 +23,13 @@ Dùng Unity **6000.3.24f1**, theo [ProjectVersion.txt](../source/client/ProjectS
 
 Client cố định server `13.75.2.41`, TCP `8888`, UDP `8889` bằng các hằng trong [TankApp](../source/client/Assets/Scripts/TankApp.cs). Đăng nhập và đăng ký luôn dùng địa chỉ này. Đã bỏ nút/màn hình Kết nối và file cấu hình StreamingAssets; `connection.json` từng lưu trên máy không còn được đọc. Muốn đổi endpoint phải sửa hằng và build lại client. Smoke/test harness vẫn có endpoint riêng để kiểm thử.
 
+Các ô đăng nhập/đăng ký dùng `TankMenus.Field` chỉ dùng con trỏ mặc định của Unity, với màu Ink và nhịp nháy do `MenuTheme` cấu hình; đã bỏ vạch tự vẽ để tránh hiện hai con trỏ. Ô đổi tên và các form phòng dùng chung `Field` cũng dùng con trỏ mặc định.
+
 ### Chat trong trận Thường / Nhập vai
 
 Khung **CHAT** ở cột phải, dưới bảng xếp hạng và trên kỹ năng/nút Rời trận, cao khoảng 180 px khi mở; bấm tiêu đề Chat để đóng/mở, không có dấu cộng/trừ, vẫn hiện số tin chưa đọc. Chữ CHAT căn góc trên trái; tiêu đề và nút Gửi dùng cùng nền tối/viền với ô nhập, không có nền kem, kể cả khi hover/focus. Thiết kế theo `game-studio:game-ui-frontend`, áp dụng bằng IMGUI với màu/font/khung cắt góc hiện có. Dưới 720 px hoặc thiếu chỗ cho HUD, dùng tab **Xếp hạng / Chat** chung vùng giữa; cửa sổ thấp mặc định chọn Xếp hạng, bấm lại Chat để thu gọn về Xếp hạng. Vùng bản đồ/ngắm không đổi.
 
-Bấm chuột mở khung và bấm ô nhập để gõ; ô có con trỏ kem sáng nhấp nháy tại vị trí chèn chữ, cùng nhịp với ô đổi tên, theo vị trí cuộn ngang và ẩn khi chọn văn bản hoặc mất focus. Enter/Enter bàn phím số gửi, Esc hủy; không có phím mở chat và không thay gán phím chiến đấu. Trong lúc nhập, khóa di chuyển/ngắm/bắn/kỹ năng/shop/item, tắt tự bắn; gửi/hủy trả điều khiển sau khi nhả phím gửi hoặc chuột. Mở modal, bấm ra ngoài hoặc mất focus kết thúc nhập; trận và AFK tiếp tục. Không tự khôi phục bản nháp khi mất kết nối.
+Bấm chuột mở khung và bấm ô nhập để gõ; ô có con trỏ kem sáng nhấp nháy tại vị trí chèn chữ, theo vị trí cuộn ngang và ẩn khi chọn văn bản hoặc mất focus. Enter/Enter bàn phím số gửi, Esc hủy; không có phím mở chat và không thay gán phím chiến đấu. Trong lúc nhập, khóa di chuyển/ngắm/bắn/kỹ năng/shop/item, tắt tự bắn; gửi/hủy trả điều khiển sau khi nhả phím gửi hoặc chuột. Mở modal, bấm ra ngoài hoặc mất focus kết thúc nhập; trận và AFK tiếp tục. Không tự khôi phục bản nháp khi mất kết nối.
 
 Tên dùng `TankPalette.Colors` theo màu xe (NORMAL: slot; ROLEPLAY: nation), nội dung màu kem và rich text tắt. Tên/nội dung dài được đo xuống dòng, danh sách cuộn; đang xem tin cũ thì tin mới không kéo xuống cuối, có nút **Tin mới ↓**. Giới hạn, lỗi và lịch sử 100 tin/rejoin ở [protocol/chat](protocol.md#match-chat).
 

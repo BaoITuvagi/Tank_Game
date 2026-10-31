@@ -173,18 +173,8 @@ namespace Tank  {
             GUI.SetNextControlName(key);
             string result=secret?GUILayout.PasswordField(value,'•',limit):GUILayout.TextField(value,limit);
             FocusRequestedField(key);
-            Rect r=GUILayoutUtility.GetLastRect();
             bool qa=UxTestDriver.Arg("--qa-field-focus","")==key;
             if(qa)GUI.FocusControl(key);
-            if(Event.current.type==EventType.Repaint&&GUI.GetNameOfFocusedControl()==key) {
-                var editor=(TextEditor)GUIUtility.GetStateObject(typeof(TextEditor),GUIUtility.keyboardControl);
-                if(editor.cursorIndex==editor.selectIndex&&(qa||Time.unscaledTime%1f<.6f)) {
-                    string visible=secret?new string('•',result.Length):result;
-                    Vector2 position=GUI.skin.textField.GetCursorPixelPosition(r,new GUIContent(visible),Mathf.Clamp(editor.cursorIndex,0,result.Length));
-                    float cx=Mathf.Clamp(position.x-editor.scrollOffset.x,r.x+12,r.xMax-8);
-                    ArenaRenderer.Fill(new Rect(cx,r.center.y-9,2,18),menu.Ink);
-                }
-            }
             return result;
         }
         void Feedback() {

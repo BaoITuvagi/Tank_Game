@@ -1,5 +1,9 @@
 # Kiểm tra giao diện
 
+## Con trỏ form đăng nhập/đăng ký — 31/10/2026
+
+Đối chiếu `TankMenus.Field` với `MenuTheme`: form vừa bật con trỏ Unity màu Ink, vừa vẽ thêm vạch thủ công, gây hiện hai con trỏ. Theo yêu cầu cuối, đã bỏ vạch tự vẽ và phần ẩn con trỏ Unity của phương án trước; dùng con trỏ mặc định trong TextField/PasswordField, giữ cấu hình màu/nhịp nháy của MenuTheme. Các form dùng chung Field (đổi tên/phòng) nhận cùng bản sửa; khung chat giữ nguyên. Chỉ soát source/diff; chưa chạy Unity, tests hay build theo yêu cầu không tự build. Cần kiểm tra trực tiếp tài khoản, mật khẩu, xác nhận mật khẩu, chọn văn bản, cuộn ngang và chuyển focus.
+
 ## Chat trong trận — 31/10/2026
 
 **Chỉnh style theo phản hồi sau kiểm thử:** bỏ dấu cộng/trừ khỏi tiêu đề, căn CHAT góc trên trái; tiêu đề/Gửi dùng nền và viền giống ô nhập ở mọi trạng thái. Bấm Chat để đóng/mở, kể cả tab ở cửa sổ thấp. Đợt chỉnh này chỉ soát source/diff; chưa chạy lại Unity hoặc kiểm hình ảnh, không build theo yêu cầu người dùng. Bằng chứng test/build/ảnh phía dưới thuộc phiên bản trước đợt chỉnh style này.
