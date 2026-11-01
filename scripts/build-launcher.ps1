@@ -24,7 +24,6 @@ $json=$config | ConvertTo-Json
 $launcherFile='TankBattle-Launcher.exe'
 $bundleName=if($FrameworkDependent){'TankBattle-Launcher-framework-dependent.zip'}else{'TankBattle-Launcher.zip'}
 $bundle=Join-Path $root "build/$bundleName"
-Compress-Archive -LiteralPath (Join-Path $output $launcherFile),(Join-Path $output 'launcher.json') -DestinationPath $bundle -Force
+& (Join-Path $PSScriptRoot 'package-launcher.ps1') -ExecutablePath (Join-Path $output $launcherFile) -ConfigurationPath (Join-Path $output 'launcher.json') -OutputPath $bundle
 Write-Output "Built $output/$launcherFile. Distribute the entire folder, including launcher.json."
-Write-Output "Player download: $bundle"
 if($FrameworkDependent){Write-Warning 'This development build requires the .NET 9 Desktop Runtime on the player machine. Use the default standalone build for distribution.'}

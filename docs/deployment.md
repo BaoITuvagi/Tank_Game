@@ -77,6 +77,20 @@ Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, ch
 
 Để chạy trong Editor, mở `source/client`, scene `Assets/Scenes/Main.unity` rồi Play theo [bootstrap client](client.md#bootstrap).
 
+### ZIP launcher để tải trực tiếp
+
+Release [v1.0.8](https://github.com/BaoITuvagi/Tank_Game/releases/tag/v1.0.8) cung cấp `TankBattle-launcher-win64.zip`. Người chơi giải nén rồi chạy `TankBattle.exe`; launcher tự tải game. ZIP chứa launcher 1.2.2, còn manifest game tiếp tục trỏ tới gói game 1.0.7. Số phiên bản release không thay thế hai phiên bản này.
+
+Để đóng gói lại một launcher đã phát hành mà không biên dịch hoặc đổi nội dung executable:
+
+```powershell
+./scripts/package-launcher.ps1 -ExecutablePath ./build/launcher/TankBattle.exe
+```
+
+Script chỉ đưa executable được chỉ định vào ZIP. Với launcher cũ cần cấu hình bên ngoài, thêm `-ConfigurationPath ./build/launcher/launcher.json`; `build-launcher.ps1` tự truyền file cấu hình khi tạo ZIP của nhánh này. Không đóng gói cả thư mục build vì có thể chứa file thừa.
+
+Khi phát hành, tải ZIP lên cùng `TankBattle.exe`, `manifest.json` và `launcher-manifest.json`. Giữ executable riêng để launcher tự cập nhật; ZIP dành cho người tải thủ công. Chỉ thay URL tải launcher trong `launcher-manifest.json` nếu chuyển executable sang release mới, đồng thời giữ đúng phiên bản, SHA-256 và kích thước file.
+
 <a id="connect"></a>
 ## Kết nối tới server cố định
 
