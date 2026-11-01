@@ -95,6 +95,9 @@ Tại Unity Hub, thêm project `source/client`. Tài nguyên game cần thiết 
 |---|---|
 | Nắm nhanh phạm vi, kiến trúc và hiện trạng | [Context dự án](docs/context.md), [kiến trúc và source map](docs/architecture.md) |
 | Build, chạy, cấu hình và kết nối LAN/VPN | [Triển khai](docs/deployment.md) |
+| Chạy server trên VPS hoặc cloud | [VPS](VPS_SETUP.md), [Azure Student](AZURE_SETUP.md), [Oracle Cloud Free](ORACLE_CLOUD_SETUP.md) |
+| Sổ tay nhanh & Vận hành Azure | [Azure Quickstart](AZURE_QUICKSTART.md) |
+| Tùy biến popup thông báo & Build Client Unity | [Hướng dẫn Build Client](CLIENT_BUILD_GUIDE.md) |
 | Luật chơi, kỹ năng, item, battlefield | [Gameplay](docs/gameplay.md) |
 | Giao thức, đồng bộ và dữ liệu | [Protocol](docs/protocol.md), [SQLite và lịch sử](docs/data.md) |
 | Unity, UI, tài nguyên và preview | [Client](docs/client.md) |
