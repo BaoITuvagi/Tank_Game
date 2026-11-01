@@ -1,5 +1,15 @@
 # Tank Battle Multiplayer
 
+## Tải launcher và chơi game
+
+Dành cho người chơi trên **Windows 64 bit**: không cần clone repository hay cài công cụ lập trình.
+
+1. Bấm **Releases** ở bên phải trang repository, rồi mở bản phát hành mới nhất: [Tank Battle Releases](https://github.com/BaoITuvagi/Tank_Game/releases/latest).
+2. Trong mục **Assets**, bấm tải **[TankBattle-launcher-win64.zip](https://github.com/BaoITuvagi/Tank_Game/releases/latest/download/TankBattle-launcher-win64.zip)**.
+3. Giải nén ZIP, mở **TankBattle.exe**, chờ launcher tải game rồi bấm **CHƠI GAME**.
+
+## Phát triển và vận hành server
+
 Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3): giao thức **16**, nội dung **7**, khớp client 1.0.3 do Launcher tải. Phần gameplay, đồ họa, map, item, shop và chiến dịch giữ theo bản của Bảo; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
 
 Các lệnh CMD chạy tại thư mục gốc repository:
@@ -14,13 +24,11 @@ Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; serve
 
 Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/).
 
-Tải [TankBattle-Launcher.zip](https://github.com/BaoITuvagi/Tank_Game/releases/latest/download/TankBattle-Launcher.zip), giải nén cả gói rồi chạy **TankBattle-Launcher.exe**. Giữ `launcher.json` cùng thư mục với file EXE. Script `scripts/build-launcher.ps1` tạo gói theo đúng tên này.
-
 Tank Battle là game xe tăng nhiều người chơi, gồm server Java và client Unity. Người chơi có thể đăng ký tài khoản, tạo hoặc tham gia phòng, đấu với nhau và xem lịch sử trận đấu.
 
 Mỗi phiên chơi sử dụng **một server chung**, lưu tài khoản và lịch sử của tất cả người chơi trong database SQLite. Các máy người chơi chạy client và kết nối đến server qua LAN hoặc VPN/Radmin. Bạn cũng có thể chạy server và client trên cùng máy để thử nghiệm.
 
-Dự án đang được phát triển. Repository cung cấp **mã nguồn**, không kèm file chạy, database hay dữ liệu người chơi. Sau khi tải về, bạn cần build để tạo bản chạy được, hoặc sử dụng bản đã được người khác build từ dự án này.
+Dự án đang được phát triển. Repository cung cấp **mã nguồn**, không kèm file chạy, database hay dữ liệu người chơi. Nếu tải mã nguồn để phát triển, bạn cần build để tạo bản chạy được. Nếu chỉ muốn chơi, làm theo hướng dẫn tải launcher ở đầu trang.
 
 ## Phạm vi dự án
 
