@@ -26,7 +26,7 @@ internal static class Program
             return helper.RunHelper();
         }
         if (args.FirstOrDefault() == "--hold") { Thread.Sleep(120000); return 0; }
-        if (Path.GetFileName(Environment.ProcessPath!).Equals("Launcher.exe", StringComparison.OrdinalIgnoreCase))
+        if (LauncherSelfUpdate.IsLauncherFileName(Path.GetFileName(Environment.ProcessPath!)))
             return RunFixture(args);
         if (args.Length is not (3 or 5 or 6)) { Console.Error.WriteLine("Usage: Checks.exe OLD_FIXTURE.exe NEW_FIXTURE.exe OUTPUT_DIRECTORY [OLD_UI.exe NEW_UI.exe [--keep-ui]]"); return 2; }
         string output = Path.GetFullPath(args[2]);
@@ -39,6 +39,7 @@ internal static class Program
             byte[] oldBytes = File.ReadAllBytes(args[0]), newBytes = File.ReadAllBytes(args[1]);
             await PreparationChecks(server, output, oldBytes, newBytes);
             await ProcessCase(server, output, oldBytes, newBytes, "healthy", "1.3.0");
+            await ProcessCase(server, output, oldBytes, newBytes, "legacy", "1.3.0", LauncherSelfUpdate.LegacyExecutableName);
             await ProcessCase(server, output, oldBytes, newBytes, "exit", "1.2.0");
             await ProcessCase(server, output, oldBytes, newBytes, "noack", "1.2.0");
             await ProcessCase(server, output, oldBytes, newBytes, "locked", "1.2.0");
@@ -83,6 +84,21 @@ internal static class Program
         var legacy = JsonSerializer.Deserialize<LauncherConfig>("{\"manifestUrl\":\"https://example.org/releases/manifest.json\"}", Json)!;
         Check(legacy.SelfUpdateUri.AbsoluteUri == "https://example.org/releases/launcher-manifest.json", "old config derives sibling manifest");
         Check((legacy with { LauncherManifestUrl = "https://other.example/launcher.json" }).SelfUpdateUri.Host == "other.example", "explicit launcher URL");
+        using (var defaults = new MemoryStream(Encode(legacy)))
+            Check(LauncherConfig.Load(Path.Combine(root, "no-config.json"), defaults) == legacy, "single executable uses embedded defaults without a config file");
+        string customPath = Path.Combine(root, "custom-launcher.json");
+        var custom = legacy with { ManifestUrl = "https://custom.example/manifest.json" };
+        File.WriteAllBytes(customPath, Encode(custom));
+        using (var defaults = new MemoryStream(Encode(legacy)))
+            Check(LauncherConfig.Load(customPath, defaults) == custom, "existing configuration overrides embedded defaults");
+        File.WriteAllText(customPath, "null");
+        await Reject(() => { using var defaults = new MemoryStream(Encode(legacy)); LauncherConfig.Load(customPath, defaults); return Task.CompletedTask; }, "invalid custom config is reported instead of silently replaced");
+        foreach (string name in new[] { LauncherSelfUpdate.ExecutableName, LauncherSelfUpdate.LegacyExecutableName })
+        {
+            using var update = new LauncherSelfUpdate(Path.Combine(root, name), Path.Combine(root, "name-checks"));
+            Check(update.InspectStartup() == LauncherStartup.Continue, "self-update accepts " + name);
+        }
+        await Reject(() => { using var update = new LauncherSelfUpdate(Path.Combine(root, "unrelated.exe"), root); return Task.CompletedTask; }, "self-update rejects unrelated executable names");
         byte[] payload = Encoding.UTF8.GetBytes("verified payload");
         server.Routes["/payload"] = new(payload);
         server.Routes["/redirect"] = new([], 302, "/payload");
@@ -138,11 +154,11 @@ internal static class Program
         Check(game.Current() == current, "game update failure keeps current release");
     }
 
-    static (string Target, Fixture Config, byte[] ConfigBytes) Setup(LocalServer server, string root, byte[] oldBytes, byte[] newBytes, string name)
+    static (string Target, Fixture Config, byte[] ConfigBytes) Setup(LocalServer server, string root, byte[] oldBytes, byte[] newBytes, string name, string executableName = LauncherSelfUpdate.ExecutableName)
     {
         string directory = Path.Combine(root, name);
         Directory.CreateDirectory(directory);
-        string target = Path.Combine(directory, "Launcher.exe");
+        string target = Path.Combine(directory, executableName);
         File.WriteAllBytes(target, oldBytes);
         server.Routes["/" + name + ".exe"] = new(newBytes);
         string manifestUrl = server.Url + "/" + name + ".json";
@@ -174,10 +190,12 @@ internal static class Program
         }
     }
 
-    static async Task ProcessCase(LocalServer server, string root, byte[] oldBytes, byte[] newBytes, string behavior, string expected)
+    static async Task ProcessCase(LocalServer server, string root, byte[] oldBytes, byte[] newBytes, string behavior, string expected, string executableName = LauncherSelfUpdate.ExecutableName)
     {
-        var fixture = Setup(server, root, oldBytes, newBytes, behavior);
-        string gameExe = Path.Combine(Path.GetDirectoryName(fixture.Target)!, "TankBattle.exe");
+        var fixture = Setup(server, root, oldBytes, newBytes, behavior, executableName);
+        string gameDirectory = Path.Combine(fixture.Config.Root, "game");
+        Directory.CreateDirectory(gameDirectory);
+        string gameExe = Path.Combine(gameDirectory, "TankBattle.exe");
         File.WriteAllBytes(gameExe, oldBytes);
         using var runningGame = Launch(gameExe, "--hold");
         using var locked = behavior == "locked" ? new FileStream(fixture.Target, FileMode.Open, FileAccess.Read, FileShare.Read) : null;
@@ -357,7 +375,7 @@ internal static class Program
         }
         finally
         {
-            foreach (var process in Process.GetProcessesByName("Launcher"))
+            foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(fixture.Target)))
             using (process)
             {
                 try

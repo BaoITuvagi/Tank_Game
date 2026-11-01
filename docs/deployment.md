@@ -81,7 +81,7 @@ Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, ch
 <a id="build-launcher"></a>
 ## Build và phân phối launcher
 
-Launcher từ 1.2.0 tự cập nhật EXE trước game bằng `launcher-manifest.json`, độc lập với manifest game. Build bằng `./scripts/build-launcher.ps1`; dùng `-ReleaseBaseUrl` trỏ tag GitHub Releases cố định khi phát hành. Gửi `build/launcher-win64.zip` cho người chơi lần đầu, đồng thời upload EXE có version và manifest riêng do script sinh ra. Latest phải phục vụ cả hai manifest và các asset mà chúng trỏ tới. Xem [hướng dẫn launcher](../source/launcher/README.md) về cấu hình, output, rollback và kiểm tra.
+Ứng dụng từ 1.2.2 được phân phối dưới tên `TankBattle.exe`, tự cập nhật trước game bằng `launcher-manifest.json`. Cấu hình được nhúng trong EXE; `launcher.json` chỉ cần khi muốn ghi đè cấu hình. Build bằng `./scripts/build-launcher.ps1`, dùng `-ReleaseBaseUrl` trỏ tag cố định. Latest chỉ cần `TankBattle.exe`, `launcher-manifest.json` và `manifest.json`; manifest game có thể tiếp tục trỏ ZIP ở release game trước, không upload ZIP trùng. Giữ asset tại các URL manifest đang dùng. Tên `Launcher.exe` cũ vẫn được hỗ trợ cho tự cập nhật. Xem [hướng dẫn launcher](../source/launcher/README.md).
 
 Người chơi launcher cũ tải lại bản có cơ chế tự cập nhật một lần. Các lần sau tự tải/mở lại; giữ `launcher.json`, shortcut và game trong `%LocalAppData%\TankBattle`. Thư mục đặt EXE cần quyền ghi; không yêu cầu quyền admin. Lỗi tải/thay file giữ bản hiện tại; lỗi khởi động bản mới thì helper khôi phục backup. Build server hoặc client không cập nhật các file phát hành này.
 

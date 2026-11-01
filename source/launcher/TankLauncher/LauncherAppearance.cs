@@ -23,7 +23,7 @@ sealed partial class LauncherForm
     void InitializeAppearance()
     {
         SuspendLayout();
-        Text = "Tank Battle Launcher";
+        Text = "Tank Battle";
         AutoScaleMode = AutoScaleMode.None;
         FormBorderStyle = FormBorderStyle.Sizable;
         ControlBox = MinimizeBox = MaximizeBox = true;

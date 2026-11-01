@@ -23,7 +23,7 @@ if($IncludeUiSmoke){
         $output=Join-Path $root ('build/launcher-ui-'+$fixture.name)
         & dotnet publish source/launcher/TankLauncher/TankLauncher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -p:DefineConstants=LAUNCHER_TEST -o $output "-p:Version=$($fixture.version)"
         if($LASTEXITCODE -ne 0){throw "Failed to publish $($fixture.name) UI fixture."}
-        $checkArgs+=Join-Path $output 'Launcher.exe'
+        $checkArgs+=Join-Path $output 'TankBattle.exe'
     }
     if($KeepUi){$checkArgs+='--keep-ui'}
 }

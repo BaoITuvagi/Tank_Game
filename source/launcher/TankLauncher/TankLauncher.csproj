@@ -5,11 +5,15 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>Launcher</AssemblyName>
-    <Version>1.2.1</Version>
+    <AssemblyName>TankBattle</AssemblyName>
+    <Product>Tank Battle</Product>
+    <Title>Tank Battle</Title>
+    <Version>1.2.2</Version>
+    <LauncherDefaultsPath Condition="'$(LauncherDefaultsPath)' == ''">launcher.defaults.json</LauncherDefaultsPath>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../TankLauncher.Core/TankLauncher.Core.csproj" />
+    <EmbeddedResource Include="$(LauncherDefaultsPath)" LogicalName="TankBattle.launcher.json" />
     <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/logo.png" LogicalName="LauncherArt.logo.png" />
     <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/anh_nen.png" LogicalName="LauncherArt.background.png" />
     <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/Fonts/Bungee-Regular.ttf" LogicalName="LauncherArt.display.ttf" />

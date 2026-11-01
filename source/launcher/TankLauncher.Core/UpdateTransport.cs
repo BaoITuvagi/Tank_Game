@@ -8,6 +8,16 @@ namespace TankLauncher;
 
 public sealed record LauncherConfig(string ManifestUrl, bool AllowLoopbackHttp = false, string? LauncherManifestUrl = null)
 {
+    public static LauncherConfig Load(string overridePath, Stream defaults)
+    {
+        if (!File.Exists(overridePath)) return Read(defaults);
+        using var custom = File.OpenRead(overridePath);
+        return Read(custom);
+    }
+
+    static LauncherConfig Read(Stream input) => JsonSerializer.Deserialize<LauncherConfig>(input, Updater.JsonOptions)
+        ?? throw new InvalidDataException("Cấu hình cập nhật rỗng.");
+
     public Uri SelfUpdateUri => string.IsNullOrWhiteSpace(LauncherManifestUrl)
         ? new Uri(new Uri(ManifestUrl, UriKind.Absolute), "launcher-manifest.json")
         : new Uri(LauncherManifestUrl, UriKind.Absolute);

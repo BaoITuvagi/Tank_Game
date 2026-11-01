@@ -1,12 +1,12 @@
 # Tank Battle Launcher
 
-Launcher Windows x64 dùng WinForms/.NET 9. Máy người chơi dùng ZIP standalone không cần cài .NET. Từ bản **1.2.0**, launcher tự cập nhật chính nó trước khi kiểm tra game. Người đang dùng bản cũ phải tải và giải nén bản hỗ trợ tính năng này một lần; game đã cài trong `%LocalAppData%\TankBattle` vẫn dùng được.
+Ứng dụng Windows x64 dùng WinForms/.NET 9. Từ **1.2.2**, người chơi chỉ cần tải **`TankBattle.exe`**, đặt vào thư mục có quyền ghi và mở; không cần giải nén ZIP, tạo cấu hình hoặc cài .NET. Ứng dụng tự cập nhật trước khi kiểm tra game; game đã cài trong `%LocalAppData%\TankBattle` vẫn dùng được.
 
-Nếu có cấu hình riêng khi chuyển từ launcher cũ, chỉ thay `Launcher.exe` và giữ `launcher.json` cũ; trường URL cập nhật launcher mới có giá trị suy ra khi chưa được khai báo.
+Tên `Launcher.exe` cũ vẫn được hỗ trợ để luồng tự cập nhật và shortcut hiện có tiếp tục hoạt động. Nếu có `launcher.json` riêng bên cạnh EXE, ứng dụng ưu tiên cấu hình đó; nếu không có, nó dùng cấu hình HTTPS được nhúng khi build.
 
 ## Giao diện
 
-Launcher **1.2.1** dùng giao diện olive/kem, khung cắt góc và nút **CHƠI GAME** vàng theo mẫu đã duyệt. Logo, nền chiến trường và font Bungee/Nunito được nhúng trực tiếp từ `Assets/Resources/MenuArt` của client vào EXE, không cần thư mục ảnh/font bên cạnh launcher. Hai giấy phép OFL và `NOTICE.txt` cũng được nhúng trong EXE; bản ZIP kèm bản đọc được trong `ThirdParty/`. Không thay ảnh nguồn, importer hay `.meta` của Unity.
+Ứng dụng **1.2.2** có tên cửa sổ **Tank Battle**, giữ giao diện olive/kem, khung cắt góc và nút **CHƠI GAME** vàng. Logo, nền chiến trường và font Bungee/Nunito được nhúng trực tiếp từ `Assets/Resources/MenuArt` của client vào EXE, không cần thư mục ảnh/font bên cạnh. Hai giấy phép OFL và `NOTICE.txt` cũng được nhúng trong EXE. Không thay ảnh nguồn, importer hay `.meta` của Unity.
 
 Cửa sổ dùng thanh tiêu đề Windows chuẩn như cửa sổ game, có đủ nút thu nhỏ, phóng to/khôi phục và đóng; màu thanh tiêu đề theo thiết lập Windows. Vùng nội dung mặc định 1120×660 ở 100% DPI, tối thiểu 900×600, hỗ trợ kéo cạnh, kéo thanh tiêu đề, nhấp đúp và điều khiển nút bằng Tab/Enter/Space. Logo được giữ đúng tỷ lệ, chỉ bỏ vùng trong suốt bao quanh; hai dòng tiêu đề đo theo đường viền ký tự thật, gồm cả dấu tiếng Việt, rồi xếp tuần tự với khoảng cách riêng để không đè lên logo hoặc nhau khi đổi kích thước. Khối logo, tiêu đề và lời giới thiệu căn trái, cân giữa theo chiều dọc trong vùng ảnh với khoảng đệm trên/dưới; không còn dải ba nhãn chế độ. Footer hiển thị phiên bản game thực tế đã cài và phiên bản launcher riêng.
 
@@ -14,33 +14,32 @@ Vùng trạng thái hiển thị kiểm tra/cập nhật launcher, kiểm tra/t�
 
 Nút chơi là hành động chính màu vàng, icon play và chữ Bungee căn giữa thành một cụm; nút kiểm tra cập nhật/hủy là hành động phụ nền olive. Cả hai cấp nút dùng viền mực, bóng nhẹ, phản hồi hover/nhấn, trạng thái khóa và viền focus bàn phím; icon vẽ vector thay ký tự của font hệ điều hành. Khi đang cập nhật, nút chơi hiện icon tải xuống cùng nhãn khóa.
 
-Release game **v1.0.7** đã phân phối launcher **1.2.0** có tự cập nhật. Người dùng ZIP launcher của release đó sẽ nhận giao diện 1.2.1 khi EXE và manifest mới được phát hành trên kênh cập nhật; sửa source/build local chưa làm người chơi nhận bản mới.
+Người dùng Launcher 1.2.0/1.2.1 nhận bản mới qua kênh cập nhật, giữ tên file và cấu hình đang dùng. Người tải mới sử dụng `TankBattle.exe`.
 
 ## Build và phát hành
 
 Chạy PowerShell tại repo root, cần .NET SDK có thể build `net9.0-windows`:
 
 ```powershell
-./scripts/build-launcher.ps1 -ReleaseBaseUrl 'https://github.com/BaoITuvagi/Tank_Game/releases/download/launcher-v1.2.1'
+./scripts/build-launcher.ps1 -ReleaseBaseUrl 'https://github.com/BaoITuvagi/Tank_Game/releases/download/launcher-v1.2.2'
 ```
 
-Version mặc định lấy từ project launcher (`1.2.1`); có thể truyền `-LauncherVersion` để chỉ định version phát hành. Giá trị này được dùng cho assembly/file version, User-Agent và manifest. Mỗi thay đổi launcher đã phát hành cần số phiên bản lớn hơn; không thay asset cùng version để ép cập nhật.
+Version mặc định lấy từ project (`1.2.2`); có thể truyền `-LauncherVersion` để chỉ định version phát hành. Giá trị này được dùng cho assembly/file version, User-Agent và manifest. Mỗi thay đổi đã phát hành cần số phiên bản lớn hơn; không thay asset cùng version để ép cập nhật. `ManifestUrl` và `LauncherManifestUrl` được nhúng vào EXE theo tham số build.
 
 Output:
 
 | File | Mục đích |
 |---|---|
-| `build/launcher-win64.zip` | Người chơi tải lần đầu; giải nén cả `Launcher.exe` và `launcher.json` vào thư mục có quyền ghi. |
-| `build/launcher/TankBattle-Launcher-1.2.1-win64.exe` | Asset cho bộ tự cập nhật, không dùng riêng làm bộ cài lần đầu. |
+| `build/launcher/TankBattle.exe` | File duy nhất người chơi tải, đồng thời là asset của bộ tự cập nhật. |
 | `build/launcher/launcher-manifest.json` | Manifest riêng cho launcher: `schemaVersion`, `version`, `packageUrl`, `sha256`, `size`. Giới hạn EXE 512 MiB. |
 
-Upload các file này bằng quy trình phát hành hiện có. Không đưa output vào Git. Ưu tiên `ReleaseBaseUrl` trỏ tag cố định; mặc định script dùng `releases/latest/download`. Release được đánh dấu **latest** phải có cả `launcher-manifest.json` và `manifest.json` của game. Các manifest có thể trỏ URL asset ở tag cũ nếu phần đó không đổi; nếu dùng URL `latest/download`, asset tương ứng cũng phải có trên latest. Build local hoặc cập nhật server không tự phát hành launcher/game.
+Release **latest** chỉ cần ba asset: `TankBattle.exe`, `launcher-manifest.json` và `manifest.json` của game. Ưu tiên `ReleaseBaseUrl` trỏ tag cố định. Khi game không đổi, giữ `packageUrl` của `manifest.json` trỏ ZIP ở release game cũ; không upload thêm ZIP game trùng hoặc ZIP launcher. Không xóa ZIP ở URL mà manifest vẫn dùng. Hai gói “Source code” do GitHub tự sinh, không phải asset do script upload. Không đưa output vào Git; build local không tự phát hành.
 
-`-FrameworkDependent` chỉ dành cho phát triển, yêu cầu .NET 9 Desktop Runtime, có output/ZIP riêng và không tạo manifest/EXE cho kênh tự cập nhật. Không trộn bản này vào asset phát hành standalone.
+`-FrameworkDependent` chỉ dành cho phát triển, yêu cầu .NET 9 Desktop Runtime, có output/ZIP riêng và không tạo manifest cho kênh tự cập nhật. Không trộn bản này vào asset phát hành standalone.
 
 ## Cấu hình và hành vi
 
-`launcher.json` giữ `manifestUrl` của game và thêm `launcherManifestUrl`. Khi thiếu trường mới, launcher lấy `launcher-manifest.json` cùng thư mục URL với manifest game. Chỉ dùng HTTPS; `allowLoopbackHttp: true`/`-AllowLoopbackHttp` chỉ cho HTTP loopback khi kiểm thử. Kiểm tra mọi redirect, dung lượng và SHA-256 trước khi dùng file tải xuống.
+`launcher.json` là cấu hình tùy chọn, giữ `manifestUrl` của game và `launcherManifestUrl`. Khi thiếu trường thứ hai, ứng dụng lấy `launcher-manifest.json` cùng thư mục URL với manifest game. File tùy chỉnh sai định dạng được báo lỗi, không bị âm thầm thay bằng mặc định. Chỉ dùng HTTPS; `allowLoopbackHttp: true`/`-AllowLoopbackHttp` chỉ cho HTTP loopback khi kiểm thử. Kiểm tra mọi redirect, dung lượng và SHA-256 trước khi dùng file tải xuống.
 
 Khi mở hoặc bấm **Kiểm tra cập nhật**, launcher so phiên bản theo ba thành phần số. Nếu có bản mới, giao diện hiện tiến độ, tự đóng và mở lại rồi tiếp tục kiểm tra game. Có thể hủy khi đang tải; giai đoạn bàn giao cho helper không cho hủy. Bản chạy trực tiếp từ `dotnet run`/build không bundle không dùng làm helper; dùng script publish single-file để kiểm thử luồng đầy đủ.
 
@@ -48,7 +47,7 @@ Helper là bản sao launcher hiện tại, chạy ẩn từ `%LocalAppData%\Tan
 
 Launcher mới xác nhận sau khi khởi tạo giao diện, trước các thao tác mạng. Không xác nhận trong 30 giây hoặc khởi động lỗi thì helper đóng đúng tiến trình launcher mới do nó tạo, khôi phục bản cũ và mở lại với tự cập nhật launcher được bỏ qua trong lần khởi động đó. Nút kiểm tra thủ công vẫn cho thử lại. Lỗi cập nhật launcher không chặn kiểm tra game hoặc chơi bản game đã cài.
 
-Giao dịch được ghi dưới `launcher-updates`; bản sao lưu cạnh EXE có dạng `Launcher.exe.update-<token>.bak`. Lần mở tiếp theo xử lý giao dịch gián đoạn: giữ bản mới đã xác nhận, hoặc nhờ helper khôi phục bản cũ chưa xác nhận. File đang khóa được giữ lại để thử dọn sau. Khi lỗi không thể khôi phục tự động (ví dụ phần mềm khác thay EXE hoặc helper và EXE đều không còn chạy được), giữ các file và xem `last-error.txt`; giải nén ZIP vào thư mục mới rồi chép cấu hình riêng sang, hoặc khôi phục bản `.bak` sau khi đóng launcher. Game trong LocalAppData vẫn được dùng lại. Không xóa thủ công backup khi helper đang chạy.
+Giao dịch được ghi dưới `launcher-updates`; bản sao lưu cạnh EXE có dạng `<tên EXE>.update-<token>.bak`. Lần mở tiếp theo xử lý giao dịch gián đoạn: giữ bản mới đã xác nhận, hoặc nhờ helper khôi phục bản cũ chưa xác nhận. File đang khóa được giữ lại để thử dọn sau. Khi lỗi không thể khôi phục tự động, giữ các file và xem `last-error.txt`; tải `TankBattle.exe` vào thư mục mới rồi chép cấu hình riêng sang nếu có, hoặc khôi phục bản `.bak` sau khi đóng ứng dụng. Game trong LocalAppData vẫn được dùng lại. Không xóa thủ công backup khi helper đang chạy.
 
 ## Kiểm tra
 
@@ -62,4 +61,4 @@ Chương trình kiểm tra không thêm package: publish hai fixture single-file
 
 Kiểm tra thủ công trên hai bản standalone: cập nhật thành công và giao diện mở lại; trạng thái lỗi/cancel; launcher mới tiếp tục cập nhật game; mở hai launcher; thử mạng offline và thư mục không có quyền ghi. Không đánh dấu đã kiểm tra UI chỉ từ kết quả fixture.
 
-Với giao diện 1.2.1, kiểm tra thêm logo/nền đúng tài nguyên gốc, tiếng Việt có dấu, nhãn phiên bản thực, tiến độ/nút hủy và trạng thái nút chơi; thử Tab/Space, thu nhỏ/khôi phục, đổi kích thước tối thiểu 900×600 và DPI 100%/150%. Giữ cửa sổ bằng `-IncludeUiSmoke -KeepUi` để xem bản đã tự cập nhật; fixture chỉ là game giả, không dùng nút chơi của fixture để đánh giá Unity.
+Với bản 1.2.2, kiểm tra cả tên mới `TankBattle.exe`, tên cũ `Launcher.exe`, cấu hình mặc định nhúng và cấu hình tùy chỉnh. Kiểm tra thêm logo/nền, tiếng Việt, nhãn phiên bản, tiến độ/nút hủy; thử Tab/Space, thu nhỏ/khôi phục, kích thước tối thiểu 900×600 và DPI 100%/150%. Giữ cửa sổ bằng `-IncludeUiSmoke -KeepUi` để xem bản đã tự cập nhật; fixture chỉ là game giả, không dùng nút chơi của fixture để đánh giá Unity.

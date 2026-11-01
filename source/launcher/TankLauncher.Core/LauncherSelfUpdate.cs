@@ -13,6 +13,12 @@ public enum LauncherStartup { Continue, Busy, Recover }
 [SupportedOSPlatform("windows")]
 public sealed class LauncherSelfUpdate : IDisposable
 {
+    public const string ExecutableName = "TankBattle.exe";
+    public const string LegacyExecutableName = "Launcher.exe";
+    public static bool IsLauncherFileName(string name) =>
+        name.Equals(ExecutableName, StringComparison.OrdinalIgnoreCase) ||
+        name.Equals(LegacyExecutableName, StringComparison.OrdinalIgnoreCase);
+
     public const string UiMutexName = @"Local\TankBattleLauncher";
     public const long MaxSize = 512L * 1024 * 1024;
     readonly UpdateTransport transport;
@@ -34,8 +40,8 @@ public sealed class LauncherSelfUpdate : IDisposable
     public LauncherSelfUpdate(string executable, string updateRoot, bool allowLoopbackHttp = false)
     {
         target = Path.GetFullPath(executable);
-        if (!Path.GetFileName(target).Equals("Launcher.exe", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Tên file launcher phải là Launcher.exe.");
+        if (!IsLauncherFileName(Path.GetFileName(target)))
+            throw new InvalidDataException("Tên file phải là TankBattle.exe hoặc Launcher.exe để tương thích bản cũ.");
         this.updateRoot = Path.GetFullPath(updateRoot);
         string key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(target.ToUpperInvariant())));
         workspace = Path.Combine(this.updateRoot, key);

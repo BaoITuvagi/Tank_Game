@@ -98,9 +98,12 @@ sealed partial class LauncherForm : Form
         FormClosed += (_, _) => updater.Dispose();
     }
 
-    static LauncherConfig ReadConfig() => JsonSerializer.Deserialize<LauncherConfig>(
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "launcher.json")), Updater.JsonOptions)
-        ?? throw new InvalidDataException("launcher.json rỗng.");
+    static LauncherConfig ReadConfig()
+    {
+        using var defaults = typeof(Program).Assembly.GetManifestResourceStream("TankBattle.launcher.json")
+            ?? throw new InvalidDataException("Thiếu cấu hình cập nhật mặc định.");
+        return LauncherConfig.Load(Path.Combine(AppContext.BaseDirectory, "launcher.json"), defaults);
+    }
 
     static LauncherConfig? ReadConfigSafely() { try { return ReadConfig(); } catch { return null; } }
 

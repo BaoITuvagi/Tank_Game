@@ -31,27 +31,25 @@ $env:DOTNET_CLI_TELEMETRY_OPTOUT='1'
 # Use separate output directories so framework-dependent files cannot contaminate a standalone release.
 $flavor=if($FrameworkDependent){'launcher-framework-dependent'}else{'launcher'}
 $output=Join-Path $root "build/$flavor"
-$selfContained=if($FrameworkDependent){'false'}else{'true'}
-& dotnet publish source/launcher/TankLauncher/TankLauncher.csproj -c Release -r win-x64 --self-contained $selfContained -o $output -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false "-p:Version=$LauncherVersion"
-if($LASTEXITCODE -ne 0){throw 'Launcher publish failed. A standalone build needs network access on its first build to restore .NET runtime packs.'}
+$defaultsDirectory=Join-Path $root "runtime/$flavor-build"
+New-Item -ItemType Directory -Path $defaultsDirectory -Force | Out-Null
+$defaultsPath=Join-Path $defaultsDirectory 'launcher.defaults.json'
 $config=[ordered]@{manifestUrl=$ManifestUrl;allowLoopbackHttp=[bool]$AllowLoopbackHttp;launcherManifestUrl=$LauncherManifestUrl}
-$json=$config | ConvertTo-Json
-[IO.File]::WriteAllText((Join-Path $output 'launcher.json'),$json,(New-Object Text.UTF8Encoding($false)))
-$licenses=Join-Path $output 'ThirdParty'
-New-Item -ItemType Directory -Path $licenses -Force | Out-Null
-foreach($name in @('Bungee-OFL.txt','Nunito-OFL.txt','NOTICE.txt')) {
-    Copy-Item -LiteralPath (Join-Path $root "source/client/Assets/Resources/MenuArt/Fonts/$name") -Destination (Join-Path $licenses $name) -Force
+[IO.File]::WriteAllText($defaultsPath,($config | ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))
+$selfContained=if($FrameworkDependent){'false'}else{'true'}
+& dotnet publish source/launcher/TankLauncher/TankLauncher.csproj -c Release -r win-x64 --self-contained $selfContained -o $output -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false "-p:Version=$LauncherVersion" "-p:LauncherDefaultsPath=$defaultsPath"
+if($LASTEXITCODE -ne 0){throw 'Launcher publish failed. A standalone build needs network access on its first build to restore .NET runtime packs.'}
+Write-Output "Built $output/TankBattle.exe. Update configuration and third-party notices are embedded."
+if($FrameworkDependent){
+    $bundle=Join-Path $root 'build/TankBattle-framework-dependent-win64.zip'
+    Compress-Archive -Path (Join-Path $output '*') -DestinationPath $bundle -Force
+    Write-Warning 'This development build requires the .NET 9 Desktop Runtime on the player machine. Use the default standalone build for distribution.'
 }
-$bundle=Join-Path $root "build/$flavor-win64.zip"
-Compress-Archive -LiteralPath (Join-Path $output 'Launcher.exe'),(Join-Path $output 'launcher.json'),$licenses -DestinationPath $bundle -Force
-Write-Output "Built $output/Launcher.exe. Distribute the entire folder, including launcher.json."
-Write-Output "Player download: $bundle"
-if($FrameworkDependent){Write-Warning 'This development build requires the .NET 9 Desktop Runtime on the player machine. Use the default standalone build for distribution.'}
 else {
-    $asset="TankBattle-Launcher-$LauncherVersion-win64.exe"
+    $asset='TankBattle.exe'
     $assetPath=Join-Path $output $asset
-    Copy-Item -LiteralPath (Join-Path $output 'Launcher.exe') -Destination $assetPath -Force
     $manifest=[ordered]@{schemaVersion=1;version=$LauncherVersion;packageUrl=$ReleaseBaseUrl.TrimEnd('/')+'/'+$asset;sha256=(Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant();size=(Get-Item -LiteralPath $assetPath).Length}
     [IO.File]::WriteAllText((Join-Path $output 'launcher-manifest.json'),($manifest | ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))
-    Write-Output "Upload $asset, launcher-manifest.json and $bundle to GitHub Releases; retain the game manifest/assets on latest."
+    Write-Output "Player download: $assetPath"
+    Write-Output 'Upload TankBattle.exe, launcher-manifest.json and manifest.json to the latest release. Keep the game ZIP at the URL referenced by manifest.json; do not upload duplicate game or launcher ZIPs.'
 }
