@@ -11,6 +11,7 @@ public class Room  {
     final int id;
     final RoomMode roomMode;
     final RoleplayMatch roleplay;
+    final MatchChat chat=new MatchChat(this);
     volatile String name;
     volatile int capacity,matchTicks,startingHp=World.DEFAULT_HP;
     final RoomAccess access=new RoomAccess();
@@ -40,6 +41,7 @@ public class Room  {
         boolean ready,prepared,disconnected,afkWarn,rejoining;
         int leaveReason;
         long rejoinDeadline;
+        long lastChat;
         long activity=System.nanoTime(),activityCheck=activity,afkSince;
         int previousAim,skillAimTick;
         World.Tank resultTank;
@@ -357,6 +359,7 @@ public class Room  {
             return;
         }
         match=server.matchId.getAndIncrement();
+        chat.clear();
         seed=Long.parseLong(server.cfg.value("match.seed","20261007"))^id^Long.rotateLeft(match,21);
         arenaMap=server.largeMap;
         world=new World(arenaMap,seed,startingHp);
@@ -427,6 +430,7 @@ public class Room  {
             m.prepared=true;
             s.ok(ACTION_RESULT,seq);
             s.event(START,new Writer().u64(match).u64(startUs).done());
+            chat.replay(s);
             broadcast();
             return;
         }
@@ -554,6 +558,7 @@ public class Room  {
         if(roleplay!=null)roleplay.summary();
         if(world!=null) {world.skills.clear();world.battlefield.clear();}
         phase=RoomState.RESULTS;
+        chat.clear();
         rejoinableAccounts=Set.of();
         List<Member> sorted=new ArrayList<>(participants);
         for(Member m:sorted) {

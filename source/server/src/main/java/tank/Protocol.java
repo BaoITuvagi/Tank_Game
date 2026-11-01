@@ -5,6 +5,7 @@ import java.nio.charset.*;
 import java.util.*;
 import java.util.function.Consumer;
 public final class Protocol  {
+    public static final int CHAT_SEND=88,CHAT_MESSAGES=89;
     public static final int SELECT_NATION=80,USE_SKILL=84,MATCH_LOADOUT=85,SHOP=86,SHOP_RESULT=87,SNAPSHOT_PART=50;
     public enum RoomMode { NORMAL, ROLEPLAY }
     public enum PrepStage { LOADING, SYNC_LOADOUT, COUNTDOWN }

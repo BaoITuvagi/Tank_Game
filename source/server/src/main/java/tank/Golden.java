@@ -10,6 +10,8 @@ public final class Golden  {
         byte[] token=new byte[16],hash=new byte[32];
         String nickname="Xe tăng Việt Nam";
         byte[] contentHash=HexFormat.of().parseHex(RoleplayContent.Hash);
+        v.put(CHAT_SEND,new Writer().u64(1).str("Xin chào <b>!</b>").done());
+        v.put(CHAT_MESSAGES,new Writer().u64(1).u8(1).u32(1).u8(7).u8(2).str(nickname).str("Xin chào <b>!</b>").done());
         v.put(SELECT_NATION,new Writer().u8(0).done());
         v.put(USE_SKILL,new Writer().u64(1).u32(8).u8(0).f32(6.8f).f32(53.2f).done());
         v.put(SHOP,new Writer().u8(0).u64(0).done());
@@ -113,7 +115,7 @@ public final class Golden  {
             if(!seen.add(parts[0])||!Arrays.equals(expected.get(parts[0]),HexFormat.of().parseHex(parts[1])))throw new IllegalArgumentException("Golden mismatch: "+parts[0]);
         }
         if(!seen.equals(expected.keySet()))throw new IllegalArgumentException("Missing golden variants");
-        System.out.println("Java verified all C# golden frames: "+seen.size()+" variants / 46 opcodes");
+        System.out.println("Java verified all C# golden frames: "+seen.size()+" variants / 48 opcodes");
     }
     public static void main(String[] args)throws Exception {
         if(args.length==2&&args[0].equals("--verify"))verify(Path.of(args[1]));

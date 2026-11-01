@@ -104,6 +104,6 @@ class ItemCodecTest {
         byte[] full=w.encode();assertThrows(RuntimeException.class,()->World.decode(Arrays.copyOf(full,full.length-1)));
         for(int kind:new int[]{-1,6}) {var b=new World.Bullet();b.kind=kind;assertThrows(IllegalArgumentException.class,()->World.validate(b));}
         var b=new World.Bullet();b.kind=3;b.damage=20;assertThrows(IllegalArgumentException.class,()->World.validate(b));
-        for(int version:new int[]{5,6,7,8,9,10,11,12,13,14,15}) {byte[] old=frame(HEARTBEAT,1,new byte[0]);old[2]=(byte)version;assertThrows(IllegalArgumentException.class,()->decode(old,false));}assertEquals(16,GameRules.ProtocolVersion);
+        for(int version:new int[]{5,6,7,8,9,10,11,12,13,14,15,16}) {byte[] old=frame(HEARTBEAT,1,new byte[0]);old[2]=(byte)version;assertThrows(IllegalArgumentException.class,()->decode(old,false));}assertEquals(17,GameRules.ProtocolVersion);
     }
 }

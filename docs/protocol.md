@@ -1,6 +1,6 @@
 # Giao thức và hợp đồng dùng chung
 
-Đối chiếu working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Phiên bản hiện tại là **16**, được khai báo thống nhất trong JSON và Java/C# sinh ra. Các bố cục bên dưới được đối chiếu bằng cách đọc mã và test, không phải tuyên bố test đã chạy. Luật chơi chi tiết nằm ở [gameplay](gameplay.md); lưu kết quả nằm ở [data](data.md).
+Đối chiếu working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Phiên bản hiện tại là **17**, được khai báo thống nhất trong JSON và Java/C# sinh ra. Các bố cục bên dưới được đối chiếu bằng cách đọc mã và test, không phải tuyên bố test đã chạy. Luật chơi chi tiết nằm ở [gameplay](gameplay.md); lưu kết quả nằm ở [data](data.md).
 
 Mục lục: [JSON, sinh mã và hash](#shared-contracts) · [Transport](#transport) · [Snapshot](#snapshot) · [Delta](#delta) · [Sự kiện combat](#combat-events) · [Wave battlefield](#battlefield-wire) · [TCP](#tcp) · [Vào lại](#rejoin) · [Prediction](#prediction) · [Điểm đọc test](#tests).
 
@@ -32,11 +32,11 @@ TCP điều khiển tài khoản/phòng/vòng đời/kỹ năng; UDP vận chuy�
 Frame TCP và từng datagram UDP có header **12 byte**:
 
 ```text
-magic:u16=0x5442, version:u8=16, opcode:u8,
+magic:u16=0x5442, version:u8=17, opcode:u8,
 sequence:u32, payloadLength:u16, flags:u16=0, payload:bytes
 ```
 
-Payload frame tối đa 16384 byte; UDP cả header tối đa **1200 byte**. Snapshot lớn không đóng thành một frame khổng lồ mà phân mảnh ở tầng ứng dụng. Phiên bản khác 16 bị từ chối ngay tại header TCP/UDP; test nêu rõ các peer 5–15 bị từ chối. Java và Unity phải triển khai cùng đợt, với map và content hash khớp.
+Payload frame tối đa 16384 byte; UDP cả header tối đa **1200 byte**. Snapshot lớn không đóng thành một frame khổng lồ mà phân mảnh ở tầng ứng dụng. Phiên bản khác 17 bị từ chối ngay tại header TCP/UDP; test nêu rõ các peer 5–16 bị từ chối. Java và Unity phải triển khai cùng đợt, với map và content hash khớp.
 
 `Protocol.Mode` / `NetworkMode` theo thứ tự wire: `BASELINE=0`, `INPUT_REDUNDANCY=1`, `DELTA=2`, `COMBINED=3`. Hai mode có redundancy gửi tối đa ba input gần nhất; hai mode có delta cho phép snapshot chênh lệch. Đây là tùy chọn truyền mạng của server, không phải `RoomMode.NORMAL/ROLEPLAY`.
 
@@ -66,7 +66,7 @@ Server→client UDP:
 Nguồn: [Protocol.frame/decode/read, Writer/Reader](../source/server/src/main/java/tank/Protocol.java), [Protocol.Frame/Decode/ReadAsync](../source/client/Assets/Scripts/Protocol.cs), [Server.route](../source/server/src/main/java/tank/Server.java), [InputBuffer](../source/server/src/main/java/tank/InputBuffer.java), [ClientCore.GenerateInput/Poll](../source/client/Assets/Scripts/ClientCore.cs).
 
 <a id="snapshot"></a>
-## FULL và các extension của snapshot v16
+## FULL và các extension của snapshot v17
 
 Metadata chung **30 byte** trước world:
 
@@ -80,7 +80,7 @@ FULL nối trực tiếp world. DELTA nối `baseSnapshotId:u32` rồi patch; ba
 Thứ tự FULL world bắt buộc:
 
 ```text
-tankCount:u8, tanks[64 byte mỗi xe], bulletCount:u8, bullets[21 byte mỗi đạn],
+tankCount:u8, tanks[67 byte mỗi xe], bulletCount:u8, bullets[21 byte mỗi đạn],
 brickHp:64 bytes, skillEffects, tankItemState + mapItems + itemEvents,
 combatEvents, battlefield
 ```
@@ -249,6 +249,19 @@ sorted(slot:u8, nation:u8)[count], loadoutHash:32 bytes
 Client kiểm count1–8, slot tăng 0–7, nation duy nhất 0–7, có self slot, revision dương và cả hai hash. START (67) là `match:u64, startUs:u64`; server chỉ chuyển RUNNING khi đủ điều kiện và tới giờ bắt đầu. Khi rejoin, START mang mốc start cũ của trận.
 
 Nguồn: [Server.Session.request](../source/server/src/main/java/tank/Server.java), [Room.broadcast/sendPrepare/prepare/prepared/tick](../source/server/src/main/java/tank/Room.java), [RoleplayMatch.selectNation/publishLoadout/prepared](../source/server/src/main/java/tank/RoleplayMatch.java), [ClientCore.Handle](../source/client/Assets/Scripts/ClientCore.Messages.cs), [ClientCore.Poll](../source/client/Assets/Scripts/ClientCore.cs).
+
+<a id="match-chat"></a>
+### Chat trong trận (v17)
+
+CHAT_SEND (88), client → server: `match:u64, text:string`. Chỉ nhận trong RUNNING, từ member hiện tại đã hoàn tất rejoin; xe chết vẫn được chat. Tên/slot/màu do server lấy từ member, không nhận từ client. ACTION_RESULT (15) dùng cùng request sequence: `status:u16, [reason:string nếu lỗi]`. Lỗi chat hiển thị riêng, không ghi đè thông báo gameplay.
+
+CHAT_MESSAGES (89), server → client, event sequence=0: `match:u64, count:u8`, rồi mỗi tin `id:u32, slot:u8, palette:u8, name:string, text:string`. ID tăng từ 1 trong từng trận; slot và palette 0–7. NORMAL dùng slot làm palette; ROLEPLAY dùng nation. Tên/màu được chụp lúc gửi, không phụ thuộc roster hiện tại. Tin trực tiếp có count=1; replay count=1–10, mỗi frame dưới 16384 byte. Client validate toàn batch trước khi áp dụng, bỏ ID đã nhận và packet khác trận.
+
+Nội dung tối đa 200 Unicode code point, raw UTF-8 tối đa 800 byte; CR/LF/tab đổi thành dấu cách rồi strip khoảng trắng, từ chối tin rỗng và ISO control còn lại. Không diễn giải markup. Giới hạn một tin/giây/participant trên room thread, giữ qua rejoin; session action limiter vẫn áp dụng trước room queue.
+
+Room giữ 100 tin gần nhất trong RAM. Sau START của rejoin thành công (NORMAL và ROLEPLAY), gửi replay trước các lệnh chat mới trên room thread; xóa khi bắt đầu/kết thúc trận. Client xóa lịch sử khi chuẩn bị lại, rời trận hoặc đổi phiên, rồi nhận replay. Không lưu DB và không tự gửi lại tin. Phản hồi quá 8 giây hiện cảnh báo rằng tin có thể đã được gửi.
+
+Nguồn: [MatchChat](../source/server/src/main/java/tank/MatchChat.java), [ClientCore.Chat](../source/client/Assets/Scripts/ClientCore.Chat.cs). Test: `MatchChatTest`, `MatchChatTests` và golden interop 88/89. V17 giữ bố cục FULL/DELTA của v16; cần build/triển khai server và client cùng đợt, gồm content hash được sinh lại. Mô tả tổng quát trước đây ghi 64 byte/xe mâu thuẫn bảng record và codec 67 byte; tài liệu đã sửa thành 67, không thay codec.
 
 ### USE_SKILL và idempotency
 

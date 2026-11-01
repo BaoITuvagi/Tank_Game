@@ -42,7 +42,7 @@
   "SabotageCooldownPenaltyTicks": 300,
   "BulletLifetimeTicks": 150,
   "SpawnShieldTicks": 0,
-  "ProtocolVersion": 16,
+  "ProtocolVersion": 17,
   "MaxMatchTicks": 18000,
   "MaxTankSpeedPercent": 200,
   "MaxBulletSpeedPercent": 150,

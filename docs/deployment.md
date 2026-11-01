@@ -7,6 +7,7 @@ Mục lục:
 - [Build server](#build-server)
 - [Chạy và dừng server](#run-server)
 - [Build và phân phối client](#build-client)
+- [Build và phân phối launcher](#build-launcher)
 - [Kết nối qua máy cục bộ, LAN hoặc VPN](#connect)
 - [Cấu hình server và công cụ](#configuration)
 - [Demo nhiều client trên cùng máy](#local-demo)
@@ -77,6 +78,13 @@ Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, ch
 
 Để chạy trong Editor, mở `source/client`, scene `Assets/Scenes/Main.unity` rồi Play theo [bootstrap client](client.md#bootstrap).
 
+<a id="build-launcher"></a>
+## Build và phân phối launcher
+
+Ứng dụng từ 1.2.2 được phân phối dưới tên `TankBattle.exe`, tự cập nhật trước game bằng `launcher-manifest.json`. Cấu hình được nhúng trong EXE; `launcher.json` chỉ cần khi muốn ghi đè cấu hình. Build bằng `./scripts/build-launcher.ps1`, dùng `-ReleaseBaseUrl` trỏ tag cố định. Script tạo thêm `build/TankBattle-launcher-win64.zip` để người chơi tải thủ công. Latest gồm ZIP này, `TankBattle.exe`, `launcher-manifest.json` và `manifest.json`; manifest game có thể tiếp tục trỏ ZIP ở release game trước, không upload ZIP game trùng. Giữ asset tại các URL manifest đang dùng. Tên `Launcher.exe` cũ vẫn được hỗ trợ cho tự cập nhật. Xem [hướng dẫn launcher](../source/launcher/README.md).
+
+Người chơi launcher cũ tải lại bản có cơ chế tự cập nhật một lần. Các lần sau tự tải/mở lại; giữ `launcher.json`, shortcut và game trong `%LocalAppData%\TankBattle`. Thư mục đặt EXE cần quyền ghi; không yêu cầu quyền admin. Lỗi tải/thay file giữ bản hiện tại; lỗi khởi động bản mới thì helper khôi phục backup. Build server hoặc client không cập nhật các file phát hành này.
+
 ### ZIP launcher để tải trực tiếp
 
 Release [v1.0.8](https://github.com/BaoITuvagi/Tank_Game/releases/tag/v1.0.8) cung cấp `TankBattle-launcher-win64.zip`. Người chơi giải nén rồi chạy `TankBattle.exe`; launcher tự tải game. ZIP chứa launcher 1.2.2, còn manifest game tiếp tục trỏ tới gói game 1.0.7. Số phiên bản release không thay thế hai phiên bản này.
@@ -87,7 +95,7 @@ Release [v1.0.8](https://github.com/BaoITuvagi/Tank_Game/releases/tag/v1.0.8) cu
 ./scripts/package-launcher.ps1 -ExecutablePath ./build/launcher/TankBattle.exe
 ```
 
-Script chỉ đưa executable được chỉ định vào ZIP. Với launcher cũ cần cấu hình bên ngoài, thêm `-ConfigurationPath ./build/launcher/launcher.json`; `build-launcher.ps1` tự truyền file cấu hình khi tạo ZIP của nhánh này. Không đóng gói cả thư mục build vì có thể chứa file thừa.
+Script chỉ đưa executable được chỉ định vào ZIP. Với launcher cũ cần cấu hình bên ngoài, thêm `-ConfigurationPath ./build/launcher/launcher.json`. Bản standalone mới có cấu hình nhúng nên `build-launcher.ps1` không đưa `launcher.json` vào ZIP. Không đóng gói cả thư mục build vì có thể chứa file thừa.
 
 Khi phát hành, tải ZIP lên cùng `TankBattle.exe`, `manifest.json` và `launcher-manifest.json`. Giữ executable riêng để launcher tự cập nhật; ZIP dành cho người tải thủ công. Chỉ thay URL tải launcher trong `launcher-manifest.json` nếu chuyển executable sang release mới, đồng thời giữ đúng phiên bản, SHA-256 và kích thước file.
 

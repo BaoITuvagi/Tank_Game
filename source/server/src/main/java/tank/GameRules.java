@@ -45,7 +45,7 @@ public final class GameRules {
  public static final int SabotageCooldownPenaltyTicks=300;
  public static final int BulletLifetimeTicks=150;
  public static final int SpawnShieldTicks=0;
- public static final int ProtocolVersion=16;
+ public static final int ProtocolVersion=17;
  public static final int MaxMatchTicks=18000;
  public static final int MaxTankSpeedPercent=200;
  public static final int MaxBulletSpeedPercent=150;

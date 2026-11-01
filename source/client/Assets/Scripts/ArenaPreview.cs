@@ -87,6 +87,12 @@ namespace Tank  {
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-wide-names")>=0)foreach(var player in client.Players)player.Name=new string('M',24);
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-large-scores")>=0)foreach(var tank in world.Tanks.Values){tank.Kills=65535-tank.Slot;tank.Deaths=65535;}
             var localPlayer=client.Players.Find(player=>player.Slot==client.Slot);if(localPlayer!=null)client.Nickname=localPlayer.Name;
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-chat")>=0) {
+                client.Chat.Reset(client.Match);
+                var w=new WireWriter().U64(client.Match).U8(8);
+                for(int i=0;i<8;i++)w.U32((uint)i+1).U8(i).U8(i).Str(i==7?"Người chơi tên rất dài không bị cắt":"Xe "+TankPalette.Names[i]).Str(i==7?"Mình đến hỗ trợ! Tin dài có tiếng Việt và <b>nội dung nguyên văn</b> sẽ tự xuống dòng.":"Chào mọi người, sẵn sàng xuất kích!");
+                client.Chat.Receive(new WireReader(w.Done()),client.Match,true);
+            }
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-respawn")>=0) {
                 var local=world.Tanks[client.Slot];local.Hp=0;local.Respawn=client.Latest.Tick+150;
                 client.Predicted=local.Copy();

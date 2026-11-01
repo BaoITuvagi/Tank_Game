@@ -16,6 +16,8 @@ namespace Tank  {
         uint lastBattlefield;
         int battlefieldWaves;
         int buttons=17,angle;
+        bool chatSent,chatColorsValid=true;
+        int chatSlots;
         public static bool Enabled {
             get {
                 return Environment.GetCommandLineArgs().Contains("--smoke");
@@ -90,6 +92,14 @@ namespace Tank  {
             if(core.Phase==ClientPhase.PLAYING) {
                 if(matchPlayers==0&&core.Latest!=null)matchPlayers=core.Latest.World.Tanks.Count;
                 uint tick=core.Latest==null?0:core.Latest.Tick;
+                if(Environment.GetCommandLineArgs().Contains("--chat")) {
+                    if(!chatSent&&tick>=5)chatSent=core.SendChat("Xin chào từ "+username+" <b>chat nguyên văn</b>");
+                    foreach(var message in core.Chat.Messages) {
+                        chatSlots|=1<<message.Slot;
+                        MatchLoadout loadout;int expectedPalette=core.Loadouts.TryGetValue(message.Slot,out loadout)?loadout.Nation:message.Slot;
+                        if(message.Palette!=expectedPalette||!message.Text.Contains("<b>chat nguyên văn</b>"))chatColorsValid=false;
+                    }
+                }
                 if(tick>=change) {
                     change=tick+30;
                     buttons=(tick/30%2==0?1:8)|16|(roleplay?32:0);
@@ -112,7 +122,8 @@ namespace Tank  {
                 bool skills=!roleplay||core.LoadoutReady&&core.Loadouts.Count==players&&qRequests>0&&core.SkillFeedbackRevision>=1;
                 int battlefieldMask=(1<<BattlefieldWave.Fire)|(1<<BattlefieldWave.Airstrike);
                 bool battlefield=!Environment.GetCommandLineArgs().Contains("--battlefield")||(battlefieldTypes==battlefieldMask&&battlefieldWarnings==battlefieldMask&&battlefieldImpacts==battlefieldMask);
-                Save(SmokeAcceptance.Passed(core,expectedTicks)&&scenario&&skills&&battlefield);
+                bool chat=!Environment.GetCommandLineArgs().Contains("--chat")||chatSent&&chatColorsValid&&chatSlots==(1<<players)-1;
+                Save(SmokeAcceptance.Passed(core,expectedTicks)&&scenario&&skills&&battlefield&&chat);
                 return;
             }
             if(ClientCore.NowUs-began>(expectedTicks/30.0+60)*1e6||(auth&&core.Phase==ClientPhase.DISCONNECTED))Save(false);
@@ -125,11 +136,14 @@ namespace Tank  {
             public uint observedTick;
             public ulong match;
             public string mode,message,skillNotice;
+            public bool chatSent,chatColorsValid;
+            public int chatSlots;
         }
         void Save(bool success) {
             var result=new SmokeResult {
                 success=success,decoded=core.Decoded,invalid=core.Invalid,historyRows=core.History.Count, endReason=core.EndReason,expectedTicks=expectedTicks,observedTick=core.Latest==null?0:core.Latest.Tick,match=core.Match,
                 battlefieldTypes=battlefieldTypes,battlefieldWarnings=battlefieldWarnings,battlefieldImpacts=battlefieldImpacts,battlefieldWaves=battlefieldWaves,
+                chatSent=chatSent,chatColorsValid=chatColorsValid,chatSlots=chatSlots,
                 qRequests=qRequests,skillFeedback=core.SkillFeedbackRevision,mode=core.RoomMode.ToString(),message=core.Message,skillNotice=core.SkillNotice,map=core.ActiveMap.mapId,
                 nation=core.Loadouts.ContainsKey(core.Slot)?core.Loadouts[core.Slot].Nation:-1,
                 players=core.Players.Count,capacity=core.RoomCapacity,seconds=core.RoomSeconds,startingHp=core.RoomStartingHp,expectedPlayers=players,expectedHp=startingHp,matchPlayers=matchPlayers,resultPlayers=core.Scores.Count

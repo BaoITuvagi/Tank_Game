@@ -200,6 +200,11 @@ public class Server implements AutoCloseable  {
                 boolean matchAction=p.op()==USE_SKILL;
                 if(!(matchAction&&room!=null&&room.roleplay!=null)&&!actions.allow())throw new Database.Failure(Error.RATE_LIMITED);
                 switch(p.op()) {
+                    case CHAT_SEND-> {
+                        long match=r.u64();String text=r.str(MatchChat.MAX_BYTES);r.end();
+                        Room target=requireRoom();
+                        target.enqueue(()->target.chat.send(this,match,text,p.sequence()));
+                    }
                     case SHOP-> {
                         int command=r.u8();long match=r.u64();
                         if(command==0) {

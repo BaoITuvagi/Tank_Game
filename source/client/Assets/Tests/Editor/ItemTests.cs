@@ -136,8 +136,8 @@ public class ItemTests {
         }
     }
     [Test] public void OlderPeersAndTruncatedExtensionsAreRejected() {
-        Assert.AreEqual(16,GameRules.ProtocolVersion);
-        foreach(byte version in new byte[]{5,6,7,8,9,10,11,12,13,14,15}) {
+        Assert.AreEqual(17,GameRules.ProtocolVersion);
+        foreach(byte version in new byte[]{5,6,7,8,9,10,11,12,13,14,15,16}) {
             var old=Protocol.Frame(Op.Heartbeat,1,new byte[0]);old[2]=version;
             Assert.Throws<InvalidDataException>(()=>Protocol.Decode(old));
             Assert.Throws<InvalidDataException>(()=>Protocol.Read(new MemoryStream(old)));

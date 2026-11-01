@@ -32,6 +32,39 @@ namespace Tank {
                 case KeyCode.LeftShift:return "Shift trái";case KeyCode.RightShift:return "Shift phải";case KeyCode.Space:return "Space";}
             return key.ToString();
         }
+        public static string BindingText(KeyCode key){return key==KeyCode.None?"":KeyName(key);}
+        static string NormalizeKeyName(string text){return text.Trim().Replace(" ","").Replace("_","").Replace("-","").ToLowerInvariant();}
+        public static bool TryParseKeyName(string text,out KeyCode key){
+            key=KeyCode.None;
+            if(string.IsNullOrWhiteSpace(text))return true;
+            string name=NormalizeKeyName(text);
+            if(name.Length==1&&name[0]>='0'&&name[0]<='9'){key=(KeyCode)((int)KeyCode.Alpha0+name[0]-'0');return true;}
+            switch(name){
+                case "enter":key=KeyCode.Return;return true;
+                case "numpadenter":key=KeyCode.KeypadEnter;return true;
+                case "ctrl":case "control":case "ctrltrái":key=KeyCode.LeftControl;return true;
+                case "ctrlphải":key=KeyCode.RightControl;return true;
+                case "shift":key=KeyCode.LeftShift;return true;
+                case "alt":key=KeyCode.LeftAlt;return true;
+            }
+            foreach(KeyCode candidate in Enum.GetValues(typeof(KeyCode)))if(candidate!=KeyCode.None&&(NormalizeKeyName(candidate.ToString())==name||NormalizeKeyName(KeyName(candidate))==name)){
+                key=candidate;return Allowed(key);
+            }
+            return false;
+        }
+        public bool TryUpdateBindingText(string[] primary,string[] secondary,out string error){
+            error="Thiết lập phím không hợp lệ.";
+            if(primary==null||secondary==null||primary.Length!=12||secondary.Length!=12)return false;
+            var candidate=Copy();
+            for(int i=0;i<12;i++){
+                KeyCode first,second;
+                if(!TryParseKeyName(primary[i],out first)){error=ActionName((ControlAction)i)+" · Phím chính không hợp lệ: “"+primary[i]+"”. Dùng tên phím như W, Space hoặc Chuột trái; Esc/F11 dành cho giao diện.";return false;}
+                if(!TryParseKeyName(secondary[i],out second)){error=ActionName((ControlAction)i)+" · Phím phụ không hợp lệ: “"+secondary[i]+"”. Dùng tên phím như W, Space hoặc Chuột trái; Esc/F11 dành cho giao diện.";return false;}
+                candidate.Bindings[i].Primary=first;candidate.Bindings[i].Secondary=second;
+            }
+            if(!candidate.Valid(out error))return false;
+            Bindings=candidate.Bindings;return true;
+        }
         public string Label(ControlAction action){var b=Bindings[(int)action];return b.Secondary==KeyCode.None?KeyName(b.Primary):b.Primary==KeyCode.None?KeyName(b.Secondary):KeyName(b.Primary)+" / "+KeyName(b.Secondary);}
         public string NationDescription(int nation){return RoleplayContent.NationDescriptions[nation].Replace("Q",Label(ControlAction.Skill));}
         static int Context(ControlAction action){return action<=ControlAction.Right?3:action>=ControlAction.CampaignFire?2:1;}
@@ -53,20 +86,23 @@ namespace Tank {
         public bool Held(ControlAction action,bool allowMouse=true){return IsPressed(action,Input.GetKey,allowMouse);}
         public bool Pressed(ControlAction action,bool allowMouse=true){return IsPressed(action,Input.GetKeyDown,allowMouse);}
         public int MovementButtons(bool allowMouse=true){return (Held(ControlAction.Up,allowMouse)?1:0)|(Held(ControlAction.Down,allowMouse)?2:0)|(Held(ControlAction.Left,allowMouse)?4:0)|(Held(ControlAction.Right,allowMouse)?8:0);}
-        bool Valid(){
+        bool Valid(out string error){
+            error="Thiết lập phím không hợp lệ.";
             if(Version!=1||Bindings==null||Bindings.Length!=12)return false;
             for(int i=0;i<Bindings.Length;i++)if(Bindings[i]==null||Bindings[i].Action!=(ControlAction)i||!Allowed(Bindings[i].Primary)||!Allowed(Bindings[i].Secondary))return false;
             var check=Defaults();foreach(var b in check.Bindings){b.Primary=KeyCode.None;b.Secondary=KeyCode.None;}
-            string error;foreach(var b in Bindings)if(!check.TryBind(b.Action,false,b.Primary,out error)||!check.TryBind(b.Action,true,b.Secondary,out error))return false;
+            foreach(var b in Bindings)if(!check.TryBind(b.Action,false,b.Primary,out error)||!check.TryBind(b.Action,true,b.Secondary,out error))return false;
+            for(int i=0;i<Bindings.Length;i++)if(Bindings[i].Primary==KeyCode.None&&Bindings[i].Secondary==KeyCode.None){error="Cần ít nhất một phím cho "+ActionName((ControlAction)i)+". Gán phím trước khi lưu.";return false;}
+            error="";
             return true;
         }
         public static ClientPreferences Load(string path,out string warning){
             warning="";if(!File.Exists(path))return Defaults();
-            try{var value=JsonUtility.FromJson<ClientPreferences>(File.ReadAllText(path));if(value==null||!value.Valid())throw new InvalidDataException();return value;}
+            try{var value=JsonUtility.FromJson<ClientPreferences>(File.ReadAllText(path));string error;if(value==null||!value.Valid(out error))throw new InvalidDataException();return value;}
             catch(Exception e) when(e is IOException||e is InvalidDataException||e is UnauthorizedAccessException||e is ArgumentException){warning="Không đọc được cài đặt cũ. Đang dùng thiết lập mặc định.";return Defaults();}
         }
         public bool Save(string path,out string error){
-            error="";if(!Valid()){error="Thiết lập phím không hợp lệ.";return false;}
+            if(!Valid(out error))return false;
             try{string parent=Path.GetDirectoryName(path);if(!string.IsNullOrEmpty(parent))Directory.CreateDirectory(parent);File.WriteAllText(path+".tmp",JsonUtility.ToJson(this,true));if(File.Exists(path))File.Replace(path+".tmp",path,null);else File.Move(path+".tmp",path);return true;}
             catch(Exception e) when(e is IOException||e is UnauthorizedAccessException||e is ArgumentException){error="Không lưu được cài đặt. Vui lòng kiểm tra quyền ghi rồi thử lại.";return false;}
         }

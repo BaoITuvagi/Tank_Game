@@ -1,0 +1,5 @@
+{
+  "manifestUrl": "https://github.com/BaoITuvagi/Tank_Game/releases/latest/download/manifest.json",
+  "allowLoopbackHttp": false,
+  "launcherManifestUrl": "https://github.com/BaoITuvagi/Tank_Game/releases/latest/download/launcher-manifest.json"
+}

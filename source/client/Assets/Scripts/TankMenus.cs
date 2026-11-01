@@ -9,6 +9,9 @@ namespace Tank  {
         GUIStyle afkText;
         int capacityChoice=2,durationChoice=1;
         bool registerTab,roomForm,editingRoom,profileForm,joinForm,useRoomPassword;
+        bool fieldSubmitRequested;
+        string fieldFocusRequest;
+        float loginContentHeight,registerContentHeight;
         string startingHpText="100",roomPassword="",joinPassword="",displayName="",formError="";
         uint joinTarget;
         int savedNameRevision,savedSettingsRevision;
@@ -22,7 +25,7 @@ namespace Tank  {
         int observedAccountRevision;
         readonly System.Collections.Generic.Dictionary<GUIStyle,GUIStyle> flexibleButtons=new System.Collections.Generic.Dictionary<GUIStyle,GUIStyle>();
         GUIStyle cardName,cardText,cardSmall,cardHeading,plainCardButton,compactAction,centerCardHeading,centerCardText,centerSection,centerHint;
-        GUIStyle depotKicker,depotTitle,depotText,depotName,depotSmall,depotNumber,depotAction;
+        GUIStyle depotKicker,depotTitle,depotText,depotName,depotSmall,depotNumber,depotAction,headerRowButton,headerBackButton;
         void InitMenuCards() {
             if(cardName!=null)return;
             cardName=CartoonUi.Label(18,CartoonUi.Ink);cardText=CartoonUi.Label(16,CartoonUi.Ink);
@@ -35,7 +38,9 @@ namespace Tank  {
             depotKicker=CartoonUi.Label(12,CartoonUi.Gold);depotTitle=CartoonUi.Label(28,CartoonUi.Text,true);
             depotText=CartoonUi.Label(16,CartoonUi.Text);depotName=CartoonUi.Label(19,CartoonUi.Text);
             depotSmall=CartoonUi.Label(14,CartoonUi.Muted);depotNumber=CartoonUi.Label(28,CartoonUi.Gold,true);
-            depotAction=new GUIStyle(compactAction){fixedHeight=42,padding=new RectOffset(12,12,4,6)};
+            depotAction=new GUIStyle(compactAction){fixedHeight=42,wordWrap=false,padding=new RectOffset(12,12,4,6)};
+            headerRowButton=new GUIStyle(menu.HeaderButton){fixedHeight=0};
+            headerBackButton=new GUIStyle(menu.Secondary){fixedHeight=0,fontSize=headerRowButton.fontSize,padding=new RectOffset(headerRowButton.padding.left,headerRowButton.padding.right,headerRowButton.padding.top,headerRowButton.padding.bottom)};
         }
         void DepotRule(Rect rect,Color color) {
             ArenaRenderer.Fill(new Rect(rect.x,rect.y,Mathf.Min(36,rect.width),rect.height),color);
@@ -95,25 +100,26 @@ namespace Tank  {
         void DrawHeader(bool playing) {
             InitMenuCards();
             if(playing)menu.Logo(new Rect(16,5,48,48));
-            else {
-                if(client.Phase<=ClientPhase.AUTHENTICATING&&Screen.width<1100)menu.Logo(new Rect((viewWidth-72)/2,2,72,72));
-                else menu.Logo(new Rect(24,2,72,72));
-            }
+            else menu.Logo(new Rect(24,2,72,72));
             if(!playing&&((client.Phase>=ClientPhase.LOBBY&&viewWidth>=1000)||Screen.width>=1100)) {
                 GUI.Label(new Rect(112,15,240,30),"TANK BATTLE",menu.Header);
                 GUI.Label(new Rect(114,46,240,18),"SẴN SÀNG XUẤT KÍCH",depotKicker);
             }
+            float buttonHeight=46,buttonY=((playing?68:76)-buttonHeight)/2;
             if(client.Phase>=ClientPhase.LOBBY) {
-                float profileWidth=viewWidth<1100?116:190,walletWidth=viewWidth<1100?140:180,profileX=viewWidth-252-profileWidth;
-                string profileLabel=WrapMenuText(string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname,menu.HeaderButton,profileWidth);
-                float buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,menu.HeaderButton,profileWidth));
-                float buttonY=((playing?68:76)-buttonHeight)/2;
-                DrawWalletBadge(new Rect(profileX-10-walletWidth,((playing?68:76)-40)/2,walletWidth,40));
-                if(GUI.Button(new Rect(viewWidth-242,buttonY,104,buttonHeight),"Đăng xuất",menu.HeaderButton)) {
-                    client.Logout();
-                    roomForm=profileForm=joinForm=false;
+                string name=string.IsNullOrEmpty(client.Nickname)?"Tên hiển thị":client.Nickname;
+                float profileWidth=viewWidth<1100?116:190;
+                string profileLabel=WrapMenuText(name,headerRowButton,profileWidth);
+                buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,headerRowButton,profileWidth));
+                while(viewWidth<1100&&buttonHeight>60&&profileWidth<220) {
+                    profileWidth=Mathf.Min(220,profileWidth+8);
+                    profileLabel=WrapMenuText(name,headerRowButton,profileWidth);
+                    buttonHeight=Mathf.Max(46,ButtonHeight(profileLabel,headerRowButton,profileWidth));
                 }
-                if(GUI.Button(new Rect(profileX,buttonY,profileWidth,buttonHeight),profileLabel,menu.HeaderButton)) {
+                float walletWidth=viewWidth<1100?140:180,profileX=viewWidth-138-profileWidth;
+                buttonY=Mathf.Max(0,((playing?68:76)-buttonHeight)/2);
+                DrawWalletBadge(new Rect(profileX-10-walletWidth,buttonY,walletWidth,buttonHeight));
+                if(GUI.Button(new Rect(profileX,buttonY,profileWidth,buttonHeight),profileLabel,headerRowButton)) {
                     displayName=client.Nickname;
                     profileForm=true;
                     formError="";
@@ -121,7 +127,7 @@ namespace Tank  {
                     GUI.FocusControl(null);
                 }
             }
-            DrawSettingsButton(new Rect(viewWidth-128,((playing?68:76)-42)/2,104,42));
+            DrawSettingsButton(new Rect(viewWidth-128,buttonY,104,buttonHeight),headerRowButton);
         }
         bool Button(string label,bool enabled=true,bool secondary=false,GUIStyle style=null) {
             bool prior=GUI.enabled;
@@ -130,6 +136,11 @@ namespace Tank  {
             bool result=GUILayout.Button(label,FlexibleButtonStyle(source),GUILayout.MinHeight(source.fixedHeight));
             GUI.enabled=prior;
             return result;
+        }
+        bool SubmitButton(string label,bool enabled=true) {
+            bool submit=fieldSubmitRequested&&GUI.enabled&&enabled;
+            fieldSubmitRequested=false;
+            return Button(label,enabled)||submit;
         }
         GUIStyle FlexibleButtonStyle(GUIStyle source) {
             GUIStyle flexible;
@@ -146,22 +157,24 @@ namespace Tank  {
             // Reserve the actual scrollbar gutter plus child margins inside the clipped viewport.
             return Mathf.Max(120,viewportWidth-Mathf.Max(14,scrollbar.fixedWidth)-scrollbar.margin.horizontal-8);
         }
-        string Field(string key,string label,string value,int limit=64,bool secret=false) {
+        void HandleFieldEnter(string key,string nextField=null) {
+            var e=Event.current;
+            if(GUI.enabled&&GUI.GetNameOfFocusedControl()==key&&e.type==EventType.KeyDown&&(e.keyCode==KeyCode.Return||e.keyCode==KeyCode.KeypadEnter)&&!e.alt&&!e.control&&!e.command&&!e.shift) {
+                if(nextField==null)fieldSubmitRequested=true;else fieldFocusRequest=nextField;
+                e.Use();
+            }
+        }
+        void FocusRequestedField(string key){
+            if(fieldFocusRequest==key&&Event.current.type==EventType.Repaint){GUI.FocusControl(key);fieldFocusRequest=null;}
+        }
+        string Field(string key,string label,string value,int limit=64,bool secret=false,string nextField=null) {
             GUILayout.Label(label,menu.Name);
+            HandleFieldEnter(key,nextField);
             GUI.SetNextControlName(key);
             string result=secret?GUILayout.PasswordField(value,'•',limit):GUILayout.TextField(value,limit);
-            Rect r=GUILayoutUtility.GetLastRect();
+            FocusRequestedField(key);
             bool qa=UxTestDriver.Arg("--qa-field-focus","")==key;
             if(qa)GUI.FocusControl(key);
-            if(Event.current.type==EventType.Repaint&&GUI.GetNameOfFocusedControl()==key) {
-                var editor=(TextEditor)GUIUtility.GetStateObject(typeof(TextEditor),GUIUtility.keyboardControl);
-                if(editor.cursorIndex==editor.selectIndex&&(qa||Time.unscaledTime%1f<.6f)) {
-                    string visible=secret?new string('•',result.Length):result;
-                    Vector2 position=GUI.skin.textField.GetCursorPixelPosition(r,new GUIContent(visible),Mathf.Clamp(editor.cursorIndex,0,result.Length));
-                    float cx=Mathf.Clamp(position.x-editor.scrollOffset.x,r.x+12,r.xMax-8);
-                    ArenaRenderer.Fill(new Rect(cx,r.center.y-9,2,18),menu.Ink);
-                }
-            }
             return result;
         }
         void Feedback() {
@@ -182,10 +195,9 @@ namespace Tank  {
             if(client.Phase<=ClientPhase.AUTHENTICATING) {
                 var layout=MenuLayout.Fit(Screen.width,Screen.height);
                 Rect card=layout.AuthCard;
-                if(!registerTab) {
-                    card.height=Mathf.Min(card.height,550);
-                    card.y=layout.Content.center.y-card.height/2;
-                }
+                float measured=registerTab?registerContentHeight:loginContentHeight;
+                card.height=Mathf.Min(card.height,(measured>0?measured:registerTab?430:330)+104);
+                card.y=layout.Content.center.y-card.height/2;
                 if(layout.Wide)menu.Logo(layout.AuthLogo);
                 menu.Card(card,registerTab?"Đăng ký":"Đăng nhập");
                 GUILayout.BeginArea(new Rect(card.x+24,card.y+80,card.width-48,card.height-104));
@@ -193,6 +205,10 @@ namespace Tank  {
                 GUILayout.BeginVertical(GUILayout.Width(MenuScrollContentWidth(card.width-48)));
                 AuthenticationForm();
                 GUILayout.EndVertical();
+                if(Event.current.type==EventType.Repaint){
+                    float contentHeight=Mathf.Ceil(GUILayoutUtility.GetLastRect().height);
+                    if(registerTab)registerContentHeight=contentHeight;else loginContentHeight=contentHeight;
+                }
                 GUILayout.EndScrollView();
                 GUILayout.EndArea();
                 return;
@@ -219,16 +235,16 @@ namespace Tank  {
             GUILayout.Space(14);
             GUILayout.Label(registerTab?"GIA NHẬP ĐỘI HÌNH":"TRỞ LẠI CHIẾN TRƯỜNG",depotKicker);
             GUILayout.Space(6);
-            username=Field("account","Tên đăng nhập",username,24);
+            username=Field("account","Tên đăng nhập",username,24,nextField:"account-password");
             GUILayout.Space(12);
-            password=Field("account-password","Mật khẩu",password,64,true);
+            password=Field("account-password","Mật khẩu",password,64,true,registerTab?"account-confirm-password":null);
             if(registerTab) {
                 GUILayout.Space(12);
                 confirmPassword=Field("account-confirm-password","Nhập lại mật khẩu",confirmPassword,64,true);
             }
             GUILayout.Space(18);
             bool busy=client.Phase==ClientPhase.CONNECTING||client.AuthenticationPending||pendingLogin||pendingRegister;
-            if(Button(busy?"Đang xử lý…":registerTab?"Đăng ký":"Đăng nhập",!busy&&client.AuthenticationRetrySeconds<=0))BeginAuthentication(registerTab);
+            if(SubmitButton(busy?"Đang xử lý…":registerTab?"Đăng ký":"Đăng nhập",!busy&&client.AuthenticationRetrySeconds<=0))BeginAuthentication(registerTab);
             if(client.Message=="Đăng ký thành công"&&Button("Đăng nhập ngay")) {
                 registerTab=false;
                 BeginAuthentication(false);
@@ -278,17 +294,20 @@ namespace Tank  {
             GUILayout.EndArea();
             Rect browser=new Rect(area.x,area.y+164,area.width,area.height-164);
             CartoonUi.Panel(browser,CartoonUi.PanelDark,8,0);
-            GUI.Label(new Rect(browser.x+22,browser.y+18,browser.width-402,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
-            float actionX=browser.xMax-370;
-            if(GUI.Button(new Rect(actionX,browser.y+14,112,42),"Tạo phòng",depotAction))OpenRoomForm(false);
-            if(GUI.Button(new Rect(actionX+120,browser.y+14,94,42),"Làm mới",depotAction)) {
+            float createWidth=Mathf.Max(112,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Tạo phòng")).x));
+            float refreshWidth=Mathf.Max(94,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Làm mới")).x));
+            float toggleWidth=Mathf.Max(128,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Danh sách phòng")).x),Mathf.Ceil(depotAction.CalcSize(new GUIContent("Lịch sử")).x));
+            float actionX=browser.xMax-20-createWidth-refreshWidth-toggleWidth-16;
+            GUI.Label(new Rect(browser.x+22,browser.y+18,actionX-browser.x-38,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
+            if(GUI.Button(new Rect(actionX,browser.y+14,createWidth,42),"Tạo phòng",depotAction))OpenRoomForm(false);
+            if(GUI.Button(new Rect(actionX+createWidth+8,browser.y+14,refreshWidth,42),"Làm mới",depotAction)) {
                 if(history) {
                     client.CloseHistoryDetail();
                     client.GetHistory();
                 }
                 else client.Refresh();
             }
-            if(GUI.Button(new Rect(actionX+222,browser.y+14,128,42),history?"Danh sách phòng":"Lịch sử",depotAction)) {
+            if(GUI.Button(new Rect(actionX+createWidth+refreshWidth+16,browser.y+14,toggleWidth,42),history?"Danh sách phòng":"Lịch sử",depotAction)) {
                 history=!history;
                 client.CloseHistoryDetail();
                 scroll=Vector2.zero;
@@ -416,13 +435,13 @@ namespace Tank  {
             GUILayout.BeginVertical(GUILayout.Width(formWidth));
             bool split=card.width>=840;
             if(split){GUILayout.BeginHorizontal();GUILayout.BeginVertical(GUILayout.Width(columnWidth));}
-            roomName=Field("room-name","Tên phòng",roomName,24);
+            roomName=Field("room-name","Tên phòng",roomName,24,nextField:!editingRoom||useRoomPassword?"room-password":"starting-hp");
             GUILayout.Space(10);
             if(editingRoom) {
                 useRoomPassword=menu.Toggle(useRoomPassword,"Dùng mật khẩu");
-                if(useRoomPassword)roomPassword=Field("room-password",client.RoomLocked?"Mật khẩu mới (để trống để giữ nguyên)":"Mật khẩu",roomPassword,32,true);
+                if(useRoomPassword)roomPassword=Field("room-password",client.RoomLocked?"Mật khẩu mới (để trống để giữ nguyên)":"Mật khẩu",roomPassword,32,true,"starting-hp");
             }
-            else roomPassword=Field("room-password","Mật khẩu phòng (không bắt buộc)",roomPassword,32,true);
+            else roomPassword=Field("room-password","Mật khẩu phòng (không bắt buộc)",roomPassword,32,true,"starting-hp");
             GUILayout.Space(10);
             if(editingRoom)GUILayout.Label("Chế độ: "+(client.RoomMode==RoomMode.ROLEPLAY?"Nhập vai":"Thường")+" · cố định khi tạo phòng",menu.Hint);
             else {
@@ -452,7 +471,7 @@ namespace Tank  {
             GUILayout.EndArea();
             GUILayout.BeginArea(new Rect(card.x+24,card.yMax-84,card.width-48,64));
             GUILayout.BeginHorizontal();
-            if(Button("Xác nhận")) {
+            if(SubmitButton("Xác nhận")) {
                 formError="";
                 int hp;
                 int mode=!useRoomPassword?1:string.IsNullOrEmpty(roomPassword)&&client.RoomLocked?0:2;
@@ -763,7 +782,7 @@ namespace Tank  {
             GUILayout.EndScrollView();GUILayout.EndArea();
             GUILayout.BeginArea(new Rect(card.x+24,card.yMax-84,card.width-48,64));
             GUILayout.BeginHorizontal();
-            if(Button(profileForm?"Lưu tên":"Vào phòng")) {
+            if(SubmitButton(profileForm?"Lưu tên":"Vào phòng")) {
                 if(profileForm) {
                     formError="";
                     if(string.IsNullOrWhiteSpace(displayName)||Encoding.UTF8.GetByteCount(displayName.Trim())>96)formError="Nhập tên từ 1 đến 24 ký tự.";

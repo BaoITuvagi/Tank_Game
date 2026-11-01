@@ -13,7 +13,7 @@ namespace Tank {
             float cardHeight=Mathf.Min(620,layout.Content.height);
             layout.AuthCard=new Rect(layout.Wide?layout.Content.xMax-cardWidth:layout.Content.center.x-cardWidth/2,layout.Content.center.y-cardHeight/2,cardWidth,cardHeight);
             float logoSize=Mathf.Min(510,layout.Content.width-cardWidth-48,layout.Content.height);
-            layout.AuthLogo=layout.Wide?new Rect(layout.Content.x,layout.Content.center.y-logoSize/2,logoSize,logoSize):new Rect((layout.Width-72)/2,2,72,72);
+            layout.AuthLogo=layout.Wide?new Rect(layout.Content.x,layout.Content.center.y-logoSize/2,logoSize,logoSize):new Rect(24,2,72,72);
             return layout;
         }
     }

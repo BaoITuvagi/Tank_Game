@@ -44,7 +44,7 @@ namespace Tank {
   public const int SabotageCooldownPenaltyTicks=300;
   public const int BulletLifetimeTicks=150;
   public const int SpawnShieldTicks=0;
-  public const int ProtocolVersion=16;
+  public const int ProtocolVersion=17;
   public const int MaxMatchTicks=18000;
   public const int MaxTankSpeedPercent=200;
   public const int MaxBulletSpeedPercent=150;

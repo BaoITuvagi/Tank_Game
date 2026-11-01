@@ -16,6 +16,8 @@ namespace Tank  {
             if(p.Op>=Op.RegisterResult&&p.Op!=Op.HandshakeAck&&p.Op!=Op.Pong&&p.Op!=Op.Full&&p.Op!=Op.Delta&&p.Sequence!=0&&requests.TryGetValue(p.Sequence,out request))requests.Remove(p.Sequence);
             if(p.Op==Tank.Campaign.CampaignClient.Response){Campaign.Read(r);return;}
             if(p.Op==Op.ShopResult){ReadShop(r,p.Sequence);return;}
+            if(p.Op==Op.ChatMessages){Chat.Receive(r,Match,Phase==ClientPhase.PREPARING||Phase==ClientPhase.PLAYING);return;}
+            if(p.Op==Op.ActionResult&&request==Op.ChatSend){ReadChatResult(r,p.Sequence);return;}
             if(p.Op==Op.ActionResult&&request==Op.Shop){ReadShop(r,p.Sequence);return;}
             if(p.Op==Op.ActionResult&&request==Tank.Campaign.CampaignClient.Request){Campaign.Pending=false;Campaign.Error="Server chưa hỗ trợ chiến dịch. Hãy cập nhật server và client cùng phiên bản.";return;}
             switch(p.Op) {
@@ -151,6 +153,7 @@ namespace Tank  {
                     }
                     r.End();
                     if(entering) {
+                        ClearChat();
                         Message="";
                         AfkWarning=false;
                     }
@@ -166,6 +169,7 @@ namespace Tank  {
                     PreparationError="";
                     ClearRoleplayMatch();
                     Match=r.U64();
+                    ClearChat(Match);
                     RoomId=r.U32();
                     Slot=r.U8();
                     int mapId=r.U16();
@@ -263,6 +267,7 @@ namespace Tank  {
                     foreach(var score in Scores) {MatchLoadout loadout;if(Loadouts.TryGetValue(score.Slot,out loadout)) {score.Nation=loadout.Nation;}}
                     r.End();
                     Phase=ClientPhase.RESULTS;
+                    ClearChat();
                     Array.Clear(pendingSkills,0,pendingSkills.Length);
                     Ended=true;
                     StartUs=0;
@@ -274,6 +279,7 @@ namespace Tank  {
                     int reason=r.U8();
                     r.End();
                     if(room==RoomId&&slot==Slot) {
+                        ClearChat();
                         Phase=token==null?ClientPhase.AUTHENTICATING:ClientPhase.LOBBY;
                         Slot=-1;
                         RoomId=0;

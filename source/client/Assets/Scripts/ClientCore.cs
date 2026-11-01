@@ -252,6 +252,7 @@ namespace Tank  {
             if(!open)return;
             PollRoleplay(now);
             PollShop(now);
+            PollChat(now);
             if(now-lastTcpReceived>15e6) {
                 Dispose();
                 Message="TCP heartbeat quá hạn";
