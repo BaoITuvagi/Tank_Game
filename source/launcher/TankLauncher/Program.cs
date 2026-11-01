@@ -71,43 +71,19 @@ internal static class Program
     }
 }
 
-sealed class LauncherForm : Form
+sealed partial class LauncherForm : Form
 {
-    readonly Label status = new() { AutoSize = false, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
-    readonly Label version = new() { AutoSize = true, Text = "Chưa cài game" };
-    readonly ProgressBar progress = new() { Dock = DockStyle.Fill };
-    readonly Button check = new() { Text = "Kiểm tra cập nhật", AutoSize = true };
-    readonly Button play = new() { Text = "Chơi game", AutoSize = true, Enabled = false };
-    readonly Button cancel = new() { Text = "Hủy tải", AutoSize = true, Enabled = false };
     readonly Updater updater;
     CancellationTokenSource? operation;
     bool busy;
 
     public LauncherForm(LauncherSelfUpdate selfUpdate, string dataRoot, bool skipSelfUpdate, string? readyToken, string? notice)
     {
-        Text = "Tank Battle Launcher";
-        ClientSize = new Size(560, 245);
-        MinimumSize = new Size(520, 280);
-        Font = new Font("Segoe UI", 10);
-        StartPosition = FormStartPosition.CenterScreen;
         updater = new Updater(dataRoot, ReadConfigSafely()?.AllowLoopbackHttp ?? false);
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(22), RowCount = 5, ColumnCount = 1 };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        layout.Controls.Add(new Label { Text = "TANK BATTLE", Font = new Font(Font.FontFamily, 20, FontStyle.Bold), AutoSize = true }, 0, 0);
-        layout.Controls.Add(version, 0, 1);
-        layout.Controls.Add(status, 0, 2);
-        layout.Controls.Add(progress, 0, 3);
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
-        buttons.Controls.AddRange([check, play, cancel]);
-        layout.Controls.Add(buttons, 0, 4);
-        Controls.Add(layout);
+        InitializeAppearance();
         RefreshCurrentSafely();
         check.Click += async (_, _) => await UpdateAsync();
-        cancel.Click += (_, _) => operation?.Cancel();
+        cancel.Click += (_, _) => CancelUpdate();
         play.Click += (_, _) => Play();
         Shown += async (_, _) =>
         {
@@ -118,7 +94,7 @@ sealed class LauncherForm : Form
             }
             await UpdateAsync(!skipSelfUpdate, notice);
         };
-        FormClosing += (_, e) => { if (busy) { operation?.Cancel(); e.Cancel = true; status.Text = "Đang hủy tải; hãy đóng lại sau khi hoàn tất."; } };
+        FormClosing += (_, e) => { if (busy) { CancelUpdate(); e.Cancel = true; } };
         FormClosed += (_, _) => updater.Dispose();
     }
 
@@ -140,14 +116,23 @@ sealed class LauncherForm : Form
     {
         updater.CleanupOldVersions();
         var current = updater.Current();
-        version.Text = current == null ? "Chưa cài game" : "Bản đã cài: " + current.Version;
+        installedVersion = current == null ? "CHƯA CÀI GAME" : "GAME " + current.Version;
         play.Enabled = current != null;
+        Invalidate();
     }
 
     void RefreshCurrentSafely()
     {
         try { RefreshCurrent(); }
-        catch (Exception e) { play.Enabled = false; version.Text = e.Message; }
+        catch (Exception e) { play.Enabled = false; installedVersion = "CHƯA CÀI GAME"; SetStatus("Bản cài cần kiểm tra", e.Message, LauncherVisuals.Warning); }
+    }
+
+    void CancelUpdate()
+    {
+        if (operation == null || !cancel.Enabled) return;
+        operation.Cancel();
+        cancel.Enabled = false;
+        SetStatus("Đang hủy cập nhật", "Vui lòng đợi thao tác hiện tại kết thúc.", LauncherVisuals.Gold);
     }
 
     async Task UpdateAsync(bool includeLauncher = true, string? notice = null)
@@ -157,7 +142,11 @@ sealed class LauncherForm : Form
         check.Enabled = false;
         cancel.Enabled = true;
         play.Enabled = false;
+        play.Text = "ĐANG CẬP NHẬT";
+        cancel.Visible = true;
+        SetStatus("Đang kiểm tra cập nhật", "Đang kết nối tới máy chủ cập nhật...", LauncherVisuals.Gold);
         operation = new CancellationTokenSource();
+        var activeOperation = operation;
         progress.Value = 0;
         bool handoff = false;
         try
@@ -167,7 +156,7 @@ sealed class LauncherForm : Form
             {
                 try
                 {
-                    status.Text = "Đang kiểm tra cập nhật launcher " + LauncherVersion.Current + "...";
+                    SetStatus("Đang kiểm tra launcher", "Phiên bản hiện tại: " + LauncherVersion.Current, LauncherVisuals.Gold);
                     using var checkTimeout = CancellationTokenSource.CreateLinkedTokenSource(operation.Token);
                     checkTimeout.CancelAfter(TimeSpan.FromSeconds(20));
                     // Honor the same localhost setting as the game updater.
@@ -181,10 +170,15 @@ sealed class LauncherForm : Form
                             throw new IOException("Tự cập nhật cần bản single-file từ scripts/build-launcher.ps1.");
 #pragma warning restore IL3000
                         await download.PrepareAsync(release, new Progress<UpdateProgress>(p =>
-                        { status.Text = "Launcher: " + p.Message; progress.Value = Math.Clamp(p.Percent, 0, 100); }), operation.Token);
+                        {
+                            // Progress<T> posts to the UI queue; ignore callbacks after cancellation/completion or from an earlier operation.
+                            if (!ReferenceEquals(operation, activeOperation) || !cancel.Enabled) return;
+                            SetStatus("Đang cập nhật launcher", p.Message, LauncherVisuals.Gold);
+                            progress.Value = Math.Clamp(p.Percent, 0, 100);
+                        }), operation.Token);
                         operation.Token.ThrowIfCancellationRequested();
                         cancel.Enabled = false;
-                        status.Text = "Đang mở lại launcher để áp dụng cập nhật...";
+                        SetStatus("Đang mở lại launcher", "Đang áp dụng giao diện và bản cập nhật mới...", LauncherVisuals.Gold);
                         await Task.Run(() => download.BeginHandoff());
                         handoff = true;
                         return;
@@ -193,19 +187,31 @@ sealed class LauncherForm : Form
                 catch (Exception e) when (e is not OperationCanceledException || !operation.IsCancellationRequested)
                 { notice = "Chưa cập nhật được launcher: " + UpdateError(e); }
             }
-            status.Text = "Đang kiểm tra cập nhật...";
+            SetStatus("Đang kiểm tra game", "Đang kiểm tra phiên bản game mới nhất...", LauncherVisuals.Gold);
             progress.Value = 0;
             var manifest = await updater.CheckAsync(new Uri(config.ManifestUrl), operation.Token);
             InstalledRelease? current;
             try { current = updater.Current(); }
             catch (Exception e) when (e is InvalidDataException or JsonException) { current = null; }
             if (current?.Version == manifest.Version && current.Sha256.Equals(manifest.Sha256, StringComparison.OrdinalIgnoreCase))
-                status.Text = "Game đã ở phiên bản mới nhất. Sẵn sàng chơi.";
+            {
+                progress.Value = 100;
+                SetStatus("Sẵn sàng chơi", "Game đã ở phiên bản mới nhất.", LauncherVisuals.Ready);
+            }
             else
-                await updater.InstallAsync(manifest, new Progress<UpdateProgress>(p => { status.Text = p.Message; progress.Value = Math.Clamp(p.Percent, 0, 100); }), operation.Token);
+            {
+                await updater.InstallAsync(manifest, new Progress<UpdateProgress>(p =>
+                {
+                    if (!ReferenceEquals(operation, activeOperation) || !cancel.Enabled) return;
+                    SetStatus("Đang cập nhật game", p.Message, LauncherVisuals.Gold);
+                    progress.Value = Math.Clamp(p.Percent, 0, 100);
+                }), operation.Token);
+                progress.Value = 100;
+                SetStatus("Sẵn sàng chơi", "Đã cập nhật game " + manifest.Version + ".", LauncherVisuals.Ready);
+            }
         }
-        catch (OperationCanceledException) { status.Text = "Đã hủy cập nhật. Bản đã cài được giữ nguyên."; }
-        catch (Exception e) { status.Text = "Không cập nhật được: " + UpdateError(e); }
+        catch (OperationCanceledException) { SetStatus("Đã hủy cập nhật", "Bản game đã cài được giữ nguyên.", LauncherVisuals.Warning); }
+        catch (Exception e) { SetStatus("Chưa cập nhật được", UpdateError(e), LauncherVisuals.Warning); }
         finally
         {
             busy = false;
@@ -213,11 +219,14 @@ sealed class LauncherForm : Form
             operation = null;
             check.Enabled = true;
             cancel.Enabled = false;
+            cancel.Visible = false;
+            play.Text = "CHƠI GAME";
             if (handoff) Close();
             else
             {
                 RefreshCurrentSafely();
-                if (!string.IsNullOrEmpty(notice)) status.Text = notice + "\n" + status.Text;
+                if (!string.IsNullOrEmpty(notice))
+                    SetStatus("Thông báo cập nhật", notice + "\n" + status.Text, LauncherVisuals.Warning);
             }
         }
     }

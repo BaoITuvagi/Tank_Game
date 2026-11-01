@@ -6,9 +6,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>Launcher</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../TankLauncher.Core/TankLauncher.Core.csproj" />
+    <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/logo.png" LogicalName="LauncherArt.logo.png" />
+    <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/anh_nen.png" LogicalName="LauncherArt.background.png" />
+    <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/Fonts/Bungee-Regular.ttf" LogicalName="LauncherArt.display.ttf" />
+    <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/Fonts/Nunito-Bold.ttf" LogicalName="LauncherArt.body.ttf" />
+    <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/Fonts/*-OFL.txt" LogicalName="LauncherArt.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../client/Assets/Resources/MenuArt/Fonts/NOTICE.txt" LogicalName="LauncherArt.NOTICE.txt" />
   </ItemGroup>
 </Project>

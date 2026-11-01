@@ -37,8 +37,13 @@ if($LASTEXITCODE -ne 0){throw 'Launcher publish failed. A standalone build needs
 $config=[ordered]@{manifestUrl=$ManifestUrl;allowLoopbackHttp=[bool]$AllowLoopbackHttp;launcherManifestUrl=$LauncherManifestUrl}
 $json=$config | ConvertTo-Json
 [IO.File]::WriteAllText((Join-Path $output 'launcher.json'),$json,(New-Object Text.UTF8Encoding($false)))
+$licenses=Join-Path $output 'ThirdParty'
+New-Item -ItemType Directory -Path $licenses -Force | Out-Null
+foreach($name in @('Bungee-OFL.txt','Nunito-OFL.txt','NOTICE.txt')) {
+    Copy-Item -LiteralPath (Join-Path $root "source/client/Assets/Resources/MenuArt/Fonts/$name") -Destination (Join-Path $licenses $name) -Force
+}
 $bundle=Join-Path $root "build/$flavor-win64.zip"
-Compress-Archive -LiteralPath (Join-Path $output 'Launcher.exe'),(Join-Path $output 'launcher.json') -DestinationPath $bundle -Force
+Compress-Archive -LiteralPath (Join-Path $output 'Launcher.exe'),(Join-Path $output 'launcher.json'),$licenses -DestinationPath $bundle -Force
 Write-Output "Built $output/Launcher.exe. Distribute the entire folder, including launcher.json."
 Write-Output "Player download: $bundle"
 if($FrameworkDependent){Write-Warning 'This development build requires the .NET 9 Desktop Runtime on the player machine. Use the default standalone build for distribution.'}
