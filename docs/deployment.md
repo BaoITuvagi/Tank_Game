@@ -1,6 +1,6 @@
 # Build, chạy và cấu hình
 
-Đối chiếu ngày **2026-10-23** trên working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Các lệnh dưới đây được kiểm tra bằng cách đọc script/mã nguồn; đợt tài liệu này không chạy build hoặc test.
+Đối chiếu ngày **2026-11-01** với mã nguồn tại `322c3db` của nhánh `huy`, đã tích hợp vào `Bao`. Các lệnh dưới đây được đối chiếu với script/mã nguồn; tài liệu không thay thế kết quả kiểm thử từng bản build.
 
 Mục lục:
 
@@ -8,7 +8,7 @@ Mục lục:
 - [Chạy và dừng server](#run-server)
 - [Build và phân phối client](#build-client)
 - [Build và phân phối launcher](#build-launcher)
-- [Kết nối qua máy cục bộ, LAN hoặc VPN](#connect)
+- [Kết nối tới server cố định](#connect)
 - [Cấu hình server và công cụ](#configuration)
 - [Demo nhiều client trên cùng máy](#local-demo)
 - [Log và xử lý lỗi](#troubleshooting)
@@ -34,7 +34,7 @@ Java phải là 21 và Maven phải đang dùng JDK 21. Nếu chưa tìm đúng,
 ./scripts/build-server.ps1
 ```
 
-[build-server.ps1](../scripts/build-server.ps1) chạy `python scripts/sync-contracts.py --check`, sau đó Maven `clean package` gồm JUnit test và đóng gói JAR có dependency. Script mặc định làm sạch `source/server/target`, rồi xuất bản `build/server/tank-server-1.0.0.jar` qua file tạm. Kết quả test ở `source/server/target/surefire-reports/`; fixture Java/C# ở `source/server/target/interop/`. Không dùng `--check` để cập nhật generated code: quy trình sửa contract nằm ở [shared contracts](protocol.md#shared-contracts).
+[build-server.ps1](../scripts/build-server.ps1) chạy `python scripts/check-admin-integration.py --server` và `python scripts/sync-contracts.py --check`, sau đó Maven `clean package` gồm JUnit test và đóng gói JAR có dependency. Script mặc định làm sạch `source/server/target`, rồi xuất bản `build/server/tank-server-1.0.0.jar` qua file tạm. Kết quả test ở `source/server/target/surefire-reports/`; fixture Java/C# ở `source/server/target/interop/`. Không dùng `--check` để cập nhật generated code: quy trình sửa contract nằm ở [shared contracts](protocol.md#shared-contracts).
 
 Script có `-JavaHome <thu-muc-JDK>` và `-BuildDirectory <duong-dan>` khi cần chọn riêng; output khác `target` chỉ được chấp nhận trong cây `runtime/` hoặc `build/`, với tên thư mục cuối bắt đầu bằng `server-`. Dùng đường dẫn mặc định cho quy trình thông thường và xem [thứ tự tạo fixture/test](testing.md#prerequisites) trước khi tùy chỉnh output.
 
@@ -68,7 +68,7 @@ Cần Unity Editor **6000.3.24f1**, license đã kích hoạt và **Windows Buil
 ./scripts/build-client.ps1
 ```
 
-[build-client.ps1](../scripts/build-client.ps1) tìm Editor qua [resolve-unity-editor.ps1](../scripts/resolve-unity-editor.ps1), chạy batchmode và gọi [BuildClient.Build → BuildTo](../source/client/Assets/Editor/BuildClient.cs). Bản Windows 64 bit được ghi vào `build/client/TankBattle.exe`; log ở `runtime/unity-build.log`.
+[build-client.ps1](../scripts/build-client.ps1) kiểm tra hook thông báo quản trị bằng `python scripts/check-admin-integration.py --client`, tìm Editor qua [resolve-unity-editor.ps1](../scripts/resolve-unity-editor.ps1), chạy batchmode và gọi [BuildClient.Build → BuildTo](../source/client/Assets/Editor/BuildClient.cs). Bản Windows 64 bit được ghi vào `build/client/TankBattle.exe`; log ở `runtime/unity-build.log`.
 
 **Tác dụng phụ cần kiểm tra:** `BuildTo` tạo lại `Assets/Scenes/Main.unity` thành scene rỗng có camera, lưu scene và ghi `PlayerSettings` (company/product, cửa sổ mặc định 1280×800, Windowed, chạy nền, cho resize). Sau build, kiểm tra diff scene/project settings, chỉ giữ thay đổi thuộc phạm vi được cho phép và bảo toàn công việc có sẵn. Script này không phải kiểm tra chỉ đọc.
 
@@ -76,12 +76,20 @@ Build tự validate Combat FX và chép giấy phép sang `ThirdParty/CookedFX-L
 
 Mở `build/client/TankBattle.exe` để chơi. Khi chuyển sang máy khác, chép **toàn bộ thư mục `build/client`**, gồm `.exe`, thư mục Data, Unity runtime và `ThirdParty`; chỉ chép `.exe` không đủ. Máy chơi bản client đã build không cần Java, Maven, Python hoặc Unity Editor. Người phát hành cần cung cấp client/server cùng đợt build để khớp [giao thức và nội dung](protocol.md#shared-contracts).
 
+Để phân phối game qua launcher, dùng [package-client.py](../scripts/package-client.py) sau khi build client. Ví dụ với **số phiên bản chưa từng phát hành** và URL tag tương ứng:
+
+```powershell
+python scripts/package-client.py --version 1.0.9 --base-url 'https://github.com/BaoITuvagi/Tank_Game/releases/download/v1.0.9'
+```
+
+Script tạo `build/releases/1.0.9/TankBattle-1.0.9-win64.zip` và `manifest.json` chứa version, URL, SHA-256 và kích thước ZIP; nó không build lại client hoặc upload release. Khi phát hành, upload ZIP và manifest, bảo đảm kênh latest phục vụ `manifest.json` mà launcher đang dùng. Sửa IP trong source hoặc build lại launcher không cập nhật gói game đã phát hành; muốn đổi endpoint cho người chơi phải build lại client, đóng gói bằng version mới rồi phát hành manifest mới. Thư mục output đã tồn tại sẽ bị từ chối để tránh ghi đè một phiên bản.
+
 Để chạy trong Editor, mở `source/client`, scene `Assets/Scenes/Main.unity` rồi Play theo [bootstrap client](client.md#bootstrap).
 
 <a id="build-launcher"></a>
 ## Build và phân phối launcher
 
-Ứng dụng từ 1.2.2 được phân phối dưới tên `TankBattle.exe`, tự cập nhật trước game bằng `launcher-manifest.json`. Cấu hình được nhúng trong EXE; `launcher.json` chỉ cần khi muốn ghi đè cấu hình. Build bằng `./scripts/build-launcher.ps1`, dùng `-ReleaseBaseUrl` trỏ tag cố định. Script tạo thêm `build/TankBattle-launcher-win64.zip` để người chơi tải thủ công. Latest gồm ZIP này, `TankBattle.exe`, `launcher-manifest.json` và `manifest.json`; manifest game có thể tiếp tục trỏ ZIP ở release game trước, không upload ZIP game trùng. Giữ asset tại các URL manifest đang dùng. Tên `Launcher.exe` cũ vẫn được hỗ trợ cho tự cập nhật. Xem [hướng dẫn launcher](../source/launcher/README.md).
+Launcher trong mã nguồn hiện tại là **1.2.2**, dùng WinForms/.NET 9 và được phân phối dưới tên `TankBattle.exe`. Máy build cần .NET SDK hỗ trợ `net9.0-windows`; bản standalone không cần cài .NET trên máy chơi. Ứng dụng tự cập nhật trước game bằng `launcher-manifest.json`, độc lập với manifest game. Cấu hình được nhúng trong EXE; `launcher.json` chỉ cần khi muốn ghi đè cấu hình. Build bằng `./scripts/build-launcher.ps1`, dùng `-ReleaseBaseUrl` trỏ tag cố định. Script tạo thêm `build/TankBattle-launcher-win64.zip` để người chơi tải thủ công. Latest gồm ZIP này, `TankBattle.exe`, `launcher-manifest.json` và `manifest.json`; manifest game có thể tiếp tục trỏ ZIP ở release game trước, không upload ZIP game trùng. Giữ asset tại các URL manifest đang dùng. Tên `Launcher.exe` cũ vẫn được hỗ trợ cho tự cập nhật. Xem [hướng dẫn launcher](../source/launcher/README.md).
 
 Người chơi launcher cũ tải lại bản có cơ chế tự cập nhật một lần. Các lần sau tự tải/mở lại; giữ `launcher.json`, shortcut và game trong `%LocalAppData%\TankBattle`. Thư mục đặt EXE cần quyền ghi; không yêu cầu quyền admin. Lỗi tải/thay file giữ bản hiện tại; lỗi khởi động bản mới thì helper khôi phục backup. Build server hoặc client không cập nhật các file phát hành này.
 
@@ -102,7 +110,9 @@ Khi phát hành, tải ZIP lên cùng `TankBattle.exe`, `manifest.json` và `lau
 <a id="connect"></a>
 ## Kết nối tới server cố định
 
-Client luôn kết nối tới **`13.75.2.41`**, TCP **8888**, UDP **8889**. Đã bỏ màn hình chọn kết nối; cấu hình `connection.json` cũ trên máy không được đọc. Server cần cho phép cả hai cổng qua firewall. Để tạo bản client dùng server khác, sửa `ServerHost`, `ServerTcpPort`, `ServerUdpPort` trong `TankApp.cs` rồi build lại. Smoke/test harness vẫn cấu hình endpoint riêng để kiểm thử cục bộ.
+Client khi chơi qua giao diện luôn kết nối tới **`13.75.2.41`**, TCP **8888**, UDP **8889**, theo các hằng trong [TankApp.cs](../source/client/Assets/Scripts/TankApp.cs). Đã bỏ màn hình chọn kết nối; cấu hình `connection.json` cũ trên máy không được đọc. Để tạo bản client dùng server khác, sửa `ServerHost`, `ServerTcpPort`, `ServerUdpPort` rồi build lại. Tham số `--host`, `--tcp`, `--udp` của smoke harness không đổi endpoint của giao diện chơi bình thường.
+
+Trên cloud, server phải bind vào địa chỉ nhận kết nối bên ngoài, chẳng hạn `bind=0.0.0.0` như `config/server.properties`, và cho phép **TCP 8888**, **UDP 8889** qua cả firewall hệ điều hành lẫn quy tắc mạng của cloud. `0.0.0.0` là địa chỉ bind phía server; địa chỉ đích của client vẫn là IP server. Có thể kiểm tra TCP từ máy chơi bằng `Test-NetConnection -ComputerName 13.75.2.41 -Port 8888`; kết quả thành công chưa xác nhận UDP hoặc khả năng vào trận.
 
 Đăng ký tài khoản, đăng nhập, tạo/tham gia phòng, rồi tất cả sẵn sàng để chủ phòng bắt đầu. Cần ít nhất hai người và mỗi cửa sổ dùng một tài khoản riêng. Khi tạo phòng có thể chọn **Thường** hoặc **Nhập vai**; chế độ cố định cho phòng. Phòng Nhập vai yêu cầu mỗi người chọn quốc gia khác nhau trước khi ready, tải/đồng bộ loadout rồi đếm ngược ba giây. Xem [vòng đời phòng](architecture.md#lifecycle) và [kỹ năng](gameplay.md#skills).
 
@@ -118,12 +128,14 @@ Sau kết quả, có thể trở lại cùng phòng để ready và chơi trận
 | [config/demo.properties](../config/demo.properties) | Demo loopback với cổng và dữ liệu riêng; xem [demo cục bộ](#local-demo). |
 | [config/tools.example.ps1](../config/tools.example.ps1) | Mẫu tùy chọn lưu đường dẫn công cụ trên máy phát triển. Sao chép thành `config/tools.local.ps1`, thay `REPLACE_WITH_...`, rồi nạp bằng `. ./config/tools.local.ps1`; file riêng không tự được nạp. |
 
-Giá trị mặc định và ý nghĩa vận hành:
+Giá trị trong `config/server.properties` và ý nghĩa vận hành:
 
 | Key | Mặc định | Ý nghĩa |
 |---|---|---|
 | `bind` | `0.0.0.0` | Nhận kết nối trên các địa chỉ mạng của máy server. |
 | `tcp.port`, `udp.port` | `8888`, `8889` | Cổng điều khiển TCP và gameplay UDP; đổi cổng thì cập nhật client và firewall. |
+| `admin.enabled`, `admin.bind`, `admin.port` | `true`, `127.0.0.1`, `8080` | Web quản trị chạy cùng server, mặc định chỉ truy cập trên máy server. Bind/cổng quản trị độc lập với game; xem [ADMIN_WEB.md](../ADMIN_WEB.md) để cấu hình và tạo tài khoản quản trị. |
+| `admin.database.path`, `admin.session.minutes` | `runtime/admin.db`, `60` | Database quản trị riêng và thời hạn phiên đăng nhập web tính bằng phút. |
 | `tick.rate`, `snapshot.rate` | `30`, `30` | [Config constructor](../source/server/src/main/java/tank/Config.java) yêu cầu cả hai là 30 Hz. |
 | `max.players` | `8` | Số người mặc định/tối đa theo cấu hình; phạm vi hợp lệ 2–8. |
 | `max.sessions`, `max.rooms` | `320`, `40` | Giới hạn phiên TCP và số phòng; phạm vi tương ứng 1–320 và 1–40. |
@@ -138,6 +150,8 @@ Giá trị mặc định và ý nghĩa vận hành:
 | `impairment.delay.ms`, `impairment.jitter.ms` | `0`, `0` | Độ trễ và jitter giả lập, không âm. |
 | `impairment.loss`, `impairment.duplicate`, `impairment.reorder` | `0`, `0`, `0` | Tỷ lệ mất, lặp, đảo thứ tự, trong khoảng 0–1. |
 | `impairment.burst.period.ms`, `impairment.burst.duration.ms` | `0`, `0` | Chu kỳ/thời gian burst, không âm. Kịch bản đánh giá ở [evaluation](evaluation.md#scenarios). |
+
+Phần mô tả protocol **16** trong `ADMIN_WEB.md` đã cũ so với mã nguồn hiện tại: protocol **17**, content **7**. Khi chọn bản client/server tương thích, đối chiếu [shared contracts](protocol.md#shared-contracts) và nguồn contract thay vì mốc phiên bản cũ đó.
 
 Đường dẫn tương đối được tính từ gốc repository vì script chuyển về đó trước khi chạy. Giữ credentials, database, spool, log, `build/`, `runtime/` và cấu hình riêng ngoài Git theo [.gitignore](../.gitignore). Không chạy hai server trên cùng cổng hoặc cùng database. Giữ các mục còn lại nếu chưa có nhu cầu thay đổi; không đổi dependencies, Unity version hay project settings chỉ để xử lý cấu hình máy.
 
@@ -154,7 +168,7 @@ Giữ dấu nháy và thay placeholder bằng đường dẫn thật. `start-ser
 <a id="local-demo"></a>
 ## Demo nhiều client trên cùng máy
 
-Sau khi build server/client, chạy:
+Demo dùng server và dữ liệu riêng. Sau khi build server/client cùng đợt, chạy:
 
 ```powershell
 ./scripts/start-server.ps1 -Config config/demo.properties
@@ -162,9 +176,11 @@ Sau khi build server/client, chạy:
 
 [demo.properties](../config/demo.properties) đặt `bind=127.0.0.1`, TCP **23888**, UDP **23889**, tối đa 16 phiên/4 phòng và `benchmark=true`. Database, spool, CSV và log nằm riêng trong `runtime/demo/`. Đây là demo chỉ trên cùng máy; cấu hình bind loopback không cho máy LAN kết nối.
 
-Mở ít nhất hai cửa sổ `build/client/TankBattle.exe`, nhập host/cổng trên, dùng tài khoản khác nhau, tạo/tham gia cùng phòng. Với Nhập vai, chọn quốc gia khác nhau, tất cả ready rồi chủ phòng bắt đầu. Hoàn tất một trận, kiểm tra kết quả/lịch sử và chơi lại trong cùng phòng theo [checklist thủ công](testing.md#manual).
+**Smoke tự động:** bản client build với IP cloud vẫn có thể chạy `--smoke --host 127.0.0.1 --tcp 23888 --udp 23889`. Chạy đủ hai lệnh chủ phòng/người tham gia tại [smoke hai client](testing.md#smoke), với hai tài khoản và hai file output riêng; harness tự đăng ký/đăng nhập, tạo/tham gia phòng, ready, chơi trận và kiểm tra lịch sử. Thêm `--roleplay` vào cả hai lệnh để kiểm tra Nhập vai. Đây là luồng kiểm thử tự động qua `ClientCore`, không phải thao tác giao diện thủ công.
 
-Client ghi nhớ host/cổng vừa lưu trong dữ liệu riêng của người dùng. Khi quay lại server thường, sửa lại các giá trị tương ứng. Đóng client và Ctrl+C server demo khi xong; giữ dữ liệu demo riêng nếu cần đối chiếu, không đưa vào Git.
+**Kiểm tra thủ công:** cần bản client dành cho demo. Trước khi build, đổi các hằng trong `TankApp.cs` thành `ServerHost="127.0.0.1"`, `ServerTcpPort=23888`, `ServerUdpPort=23889`. Giữ bản build demo trong thư mục riêng, mở ít nhất hai cửa sổ với tài khoản khác nhau và kiểm tra theo [checklist thủ công](testing.md#manual). Với Nhập vai, chọn quốc gia khác nhau trước khi ready. Bản client cloud mở bình thường vẫn kết nối cloud dù server demo đang chạy; không có ô nhập host/cổng hoặc cấu hình kết nối đã lưu để chuyển server.
+
+Sau khi thử thủ công, khôi phục các hằng endpoint cloud và build lại client trước khi đóng gói/phân phối. Đóng client và Ctrl+C server demo khi xong; giữ database/log/output demo riêng trong `runtime/`, không đưa vào Git.
 
 <a id="troubleshooting"></a>
 ## Log và xử lý lỗi
@@ -179,7 +195,8 @@ Client ghi nhớ host/cổng vừa lưu trong dữ liệu riêng của người 
 | Unity báo project đang mở | Đóng Editor dùng cùng `source/client`, rồi chạy lại build/test tuần tự. |
 | Thiếu/sai Combat FX hoặc sprite | Kiểm tra clone đủ asset và `.meta`; dùng [khôi phục Combat FX](client.md#restore-combat-fx) và giữ importer settings. |
 | Đăng nhập được nhưng không vào trận | Kiểm tra UDP, firewall, cổng, phiên bản nội dung/map và lỗi chuẩn bị trong client. TCP hoạt động không chứng minh UDP hoạt động. |
-| Không kết nối được | Kiểm tra server đang chạy, host/cổng thật, LAN/VPN/Radmin, firewall và `bind`; không nhập `0.0.0.0` thay IP server. |
+| Không kết nối được | Kiểm tra endpoint đã biên dịch trong client, server đang chạy, firewall hệ điều hành/cloud và `bind`; giao diện không cho nhập lại host/cổng. Khi đổi endpoint, build và phân phối lại client theo [kết nối](#connect). |
+| Đã sửa source nhưng launcher vẫn chạy bản game cũ | Build lại client, tạo ZIP/`manifest.json` với version mới rồi phát hành lên kênh launcher đang dùng; kiểm tra `packageUrl`, SHA-256 và kích thước. Build local hoặc cập nhật EXE launcher không tự thay gói game. |
 | Tài khoản đang đăng nhập ở cửa sổ khác | Dùng tài khoản khác cho từng client hoặc đóng phiên cũ. |
 | `RATE_LIMITED` | Chờ theo thông báo client rồi thử lại; demo có cấu hình riêng. Không dùng `benchmark=true` như mặc định cho server chơi chung. |
 | Không khớp giao thức/nội dung/map | Dùng server và client cùng đợt build; đồng bộ contract đúng quy trình và giữ nguyên byte map. Xem [shared contracts](protocol.md#shared-contracts). |
