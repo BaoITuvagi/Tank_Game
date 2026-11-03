@@ -4,9 +4,9 @@
 **Năm học: 2026–2027**  
 **Ngày biên soạn bản thảo: 15/10/2026**
 
-> Trạng thái cập nhật ngày 15/10/2026: build server và 77 test Java đã đạt; benchmark socket hoàn tất 36/36 lượt, so sánh bốn mode trong ba điều kiện mạng với ba lần lặp. Xem [biên bản kiểm thử server](server_test_results.md) và [kết quả benchmark](benchmarks/network-20261015/results.md). Benchmark dùng client Java headless, chưa chạy client/test Unity. Web quản trị được giữ chỗ để bổ sung sau; không tính vào chức năng đã hoàn thành.
+> Trạng thái cập nhật ngày 15/10/2026: build server và 77 test Java đã đạt; benchmark socket hoàn tất 36/36 lượt, so sánh bốn mode trong ba điều kiện mạng với ba lần lặp. Xem [biên bản kiểm thử server](report/server_test_results.md) và [kết quả benchmark](report/benchmarks/network-20261015/results.md). Benchmark dùng client Java headless, chưa chạy client/test Unity. Web quản trị được giữ chỗ để bổ sung sau; không tính vào chức năng đã hoàn thành.
 
-> Bổ sung: đã chạy lại riêng BASELINE với 9/9 lượt hợp lệ; xem mục 14.5 và [dữ liệu BASELINE chạy lại](benchmarks/baseline-rerun-20261015/results.md). Bộ này được giữ riêng, không thay thế hoặc gộp vào thống kê đối chứng 36 lượt trên.
+> Bổ sung: đã chạy lại riêng BASELINE với 9/9 lượt hợp lệ; xem mục 14.5 và [dữ liệu BASELINE chạy lại](report/benchmarks/baseline-rerun-20261015/results.md). Bộ này được giữ riêng, không thay thế hoặc gộp vào thống kê đối chứng 36 lượt trên.
 
 Tài liệu giữ 24 mục chính theo mẫu `README.md` ở thư mục gốc bài tập. Các nội dung theo dạng technical paper trong `Instruction.md` được tích hợp vào các mục tương ứng; bảng đối chiếu nằm ở Phụ lục A. Không thay đổi README hướng dẫn chạy của Tank_Game.
 
@@ -64,7 +64,7 @@ Bài toán của Tank Battle là thiết kế và triển khai hệ thống clie
 
 **Ngoài phạm vi hiện tại:** vận hành nhiều server phân tán, tự động ghép trận toàn cầu, tự động phát hiện gian lận, bảo đảm thông lượng trên Internet và web quản trị đã hoàn thiện. Không coi các giới hạn cấu hình là năng lực chịu tải đã được đo.
 
-**Giữ chỗ web quản trị:** yêu cầu đã xác định trong [required_web.md](../required_web.md), gồm quản lý cặp IP–tài khoản, đăng nhập admin, CRUD quy tắc ban IP, ngắt kết nối và thông báo một chiều. Chưa mô tả các mục này như kết quả triển khai.
+**Giữ chỗ web quản trị:** yêu cầu đã xác định trong [required_web.md](required_web.md), gồm quản lý cặp IP–tài khoản, đăng nhập admin, CRUD quy tắc ban IP, ngắt kết nối và thông báo một chiều. Chưa mô tả các mục này như kết quả triển khai.
 
 ### 2.5. Abstract
 
@@ -386,7 +386,7 @@ Vòng đời chính của phòng là `WAITING → PREPARING → RUNNING → RESU
 | Hệ điều hành hướng dẫn | Windows | Môi trường chạy các script được cung cấp |
 | Web quản trị | Chưa triển khai | Giữ chỗ cập nhật stack thực tế |
 
-Các dependency và Unity ở bảng lấy từ tệp khai báo. Môi trường thực chạy server đã xác minh: Eclipse Adoptium Java 21.0.8, Maven 3.9.14, Python 3.10.8, Windows 11 amd64. Chưa chạy Unity để kiểm tra môi trường client. Chi tiết và cách xử lý đường dẫn Unicode ở [biên bản kiểm thử](server_test_results.md).
+Các dependency và Unity ở bảng lấy từ tệp khai báo. Môi trường thực chạy server đã xác minh: Eclipse Adoptium Java 21.0.8, Maven 3.9.14, Python 3.10.8, Windows 11 amd64. Chưa chạy Unity để kiểm tra môi trường client. Chi tiết và cách xử lý đường dẫn Unicode ở [biên bản kiểm thử](report/server_test_results.md).
 
 ### 6.1. Module và cấu trúc dữ liệu quan trọng
 
@@ -460,8 +460,9 @@ BTL_LTM/
     │   ├── server/            Java, schema.sql và JUnit test
     │   ├── client/            Unity, C# và EditMode test
     │   └── shared/            game-rules.json
+    ├── bao_cao.md             Bản thảo báo cáo này
     └── report/
-        └── bao_cao.md         Bản thảo báo cáo này
+        └── Nhom05_MultiplayerTankBattle_Report.docx
 ```
 
 Khi build/chạy, công cụ có thể tạo build/, runtime/ và source/server/target/. Không mặc định các thư mục sinh ra đó đã tồn tại hoặc là bằng chứng chạy thành công.
@@ -482,11 +483,11 @@ Môi trường benchmark đã ghi nhận bằng truy vấn hệ thống: AMD Ryz
 
 ## 10. Installation – Cài đặt
 
-Các lệnh ở mục 10–11 là hướng dẫn tái lập lấy từ repository. Build server đã được thực hiện và đạt theo [biên bản](server_test_results.md); hướng dẫn chạy server lâu dài, build/chạy/test client chưa được thực hiện trong lượt này.
+Các lệnh ở mục 10–11 là hướng dẫn tái lập lấy từ repository. Build server đã được thực hiện và đạt theo [biên bản](report/server_test_results.md); hướng dẫn chạy server lâu dài, build/chạy/test client chưa được thực hiện trong lượt này.
 
 ### 10.1. Clone / Download
 
-Clone repository hoặc tải Code → Download ZIP từ GitHub rồi giải nén toàn bộ. Mở CMD ngay tại thư mục gốc repository đã clone/giải nén, nơi có source, scripts, config; không cần cd vào thư mục con nào nữa. Hướng dẫn cài và chạy hiện tại nằm trong [README chính](../README.md); số liệu test trong phần báo cáo lịch sử giữ nguyên ngày đo.
+Clone repository hoặc tải Code → Download ZIP từ GitHub rồi giải nén toàn bộ. Mở CMD ngay tại thư mục gốc repository đã clone/giải nén, nơi có source, scripts, config; không cần cd vào thư mục con nào nữa. Hướng dẫn cài và chạy hiện tại nằm trong [README chính](README.md); số liệu test trong phần báo cáo lịch sử giữ nguyên ngày đo.
 
 ### 10.2. Install Dependencies
 
@@ -564,7 +565,7 @@ scripts\test-client.cmd
 | F08 | Room settings, gameplay, thời lượng và rejoin | Các test Room*, MatchDuration*, AfkRejoinAndHitTest; test client tương ứng | Các lớp Java đạt; C# chưa chạy |
 | F09 | Web: đăng nhập admin, xem phiên, ban, ngắt, NOTICE | required_web.md | Chưa triển khai; giữ chỗ |
 
-Kết quả lấy từ XML Surefire của lượt chạy thành công. Một lớp có thể phục vụ nhiều dòng chức năng, vì vậy không cộng số test trong bảng này để tính tổng. Tổng chính xác là 77 test thuộc 17 lớp; bảng theo lớp đầy đủ ở [biên bản kiểm thử](server_test_results.md). Kết quả đạt chỉ áp dụng những assertion và môi trường đã chạy, không thay thế nghiệm thu game bằng client Unity thật.
+Kết quả lấy từ XML Surefire của lượt chạy thành công. Một lớp có thể phục vụ nhiều dòng chức năng, vì vậy không cộng số test trong bảng này để tính tổng. Tổng chính xác là 77 test thuộc 17 lớp; bảng theo lớp đầy đủ ở [biên bản kiểm thử](report/server_test_results.md). Kết quả đạt chỉ áp dụng những assertion và môi trường đã chạy, không thay thế nghiệm thu game bằng client Unity thật.
 
 ## 13. Experimental Setup – Thiết kế thực nghiệm
 
@@ -572,7 +573,7 @@ Kết quả lấy từ XML Surefire của lượt chạy thành công. Một l�
 
 Bộ test Java đã chạy thành công; người dùng đã cho phép benchmark hiệu năng. Môi trường đo gồm Java 21.0.8 (Eclipse Adoptium), Python 3.10.8, Windows 11 amd64, Ryzen 5 7235HS 4 nhân/8 luồng và RAM khoảng 23,69 GiB. Server chạy JVM riêng với `-Xms128m -Xmx512m`; bộ phát tải Java chạy ở tiến trình khác trên cùng máy. JAR giữ nguyên SHA-256 như lượt build ở server_test_results.md.
 
-Benchmark dùng [NetworkBenchmark.java](../scripts/benchmark/NetworkBenchmark.java) và [analyze.py](../scripts/benchmark/analyze.py), mới bổ sung riêng cho phép đo, không sửa gameplay hoặc JAR server. Cấu hình và phương pháp đầy đủ ở [README benchmark](../scripts/benchmark/README.md). Việc chạy client/test Unity chưa được thực hiện.
+Benchmark dùng [NetworkBenchmark.java](scripts/benchmark/NetworkBenchmark.java) và [analyze.py](scripts/benchmark/analyze.py), mới bổ sung riêng cho phép đo, không sửa gameplay hoặc JAR server. Cấu hình và phương pháp đầy đủ ở [README benchmark](scripts/benchmark/README.md). Việc chạy client/test Unity chưa được thực hiện.
 
 Các loại thông tin cần lưu kèm mỗi lượt:
 
@@ -642,7 +643,7 @@ txBytes được tăng ở đường gửi ứng dụng trước khi xét đầy
 
 **Kết quả chạy server ngày 15/10/2026:** kiểm tra shared gameplay contracts đạt; biên dịch 16 tệp Java chính và 17 tệp test; Surefire chạy 77 test thuộc 17 lớp, với 0 failure, 0 error và 0 skipped. Maven đóng gói thành công JAR 14.598.385 byte. Thời gian Maven báo cho lượt thành công là 01:14 phút, có bao gồm công việc build và tải dependency còn thiếu; đây không phải thời gian thuần test hoặc benchmark game.
 
-Test bao gồm luồng tài khoản–phòng–trận–lịch sử qua socket, codec, gameplay, giới hạn hàng đợi, lỗi database/spool, timeout và phục hồi. Các log `RESULT NOT SAVED` trong DatabaseTest là tình huống cố ý gây lỗi database lẫn spool; lớp có 3 test và đều đạt. Không suy ra build thất bại từ riêng dòng stderr đó. Xem [biên bản kiểm thử](server_test_results.md), log build (`../runtime/server-build-test.log`; tài liệu/artifact cục bộ không kèm source GitHub) và XML Surefire (`../source/server/target/surefire-reports`; tài liệu/artifact cục bộ không kèm source GitHub).
+Test bao gồm luồng tài khoản–phòng–trận–lịch sử qua socket, codec, gameplay, giới hạn hàng đợi, lỗi database/spool, timeout và phục hồi. Các log `RESULT NOT SAVED` trong DatabaseTest là tình huống cố ý gây lỗi database lẫn spool; lớp có 3 test và đều đạt. Không suy ra build thất bại từ riêng dòng stderr đó. Xem [biên bản kiểm thử](report/server_test_results.md), log build (`../runtime/server-build-test.log`; tài liệu/artifact cục bộ không kèm source GitHub) và XML Surefire (`../source/server/target/surefire-reports`; tài liệu/artifact cục bộ không kèm source GitHub).
 
 Chưa có ảnh chụp client Unity, packet capture hoặc phiên demo Unity thực tế. Fixture Java sinh thành công chưa chứng minh C# đã đọc tương thích; cần chạy bộ Unity để kiểm tra phần còn lại.
 
@@ -671,7 +672,7 @@ Giá trị dưới đây là **mean ± sample SD của ba lượt**. p95 đượ
 
 Xét từng lượt, tick p95 cao nhất là 1.326,8 µs, nhưng không có nghĩa mọi tick đều dưới mức đó. Tỷ lệ overrun cao nhất theo công thức logger là khoảng 0,267%; heap peak quan sát được cao nhất khoảng 77,45 MiB và command depth tối đa 8. Không ghi nhận RESYNC hoặc thiếu delta baseline, vì vậy **chưa có số đo recovery time**, không điền 0 ms như thể đã đo phục hồi.
 
-Bảng đầy đủ và dữ liệu tái lập: [kết quả benchmark](benchmarks/network-20261015/results.md), [từng lượt/run ID](benchmarks/network-20261015/runs.csv), [summary.csv](benchmarks/network-20261015/summary.csv), [hash dữ liệu](benchmarks/network-20261015/hashes.json). Mỗi thư mục lượt giữ server.properties, trial.json, server.csv, clients.json và log; driver.log (`benchmarks/network-20261015/driver.log`; tài liệu/artifact cục bộ không kèm source GitHub) ghi thứ tự 36 lượt. Pilot nằm ở thư mục khác và không gộp vào bảng này.
+Bảng đầy đủ và dữ liệu tái lập: [kết quả benchmark](report/benchmarks/network-20261015/results.md), [từng lượt/run ID](report/benchmarks/network-20261015/runs.csv), [summary.csv](report/benchmarks/network-20261015/summary.csv), [hash dữ liệu](report/benchmarks/network-20261015/hashes.json). Mỗi thư mục lượt giữ server.properties, trial.json, server.csv, clients.json và log; driver.log (`benchmarks/network-20261015/driver.log`; tài liệu/artifact cục bộ không kèm source GitHub) ghi thứ tự 36 lượt. Pilot nằm ở thư mục khác và không gộp vào bảng này.
 
 ### 14.3. Comparison
 
@@ -699,7 +700,7 @@ Theo yêu cầu bổ sung, BASELINE được chạy lại với cùng JAR, bốn
 
 Tỷ lệ thiếu input vẫn xấp xỉ 5% ở hai profile chèn loss và bằng 0% quan sát được ở clean. Thời gian tick có chênh lệch so với đợt trước; máy không được cô lập khỏi tác vụ nền, lịch input nhận được và diễn tiến trận có thể khác, vì vậy không quy chênh lệch thành thay đổi thuật toán hoặc tự dùng số BASELINE mới để tính lại phần trăm cải thiện với mode từ đợt cũ.
 
-Dữ liệu riêng: [bảng kết quả](benchmarks/baseline-rerun-20261015/results.md), [runs.csv](benchmarks/baseline-rerun-20261015/runs.csv), [summary.csv](benchmarks/baseline-rerun-20261015/summary.csv), driver.log (`benchmarks/baseline-rerun-20261015/driver.log`; tài liệu/artifact cục bộ không kèm source GitHub), [hash tệp](benchmarks/baseline-rerun-20261015/hashes.json). Mã công cụ của đợt này được giữ thêm trong thư mục tools của bộ dữ liệu. Kết quả đối chứng ở mục 14.2–14.3 được giữ nguyên.
+Dữ liệu riêng: [bảng kết quả](report/benchmarks/baseline-rerun-20261015/results.md), [runs.csv](report/benchmarks/baseline-rerun-20261015/runs.csv), [summary.csv](report/benchmarks/baseline-rerun-20261015/summary.csv), driver.log (`benchmarks/baseline-rerun-20261015/driver.log`; tài liệu/artifact cục bộ không kèm source GitHub), [hash tệp](report/benchmarks/baseline-rerun-20261015/hashes.json). Mã công cụ của đợt này được giữ thêm trong thư mục tools của bộ dữ liệu. Kết quả đối chứng ở mục 14.2–14.3 được giữ nguyên.
 
 ## 15. Discussion – Thảo luận
 
@@ -745,7 +746,7 @@ Server đã build thành công, 77/77 test Java đạt và 36/36 lượt socket 
 
 ### 18.2. Trạng thái tài liệu
 
-Bản nguồn: `report/bao_cao.md`. Bản PDF theo yêu cầu học phần chưa tạo ở bước này; cần hoàn thiện số liệu và thông tin hành chính trước khi xuất bản nộp. Compilatio chưa được thực hiện; không có tuyên bố đã đạt ngưỡng Similarity/Plagiarism theo yêu cầu học phần.
+Bản nguồn: `bao_cao.md`. Bản PDF theo yêu cầu học phần chưa tạo ở bước này; cần hoàn thiện số liệu và thông tin hành chính trước khi xuất bản nộp. Compilatio chưa được thực hiện; không có tuyên bố đã đạt ngưỡng Similarity/Plagiarism theo yêu cầu học phần.
 
 ## 19. References – Tài liệu tham khảo
 
@@ -759,19 +760,19 @@ Các mã S1–S11 là tham chiếu nội bộ tới bằng chứng triển khai 
 
 | Mã | Nguồn trong repository |
 |---|---|
-| S1 | [README dự án](../README.md), [server.properties](../config/server.properties), [Config.java](../source/server/src/main/java/tank/Config.java) |
-| S2 | [Server.java](../source/server/src/main/java/tank/Server.java) |
-| S3 | [Room.java](../source/server/src/main/java/tank/Room.java), [World.java](../source/server/src/main/java/tank/World.java), [InputBuffer.java](../source/server/src/main/java/tank/InputBuffer.java) |
-| S4 | [Protocol.java](../source/server/src/main/java/tank/Protocol.java), [Protocol.cs](../source/client/Assets/Scripts/Protocol.cs) |
-| S5 | [Database.java](../source/server/src/main/java/tank/Database.java), [schema.sql](../source/server/src/main/resources/schema.sql) |
-| S6 | [DeltaCodec.java](../source/server/src/main/java/tank/DeltaCodec.java), [DeltaCodec.cs](../source/client/Assets/Scripts/DeltaCodec.cs) |
-| S7 | [ClientCore.cs](../source/client/Assets/Scripts/ClientCore.cs), [ClientCore.Network.cs](../source/client/Assets/Scripts/ClientCore.Network.cs), [ClientCore.Messages.cs](../source/client/Assets/Scripts/ClientCore.Messages.cs), [TcpSendQueue.cs](../source/client/Assets/Scripts/TcpSendQueue.cs) |
-| S8 | [GameState.cs](../source/client/Assets/Scripts/GameState.cs), [TankApp.cs](../source/client/Assets/Scripts/TankApp.cs) |
-| S9 | [UdpTransport.java](../source/server/src/main/java/tank/UdpTransport.java), [UdpImpairment.cs](../source/client/Assets/Scripts/UdpImpairment.cs), [Metrics.java](../source/server/src/main/java/tank/Metrics.java) |
-| S10 | [Test Java](../source/server/src/test/java/tank), [Test Unity](../source/client/Assets/Tests/Editor), [pom.xml](../source/server/pom.xml), [scripts](../scripts), [game-rules.json](../source/shared/game-rules.json) |
-| S11 | [Công cụ benchmark](../scripts/benchmark/README.md), [kết quả 36 lượt](benchmarks/network-20261015/results.md), [runs.csv](benchmarks/network-20261015/runs.csv), [hash dữ liệu](benchmarks/network-20261015/hashes.json) |
+| S1 | [README dự án](README.md), [server.properties](config/server.properties), [Config.java](source/server/src/main/java/tank/Config.java) |
+| S2 | [Server.java](source/server/src/main/java/tank/Server.java) |
+| S3 | [Room.java](source/server/src/main/java/tank/Room.java), [World.java](source/server/src/main/java/tank/World.java), [InputBuffer.java](source/server/src/main/java/tank/InputBuffer.java) |
+| S4 | [Protocol.java](source/server/src/main/java/tank/Protocol.java), [Protocol.cs](source/client/Assets/Scripts/Protocol.cs) |
+| S5 | [Database.java](source/server/src/main/java/tank/Database.java), [schema.sql](source/server/src/main/resources/schema.sql) |
+| S6 | [DeltaCodec.java](source/server/src/main/java/tank/DeltaCodec.java), [DeltaCodec.cs](source/client/Assets/Scripts/DeltaCodec.cs) |
+| S7 | [ClientCore.cs](source/client/Assets/Scripts/ClientCore.cs), [ClientCore.Network.cs](source/client/Assets/Scripts/ClientCore.Network.cs), [ClientCore.Messages.cs](source/client/Assets/Scripts/ClientCore.Messages.cs), [TcpSendQueue.cs](source/client/Assets/Scripts/TcpSendQueue.cs) |
+| S8 | [GameState.cs](source/client/Assets/Scripts/GameState.cs), [TankApp.cs](source/client/Assets/Scripts/TankApp.cs) |
+| S9 | [UdpTransport.java](source/server/src/main/java/tank/UdpTransport.java), [UdpImpairment.cs](source/client/Assets/Scripts/UdpImpairment.cs), [Metrics.java](source/server/src/main/java/tank/Metrics.java) |
+| S10 | [Test Java](source/server/src/test/java/tank), [Test Unity](source/client/Assets/Tests/Editor), [pom.xml](source/server/pom.xml), [scripts](scripts), [game-rules.json](source/shared/game-rules.json) |
+| S11 | [Công cụ benchmark](scripts/benchmark/README.md), [kết quả 36 lượt](report/benchmarks/network-20261015/results.md), [runs.csv](report/benchmarks/network-20261015/runs.csv), [hash dữ liệu](report/benchmarks/network-20261015/hashes.json) |
 
-Hướng dẫn triển khai hiện tại: [README repository](../README.md). Tài liệu học phần gốc được đối chiếu trong báo cáo, Instruction.md (`../../Instruction.md`; tài liệu/artifact cục bộ không kèm source GitHub), Topics.md (`../../Topics.md`; tài liệu/artifact cục bộ không kèm source GitHub). Phạm vi web lấy từ [required_web.md](../required_web.md).
+Hướng dẫn triển khai hiện tại: [README repository](README.md). Tài liệu học phần gốc được đối chiếu trong báo cáo, Instruction.md (`../../Instruction.md`; tài liệu/artifact cục bộ không kèm source GitHub), Topics.md (`../../Topics.md`; tài liệu/artifact cục bộ không kèm source GitHub). Phạm vi web lấy từ [required_web.md](required_web.md).
 
 ## 20. Team Contribution – Đóng góp thành viên
 

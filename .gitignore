@@ -109,7 +109,7 @@ Desktop.ini
 
 # Keep only the final report under version control
 /report/*
-!/report/bao_cao.md
+!/report/Nhom05_MultiplayerTankBattle_Report.docx
 
 # Asset mapping notes (retain assets, import metadata and licenses)
 /source/client/Assets/Resources/CampaignArt/README.txt
