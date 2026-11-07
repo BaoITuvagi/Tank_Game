@@ -10,8 +10,19 @@ namespace Tank {
             Gold=Hex(0xFFC34B),Ready=Hex(0x9AC96C),Danger=Hex(0xE88C65),Backdrop=Hex(0x121C19),
             Sand=Hex(0xD8C191),CardLight=Hex(0xE6DCBF),Disabled=Hex(0x84907E);
         static Font displayFont,bodyFont;
-        public static Font DisplayFont {get{return displayFont??(displayFont=Resources.Load<Font>("MenuArt/Fonts/Bungee-Regular"));}}
-        public static Font BodyFont {get{return bodyFont??(bodyFont=Resources.Load<Font>("MenuArt/Fonts/Nunito-Bold"));}}
+        public static Font DisplayFont {get{return displayFont??(displayFont=LoadFont("Bungee-Regular"));}}
+        public static Font BodyFont {get{return bodyFont??(bodyFont=LoadFont("Nunito-Bold"));}}
+        static Font LoadFont(string name) {
+            var font=Resources.Load<Font>("MenuArt/Fonts/"+name);
+            if(font==null)return null;
+            // Keep the bundled face for all ordinary text. Legacy IMGUI uses
+            // fontNames for missing glyphs; these Windows fonts include ↑↓←→.
+            // Apply this at runtime so font import settings/GUIDs stay intact.
+            var fallbacks=new List<string>(font.fontNames);
+            foreach(string fallback in new[]{"Arial","Segoe UI Symbol"})if(!fallbacks.Contains(fallback))fallbacks.Add(fallback);
+            font.fontNames=fallbacks.ToArray();
+            return font;
+        }
         static Color Hex(uint rgb){return new Color(((rgb>>16)&255)/255f,((rgb>>8)&255)/255f,(rgb&255)/255f);}
         struct Key : IEquatable<Key> {
             public Color Fill;public int Radius,Depth;public bool Selected;

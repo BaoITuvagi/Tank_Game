@@ -33,6 +33,10 @@ namespace Tank {
             return key.ToString();
         }
         public static string BindingText(KeyCode key){return key==KeyCode.None?"":KeyName(key);}
+        public static bool TryArrowBindingText(KeyCode key,out string text){
+            bool arrow=key==KeyCode.UpArrow||key==KeyCode.DownArrow||key==KeyCode.LeftArrow||key==KeyCode.RightArrow;
+            text=arrow?BindingText(key):"";return arrow;
+        }
         static string NormalizeKeyName(string text){return text.Trim().Replace(" ","").Replace("_","").Replace("-","").ToLowerInvariant();}
         public static bool TryParseKeyName(string text,out KeyCode key){
             key=KeyCode.None;
@@ -40,6 +44,10 @@ namespace Tank {
             string name=NormalizeKeyName(text);
             if(name.Length==1&&name[0]>='0'&&name[0]<='9'){key=(KeyCode)((int)KeyCode.Alpha0+name[0]-'0');return true;}
             switch(name){
+                case "↑":case "lên":case "mũitênlên":key=KeyCode.UpArrow;return true;
+                case "↓":case "xuống":case "mũitênxuống":key=KeyCode.DownArrow;return true;
+                case "←":case "trái":case "mũitêntrái":key=KeyCode.LeftArrow;return true;
+                case "→":case "phải":case "mũitênphải":key=KeyCode.RightArrow;return true;
                 case "enter":key=KeyCode.Return;return true;
                 case "numpadenter":key=KeyCode.KeypadEnter;return true;
                 case "ctrl":case "control":case "ctrltrái":key=KeyCode.LeftControl;return true;
@@ -47,7 +55,7 @@ namespace Tank {
                 case "shift":key=KeyCode.LeftShift;return true;
                 case "alt":key=KeyCode.LeftAlt;return true;
             }
-            foreach(KeyCode candidate in Enum.GetValues(typeof(KeyCode)))if(candidate!=KeyCode.None&&(NormalizeKeyName(candidate.ToString())==name||NormalizeKeyName(KeyName(candidate))==name)){
+            foreach(KeyCode candidate in Enum.GetValues(typeof(KeyCode)))if(candidate!=KeyCode.None&&(NormalizeKeyName(candidate.ToString())==name||NormalizeKeyName(KeyName(candidate))==name||NormalizeKeyName(BindingText(candidate))==name)){
                 key=candidate;return Allowed(key);
             }
             return false;

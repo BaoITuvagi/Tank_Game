@@ -71,6 +71,40 @@ public class ClientPreferencesTests {
         foreach(string text in new[]{"not a key","123","Escape","F11","None"}){KeyCode parsed;Assert.IsFalse(ClientPreferences.TryParseKeyName(text,out parsed),text);}
     }
     static string[] BindingTexts(ClientPreferences p,bool secondary){return Array.ConvertAll(p.Bindings,b=>ClientPreferences.BindingText(secondary?b.Secondary:b.Primary));}
+    [TestCase(ControlAction.Up,KeyCode.UpArrow,"↑","Mũi tên lên","Lên")]
+    [TestCase(ControlAction.Down,KeyCode.DownArrow,"↓","Mũi tên xuống","Xuống")]
+    [TestCase(ControlAction.Left,KeyCode.LeftArrow,"←","Mũi tên trái","Trái")]
+    [TestCase(ControlAction.Right,KeyCode.RightArrow,"→","Mũi tên phải","Phải")]
+    public void ArrowBindingsDisplayOnlySymbolsAndPersistAfterDirectEntry(ControlAction action,KeyCode key,string label,string legacy,string shortLegacy){
+        string text,error;KeyCode parsed;
+        Assert.IsTrue(ClientPreferences.TryArrowBindingText(key,out text));Assert.AreEqual(label,text);
+        Assert.AreEqual(label,ClientPreferences.KeyName(key));
+        Assert.IsTrue(ClientPreferences.TryParseKeyName(legacy,out parsed));Assert.AreEqual(key,parsed,"Legacy Vietnamese names remain accepted.");
+        Assert.IsTrue(ClientPreferences.TryParseKeyName(shortLegacy,out parsed));Assert.AreEqual(key,parsed);
+        Assert.IsTrue(ClientPreferences.TryParseKeyName(key.ToString(),out parsed));Assert.AreEqual(key,parsed);
+        var p=ClientPreferences.Defaults();var primary=BindingTexts(p,false);var secondary=BindingTexts(p,true);
+        secondary[(int)action]=text;
+        Assert.IsTrue(p.TryUpdateBindingText(primary,secondary,out error),error);
+        Assert.IsTrue(p.Save(path,out error),error);
+        var loaded=ClientPreferences.Load(path,out error);Assert.IsEmpty(error);
+        Assert.AreEqual(label,ClientPreferences.BindingText(loaded.Bindings[(int)action].Secondary));
+        Assert.IsTrue(loaded.IsPressed(action,k=>k==key));
+        StringAssert.Contains(label,loaded.Label(action));StringAssert.DoesNotContain("Mũi tên",loaded.Label(action));
+        Assert.IsFalse(ClientPreferences.TryArrowBindingText(KeyCode.W,out text));
+    }
+    [Test] public void BothSharedFontFacesRenderEveryArrowWithNonemptyGlyphGeometry(){
+        foreach(var font in new[]{CartoonUi.BodyFont,CartoonUi.DisplayFont}){
+            Assert.IsNotNull(font);CollectionAssert.Contains(font.fontNames,"Arial");
+            font.RequestCharactersInTexture("↑↓←→",18,FontStyle.Normal);
+            foreach(char arrow in "↑↓←→"){
+                CharacterInfo glyph;
+                Assert.IsTrue(font.GetCharacterInfo(arrow,out glyph,18,FontStyle.Normal),font.name+" missing "+arrow);
+                Assert.Greater(glyph.glyphWidth,0,font.name+" empty width for "+arrow);
+                Assert.Greater(glyph.glyphHeight,0,font.name+" empty height for "+arrow);
+                Assert.Greater(glyph.advance,0,font.name+" empty advance for "+arrow);
+            }
+        }
+    }
     [Test] public void TextEditsCanSwapKeysAndValidationDoesNotPartiallyApplyInvalidInput(){
         var p=ClientPreferences.Defaults();var primary=BindingTexts(p,false);var secondary=BindingTexts(p,true);string error;
         primary[0]="S";primary[1]="W";

@@ -60,7 +60,7 @@ namespace Tank {
             GUILayout.Space(24);
             GUILayout.Label("GÁN PHÍM ĐIỀU KHIỂN",menu.Section);
             GUILayout.Space(8);
-            GUILayout.Label("Nhập tên phím vào ô, ví dụ: W, Space, Shift trái, Chuột trái, Mouse3. Xóa nội dung để bỏ gán. Mỗi thao tác cần ít nhất 1 phím. Bấm Lưu để kiểm tra và áp dụng.",menu.Hint);
+            GUILayout.Label("Nhập tên phím vào ô, ví dụ: W, Space, Shift trái, Chuột trái, Mouse3. Có thể nhấn trực tiếp phím mũi tên để gán. Xóa nội dung để bỏ gán. Mỗi thao tác cần ít nhất 1 phím. Bấm Lưu để kiểm tra và áp dụng.",menu.Hint);
             float nameWidth=contentWidth<640?132:202;
             float keyWidth=(contentWidth-nameWidth-32)/2,primaryX=nameWidth+16,secondaryX=primaryX+keyWidth+16;
             GUILayout.Space(16);
@@ -90,8 +90,12 @@ namespace Tank {
             string key=BindingControlName(action,secondary);
             string next=!secondary?BindingControlName(action,true):action+1<settingsDraft.Bindings.Length?BindingControlName(action+1,false):null;
             HandleFieldEnter(key,next);
-            GUI.SetNextControlName(key);
             var texts=secondary?secondaryBindingText:primaryBindingText;
+            var e=Event.current;string arrow;
+            if(GUI.enabled&&GUI.GetNameOfFocusedControl()==key&&e.type==EventType.KeyDown&&!e.alt&&!e.control&&!e.command&&!e.shift&&ClientPreferences.TryArrowBindingText(e.keyCode,out arrow)) {
+                texts[action]=arrow;e.Use();
+            }
+            GUI.SetNextControlName(key);
             texts[action]=GUI.TextField(keyRect,texts[action],32,bindingField);
             FocusRequestedField(key);
         }
