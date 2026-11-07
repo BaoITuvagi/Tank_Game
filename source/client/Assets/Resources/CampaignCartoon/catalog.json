@@ -1,0 +1,227 @@
+{
+    "sheets":  [
+                   {
+                       "rows":  4,
+                       "key":  "scenery",
+                       "width":  1254,
+                       "columns":  4,
+                       "height":  1254
+                   },
+                   {
+                       "rows":  2,
+                       "key":  "actors",
+                       "width":  1774,
+                       "columns":  4,
+                       "height":  887
+                   }
+               ],
+    "sprites":  [
+                    {
+                        "sheet":  "scenery",
+                        "cell":  0,
+                        "width":  240,
+                        "y":  57,
+                        "key":  "tree",
+                        "x":  46,
+                        "height":  248
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  1,
+                        "width":  250,
+                        "y":  57,
+                        "key":  "trees",
+                        "x":  351,
+                        "height":  246
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  2,
+                        "width":  227,
+                        "y":  61,
+                        "key":  "rock",
+                        "x":  681,
+                        "height":  241
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  3,
+                        "width":  255,
+                        "y":  72,
+                        "key":  "building_house",
+                        "x":  979,
+                        "height":  225
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  4,
+                        "width":  253,
+                        "y":  351,
+                        "key":  "building_hangar",
+                        "x":  40,
+                        "height":  265
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  5,
+                        "width":  246,
+                        "y":  349,
+                        "key":  "building_factory",
+                        "x":  353,
+                        "height":  267
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  6,
+                        "width":  223,
+                        "y":  361,
+                        "key":  "building_tower",
+                        "x":  679,
+                        "height":  256
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  7,
+                        "width":  232,
+                        "y":  394,
+                        "key":  "rubble",
+                        "x":  980,
+                        "height":  182
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  8,
+                        "width":  167,
+                        "y":  655,
+                        "key":  "parked_truck",
+                        "x":  82,
+                        "height":  279
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  9,
+                        "width":  248,
+                        "y":  690,
+                        "key":  "supplies",
+                        "x":  350,
+                        "height":  219
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  10,
+                        "width":  254,
+                        "y":  671,
+                        "key":  "ruin_house",
+                        "x":  657,
+                        "height":  244
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  11,
+                        "width":  253,
+                        "y":  659,
+                        "key":  "ruin_factory",
+                        "x":  974,
+                        "height":  256
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  12,
+                        "width":  231,
+                        "y":  993,
+                        "key":  "ruin_tower",
+                        "x":  43,
+                        "height":  228
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  13,
+                        "width":  167,
+                        "y":  1007,
+                        "key":  "flag",
+                        "x":  405,
+                        "height":  210
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  14,
+                        "width":  182,
+                        "y":  1016,
+                        "key":  "warning",
+                        "x":  692,
+                        "height":  176
+                    },
+                    {
+                        "sheet":  "scenery",
+                        "cell":  15,
+                        "width":  189,
+                        "y":  959,
+                        "key":  "parked_tank",
+                        "x":  1008,
+                        "height":  277
+                    },
+                    {
+                        "sheet":  "actors",
+                        "cell":  0,
+                        "width":  167,
+                        "y":  142,
+                        "key":  "enemy",
+                        "x":  146,
+                        "height":  207
+                    },
+                    {
+                        "sheet":  "actors",
+                        "cell":  1,
+                        "width":  140,
+                        "y":  81,
+                        "key":  "enemy_ranged",
+                        "x":  601,
+                        "height":  281
+                    },
+                    {
+                        "sheet":  "actors",
+                        "cell":  2,
+                        "width":  176,
+                        "y":  141,
+                        "key":  "enemy_support",
+                        "x":  1025,
+                        "height":  208
+                    },
+                    {
+                        "sheet":  "actors",
+                        "cell":  4,
+                        "width":  233,
+                        "y":  539,
+                        "key":  "boss_1",
+                        "x":  113,
+                        "height":  258
+                    },
+                    {
+                        "sheet":  "actors",
+                        "cell":  5,
+                        "width":  240,
+                        "y":  542,
+                        "key":  "boss_2",
+                        "x":  550,
+                        "height":  256
+                    },
+                    {
+                        "sheet":  "actors",
+                        "cell":  6,
+                        "width":  251,
+                        "y":  531,
+                        "key":  "boss_3",
+                        "x":  986,
+                        "height":  274
+                    },
+                    {
+                        "sheet":  "actors",
+                        "cell":  7,
+                        "width":  253,
+                        "y":  532,
+                        "key":  "boss_4",
+                        "x":  1431,
+                        "height":  268
+                    }
+                ]
+}

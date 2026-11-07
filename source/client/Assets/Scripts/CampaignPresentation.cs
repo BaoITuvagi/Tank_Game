@@ -114,56 +114,64 @@ namespace Tank.Campaign {
         static void Sparks(Vector2 center,float cell,float t,Color color,int seed) {
             for(int i=0;i<7;i++){float angle=i*2.4f+seed;Vector2 p=center+new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*cell*t*.65f;float size=Mathf.Max(2,cell*.10f*(1-t));Fill(new Rect(p.x-size/2,p.y-size/2,size,size),color);}
         }
-        static void SmokeSprite(Vector2 center,float size,string asset,float alpha){
-            var texture=CampaignArt.Texture(asset);if(texture==null||alpha<=0)return;
-            Color previous=GUI.color;GUI.color=new Color(previous.r,previous.g,previous.b,previous.a*Mathf.Clamp01(alpha));
-            GUI.DrawTexture(new Rect(center.x-size/2,center.y-size/2,size,size),texture,ScaleMode.ScaleToFit);
-            GUI.color=previous;
+        // Use the same Combat FX frames as multiplayer, fitted into the existing
+        // campaign effect windows. This never changes an action/impact timestamp.
+        static void SpriteFx(string key,Vector2 center,float size,float age,float duration,Color tint,float angle=0){
+            if(age<0||age>=duration)return;
+            var clip=CombatFxCatalog.Get(key);if(clip==null)return;
+            Matrix4x4 matrix=GUI.matrix;Color previous=GUI.color;
+            try {
+                if(angle!=0)GuiTransforms.Rotate(angle,center);
+                GUI.color=new Color(tint.r,tint.g,tint.b,tint.a*previous.a);
+                GUI.DrawTextureWithTexCoords(new Rect(center.x-size/2,center.y-size/2,size,size),clip.Texture,clip.Uv(age/duration*clip.Duration));
+            }finally {GUI.matrix=matrix;GUI.color=previous;}
+        }
+        static void Projectile(Vector2 center,Vector2 direction,float cell){
+            cell*=2;
+            var texture=CampaignArt.Texture("bulletSand1_outline");if(texture==null)return;
+            Matrix4x4 matrix=GUI.matrix;
+            try {
+                GuiTransforms.Rotate(Mathf.Atan2(direction.y,direction.x)*Mathf.Rad2Deg+90,center);
+                GUI.DrawTexture(new Rect(center.x-cell*.075f,center.y-cell*.18f,cell*.15f,cell*.36f),texture,ScaleMode.ScaleToFit);
+            }finally {GUI.matrix=matrix;}
         }
         static void DeathSmoke(Vector2 center,float cell,float age,int enemy){
-            float burst=(age-.08f)/.24f;
-            if(burst>=0&&burst<1){
-                int frame=Mathf.Min(5,(int)(burst*6));
-                SmokeSprite(center,cell*Mathf.Lerp(.4f,1.15f,burst),"death_smoke_orange"+frame,1-burst*burst);
-            }
+            SpriteFx("combat/explosion_top",center,cell*1.55f,age-.08f,.24f,Color.white);
             float smoke=(age-.16f)/.66f;
             if(smoke<0||smoke>=1)return;
-            for(int puff=0;puff<3;puff++){
-                float angle=puff*2.4f+enemy*.7f;
-                Vector2 drift=new Vector2(Mathf.Cos(angle)*.32f,-.22f+Mathf.Sin(angle)*.14f)*cell*smoke;
-                int frame=Mathf.Min(5,(int)(smoke*6));
-                SmokeSprite(center+drift,cell*Mathf.Lerp(.35f,.95f,smoke),"death_smoke_grey"+((frame+puff)%6),(1-smoke*smoke)*.7f);
-            }
+            Vector2 drift=new Vector2(Mathf.Sin(enemy)*.12f,-.25f)*cell*smoke;
+            SpriteFx("nature/smoke_top",center+drift,cell*1.5f,age-.16f,.66f,new Color(.72f,.72f,.72f,(1-smoke*smoke)*.7f));
         }
         public void DrawEffects(Func<Vector2,Rect> tileAt,float cell,double now,GUIStyle text) {
+            CombatFxCatalog.Preload();
             var labelStacks=new Dictionary<int,int>();
             foreach(var effect in effects) {
                 var v=effect.Visual;float age=(float)(now-effect.Started),delay=v.Source==0?0:.10f;
                 Vector2 a=tileAt(new Vector2(v.X,v.Y)).center,b=tileAt(new Vector2(v.TX,v.TY)).center;
                 if(v.Kind==VisualKind.Melee){
                     float t=(age-delay-.045f)/.13f;
-                    if(t>=0&&t<1){Color color=new Color(1,.92f,.63f,1-t);Vector2 offset=new Vector2(cell*.22f,-cell*.22f);Line(b-offset,b+offset,Mathf.Max(2,cell*.07f),color);Sparks(b,cell,t,color,v.Target);}
+                    if(t>=0&&t<1)SpriteFx("combat/hit_top",b,cell*.95f,age-delay-.045f,.13f,new Color(1,.92f,.63f,1-t));
                 }
                 if(v.Kind==VisualKind.Shot&&age>=delay&&age<delay+.14f){
                     float shotAge=age-delay;
                     float t=Mathf.Clamp01(shotAge/.105f);Vector2 head=Vector2.Lerp(a,b,t),dir=(b-a).normalized;
                     Line(head-dir*cell*.35f,head,Mathf.Max(2,cell*.06f),new Color(1,.77f,.22f));
-                    Fill(new Rect(head.x-3,head.y-3,6,6),Color.white);
-                    if(shotAge<.06f)Sparks(a+dir*cell*.35f,cell,shotAge/.08f,new Color(1,.9f,.4f),0);
+                    Projectile(head,dir,cell);
+                    SpriteFx("combat/muzzle",a+dir*cell*.35f,cell*.75f,shotAge,.06f,Color.white,Mathf.Atan2(dir.y,dir.x)*Mathf.Rad2Deg);
                 }
                 if(v.Kind==VisualKind.Skill&&age<.30f){
                     float t=Mathf.Clamp01(age/.30f);Color color=effect.Nation==5?new Color(.3f,.9f,1,1-t):new Color(1,.65f,.12f,1-t);
-                    if(v.Source>0){Ring(b,cell*(.2f+t*.5f),new Color(1,.25f,.08f,1-t));Sparks(b,cell,t,new Color(1,.6f,.15f,1-t),v.Source);continue;}
+                    if(v.Source>0){SpriteFx("combat/ground_slam_top",b,cell*1.5f,age,.30f,Color.white);continue;}
                     if(effect.Nation==5){Line(a,b,cell*.18f*(1-t),color);Line(a,b,Mathf.Max(1,cell*.045f*(1-t)),new Color(1,1,1,1-t));}
-                    else if(effect.Nation==1){Ring(a,cell*(.4f+t),new Color(.35f,.85f,1,1-t));Ring(a,cell*.5f,new Color(.7f,.95f,1,1-t));}
-                    else {Ring(b,cell*(.25f+t*2),color);Vector2 start=b+new Vector2(0,-cell*2.5f);Line(Vector2.Lerp(start,b,Mathf.Clamp01(age/.09f)),b,3,color);}
-                    Sparks(b,cell,t,color,v.Target);
+                    else if(effect.Nation==1)SpriteFx("magic/shield",a,cell*1.5f,age,.30f,Color.white);
+                    else {SpriteFx("combat/explosion_top",b,cell*2,age,.30f,Color.white);Vector2 start=b+new Vector2(0,-cell*2.5f);Line(Vector2.Lerp(start,b,Mathf.Clamp01(age/.09f)),b,3,color);}
+                    if(effect.Nation==5)SpriteFx("magic/lightning_top",b,cell*1.15f,age,.30f,new Color(.5f,.95f,1));
                 }
                 if(v.Kind==VisualKind.Hit||v.Kind==VisualKind.Block||v.Kind==VisualKind.Heal){
                     float t=age-Impact(v);if(t<0||t>.65f)continue;
                     Color color=v.Kind==VisualKind.Block?new Color(.4f,.85f,1):v.Kind==VisualKind.Heal?new Color(.4f,1,.5f):v.Target==0?new Color(1,.38f,.3f):new Color(1,.88f,.35f);
                     color.a=1-Mathf.Clamp01((t-.35f)/.3f);
-                    if(t<.18f){if(v.Kind==VisualKind.Block)Ring(b,cell*.48f,color);else Sparks(b,cell,t/.18f,color,v.Target);}
+                    SpriteFx(v.Kind==VisualKind.Block?"magic/shield":v.Kind==VisualKind.Heal?"magic/heal_top":"combat/hit_top",b,cell*1.15f,t,v.Kind==VisualKind.Heal?.65f:.18f,color);
                     string label=v.Kind==VisualKind.Block?"BLOCK":(v.Kind==VisualKind.Heal?"+":"-")+v.Amount;
                     var style=new GUIStyle(text){fontSize=Mathf.Clamp((int)(cell*.39f),14,25),alignment=TextAnchor.MiddleCenter,fontStyle=FontStyle.Bold,wordWrap=false};
                     int stack;labelStacks.TryGetValue(v.Target,out stack);labelStacks[v.Target]=stack+1;
@@ -177,7 +185,7 @@ namespace Tank.Campaign {
             if(Previous!=null){
                 float age=(float)(now-Started);if(age>=0&&age<.18f&&(Previous.X!=Current.X||Previous.Y!=Current.Y)){
                     Vector2 p=tileAt(new Vector2(Previous.X,Previous.Y)).center;
-                    Sparks(p,cell*.35f,age/.18f,new Color(.8f,.75f,.54f,1-age/.18f),Current.Turn);
+                    SpriteFx("movement/dust_top",p,cell*.7f,age,.18f,new Color(.8f,.75f,.54f,1-age/.18f));
                 }
             }
         }
