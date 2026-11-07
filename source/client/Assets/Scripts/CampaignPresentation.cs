@@ -9,15 +9,38 @@ namespace Tank.Campaign {
         public RunState Current {get;private set;}
         public RunState Previous {get;private set;}
         public double Started {get;private set;}
+        public const float RegionBannerSeconds=2.8f;
+        public string RegionTitle {get;private set;}="";
+        string regionKey,regionRun;
+        double regionStarted;
         public sealed class Effect {public CampaignVisual Visual;public double Started;public int Nation;}
         readonly List<Effect> effects=new List<Effect>();
         public IReadOnlyList<Effect> Effects {get{return effects;}}
         public bool Busy(double now){return Current!=null&&Previous!=null&&now-Started<TurnSeconds;}
         public bool ResultsReady(double now){return !Busy(now)&&(Previous==null||now-Started>=.65);}
-        public void Reset(){Current=Previous=null;effects.Clear();}
+        public void Reset(){Current=Previous=null;effects.Clear();RegionTitle="";regionKey=regionRun=null;}
+        void ObserveRegion(RunState state,double now){
+            string title=string.IsNullOrWhiteSpace(state.RegionName)?state.StageName:state.RegionName;
+            string key=string.IsNullOrWhiteSpace(state.RegionName)?"stage:"+state.Stage+":"+title:"region:"+state.Template+":"+state.Biome+":"+title;
+            if(regionRun==state.Id&&regionKey==key)return;
+            regionRun=state.Id;regionKey=key;RegionTitle=title??"";regionStarted=now;
+        }
+        public float RegionOpacity(double now){
+            if(string.IsNullOrEmpty(RegionTitle))return 0;
+            float age=(float)(now-regionStarted);
+            return Mathf.Min(Mathf.Clamp01(age/.18f),Mathf.Clamp01((RegionBannerSeconds-age)/.55f));
+        }
+        public static string ActionFeedback(RunState state){
+            // Only replace the server's three known success descriptions. A skill
+            // visual can survive a rejected command, or accompany a boss notice,
+            // so its presence alone must never hide a failure or combat message.
+            string success=state.Nation==1?"Pháo đài thép: +3 khiên, xung kích 45 sát thương trong 1 ô.":state.Nation==5?"Pháo xuyên giáp: xuyên đội hình và khiên hỗ trợ, dừng ở vật cản.":"Không kích: 70 sát thương trong bán kính 2 ô quanh mục tiêu gần nhất.";
+            return !state.Finished&&state.Message==success&&state.Visuals.Exists(v=>v.Kind==VisualKind.Skill&&v.Source==0)?"Đã dùng "+CampaignNation.For(state.Nation).SkillName+".":state.Message;
+        }
         public void Observe(RunState state,double now) {
             effects.RemoveAll(e=>now-e.Started>.85);
             if(state==null){Reset();return;}
+            ObserveRegion(state,now);
             if(Current==null||Current.Id!=state.Id||state.Turn<Current.Turn||state.Turn>Current.Turn+1){Current=state;Previous=null;effects.Clear();Started=now-1;return;}
             if(Current.Turn==state.Turn){Current=state;return;}
             Previous=Current;Current=state;Started=now;

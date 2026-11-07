@@ -16,6 +16,8 @@ Mục lục:
 
 Chọn kiểm tra theo hành vi bị ảnh hưởng và các caller/đối tác client/server. Không sửa test fixture, generated contract hay môi trường chỉ để làm test xanh; giữ code ổn định trong lúc chạy kiểm tra.
 
+Trạng thái presentation Chiến dịch: `CampaignHudPresentationTests` kiểm tên vùng chỉ hiện khi đổi vùng rồi hết hạn và phản hồi kỹ năng gọn.
+
 | Loại thay đổi | Kiểm tra cần thực hiện |
 |---|---|
 | Chỉ tài liệu | Đọc diff, kiểm tra link/anchor, lệnh và phát biểu với mã nguồn. Không cần chạy lại game suite chỉ vì sửa văn bản. |
