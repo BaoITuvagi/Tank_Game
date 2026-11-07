@@ -41,6 +41,8 @@ Nút **Cài đặt** có ở màn đăng nhập, lobby, trận multiplayer và c
 
 Bật/tắt âm thanh áp dụng cho cả PCM WinMM và Unity AudioSource. Màn này có nút mở repository GitHub và Facebook `https://www.facebook.com/huy.huu.nguyen.266934` bằng trình duyệt. Thiết lập lưu tại `Application.persistentDataPath/settings.json`, độc lập tài khoản, server và file kết nối cũ; file thiếu/hỏng dùng lại mặc định. Nhãn phím trong HUD cập nhật theo thiết lập đã lưu.
 
+Nhặt vàng Chiến dịch có tiếng xác nhận ngắn sau chuyển động xe: `CampaignAudioTimeline` kiểm một lượt mới, vàng tăng và xu đã biết tại ô người chơi biến mất. Phản hồi cùng lượt, mua hàng, cập nhật ví, thưởng giải cứu, đổi run hoặc khôi phục sau mất khoảng lượt không phát lại tiếng nhặt. Cue `gold` tái sử dụng `CampaignAudio/purchase.ogg` của Kenney ở pitch 1,35; file nguồn/giấy phép giữ nguyên, bật/tắt theo cài đặt âm thanh chung. Preview chuyển động có bước nhặt xu để kiểm đường phát thật.
+
 Mã chính: `ClientPreferences.cs` (mapping, kiểm tra và lưu file), `TankSettings.cs` (giao diện). `ClientPreferencesTests` kiểm tra gán phím, xung đột giữa chế độ, lọc chuột ngoài bản đồ, ghi/đọc và thay thế file, cấu hình hỏng và master audio. Preview offline: `--menu-preview settings`.
 
 <a id="ui"></a>

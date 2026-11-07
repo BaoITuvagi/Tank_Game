@@ -10,11 +10,18 @@ namespace Tank.Campaign {
         RunState previous;
         public void Clear(){pending.Clear();previous=null;}
         void Add(string clip,double due,float volume){pending.Add(new Cue{Clip=clip,Due=due,Volume=volume});}
+        static bool CollectedGold(RunState before,RunState after){
+            // Gold increases also include the final rescue reward. A pickup is
+            // confirmed only when a known coin at the player's cell disappears.
+            return after.Gold>before.Gold&&before.Loot.Exists(p=>p.Kind==3&&p.X==after.X&&p.Y==after.Y)
+                &&!after.Loot.Exists(p=>p.Kind==3&&p.X==after.X&&p.Y==after.Y);
+        }
         public void Observe(RunState state,double now,bool active){
             if(!active||state==null){pending.Clear();previous=state;return;}
             if(previous==null||previous.Id!=state.Id||state.Turn<previous.Turn||state.Turn>previous.Turn+1){pending.Clear();previous=state;return;}
             if(state.ShopRevision>previous.ShopRevision&&state.Gold<previous.Gold)Add("purchase",now,.38f);
             if(state.Turn==previous.Turn+1){
+                if(CollectedGold(previous,state))Add("gold",now+.14,.38f);
                 int shots=0,hits=0,deaths=0,blocks=0,heals=0,skills=0,melees=0;
                 foreach(var v in state.Visuals){
                     if(v.Kind==VisualKind.Shot&&shots++<3)Add("shot",now+(v.Source==0?0:.1),v.Source==0?.42f:.20f);
@@ -42,7 +49,8 @@ namespace Tank.Campaign {
     // Own sources/listener are children of TankApp, so destruction cleans them up.
     // Sources respect the client's master sound setting; menu styles remain independent.
     public sealed class CampaignAudio : MonoBehaviour {
-        public static readonly string[] ClipNames={"shot","hit","explosion","airstrike","fortress","pierce","heal","purchase","victory","shop_open","shop_close"};
+        public static readonly string[] ClipNames={"shot","hit","explosion","airstrike","fortress","pierce","heal","purchase","gold","victory","shop_open","shop_close"};
+        public static string ClipResource(string name){return "CampaignAudio/"+(name=="gold"?"purchase":name);}
         readonly CampaignAudioTimeline timeline=new CampaignAudioTimeline();
         readonly Dictionary<string,AudioClip> clips=new Dictionary<string,AudioClip>();
         readonly Dictionary<string,double> lastPlayed=new Dictionary<string,double>();
@@ -64,7 +72,7 @@ namespace Tank.Campaign {
                 var source=audio.AddComponent<AudioSource>();source.playOnAwake=false;source.loop=false;
                 source.spatialBlend=0;source.dopplerLevel=0;source.priority=i<2?64:128;voices[i]=source;
             }
-            foreach(string name in ClipNames){var clip=Resources.Load<AudioClip>("CampaignAudio/"+name);if(clip==null)Debug.LogError("Missing campaign sound: "+name);else clips[name]=clip;}
+            foreach(string name in ClipNames){var clip=Resources.Load<AudioClip>(ClipResource(name));if(clip==null)Debug.LogError("Missing campaign sound: "+name);else clips[name]=clip;}
         }
         void Update(){
             if(readState==null)return;
@@ -83,12 +91,12 @@ namespace Tank.Campaign {
             if(!wasActive||!ClientPreferences.Active.SoundEnabled)return;
             double last;if(lastPlayed.TryGetValue(name,out last)&&now-last<.045)return;
             AudioClip clip;if(!clips.TryGetValue(name,out clip))return;
-            bool ui=name=="purchase"||name=="victory"||name.StartsWith("shop_");
+            bool ui=name=="purchase"||name=="gold"||name=="victory"||name.StartsWith("shop_");
             AudioSource voice=null;
             for(int i=ui?0:2;i<(ui?2:voices.Length);i++)if(!voices[i].isPlaying){voice=voices[i];break;}
             if(voice==null&&ui){voice=voices[0];voice.Stop();}
             if(voice==null)return;
-            voice.clip=clip;voice.volume=volume;voice.Play();lastPlayed[name]=now;PlayedCount++;
+            voice.clip=clip;voice.volume=volume;voice.pitch=name=="gold"?1.35f:1;voice.Play();lastPlayed[name]=now;PlayedCount++;
             if(preview)Debug.Log("Campaign sound: "+name);
         }
         public void ShopToggle(bool open){if(wasActive)Play(open?"shop_open":"shop_close",.27f,Time.unscaledTimeAsDouble);}

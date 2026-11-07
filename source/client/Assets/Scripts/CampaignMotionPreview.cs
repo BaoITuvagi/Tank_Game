@@ -10,7 +10,8 @@ namespace Tank.Campaign {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot(){if(Array.IndexOf(Environment.GetCommandLineArgs(),"--campaign-motion-preview")>=0)new GameObject("Campaign Motion Preview").AddComponent<CampaignMotionPreview>();}
         static RunState Clone(RunState a) {
             var b=new RunState{Id=a.Id,Nation=a.Nation,Turn=a.Turn+1,X=a.X,Y=a.Y,Bottom=a.Bottom,Distance=a.Distance,Hp=a.Hp,Facing=a.Facing,Shot=a.Shot,Skill=a.Skill,Gold=a.Gold,Kills=a.Kills,Shields=a.Shields,DoubleHits=a.DoubleHits,Bosses=a.Bosses,Message="",SaveStatus="",Terrain=new byte[247]};
-            foreach(var e in a.Enemies)b.Enemies.Add(new Actor{Id=e.Id,X=e.X,Y=e.Y,Hp=e.Hp,MaxHp=e.MaxHp,Boss=e.Boss});return b;
+            foreach(var e in a.Enemies)b.Enemies.Add(new Actor{Id=e.Id,X=e.X,Y=e.Y,Hp=e.Hp,MaxHp=e.MaxHp,Boss=e.Boss});
+            foreach(var pickup in a.Loot)b.Loot.Add(new Pickup{Kind=pickup.Kind,X=pickup.X,Y=pickup.Y});return b;
         }
         static void Ground(RunState s){s.Bottom=s.Y-7;s.Distance=s.Y;for(int row=0;row<19;row++)for(int col=0;col<13;col++)s.Terrain[row*13+col]=(byte)((col<4||col>8)&&(col+row+s.Bottom)%9==0?1:0);}
         static CampaignVisual Event(VisualKind kind,int source,int target,int x,int y,int tx,int ty,int amount=0){return new CampaignVisual{Kind=kind,Source=source,Target=target,X=x,Y=y,TX=tx,TY=ty,Amount=amount};}
@@ -20,6 +21,7 @@ namespace Tank.Campaign {
             var app=FindFirstObjectByType<Tank.TankApp>();var core=app.Core;
             int width=Screen.width,height=Screen.height;Screen.SetResolution(width+1,height,FullScreenMode.Windowed);yield return new WaitForSecondsRealtime(.3f);Screen.SetResolution(width,height,FullScreenMode.Windowed);yield return new WaitForSecondsRealtime(.3f);
             var state=new RunState{Id="motion-preview",Nation=0,X=6,Y=506,Distance=506,Hp=100,Facing=0,Gold=185,Message="",SaveStatus="",Terrain=new byte[247]};
+            state.Loot.Add(new Pickup{Kind=3,X=6,Y=508});
             state.Enemies.Add(new Actor{Id=1,X=6,Y=508,Hp=60,MaxHp=60});state.Enemies.Add(new Actor{Id=2,X=8,Y=512,Hp=100,MaxHp=100});Ground(state);core.Campaign.Run=state;
             yield return new WaitForSecondsRealtime(.5f);
             var trace=new List<string>();int frame=0;
@@ -40,7 +42,7 @@ namespace Tank.Campaign {
                     next.Visuals.Add(Event(VisualKind.Skill,0,2,6,507,7,511));next.Visuals.Add(Event(VisualKind.Hit,0,2,6,507,7,511,60));
                     next.Enemies[0].Y--;
                 }
-                if(stage=="move-pickup"){next.Y++;next.Enemies[0].Y--;}
+                if(stage=="move-pickup"){next.Y++;next.Enemies[0].Y--;next.Loot.RemoveAll(p=>p.Kind==3&&p.X==next.X&&p.Y==next.Y);next.Gold+=25;}
                 if(stage=="move-shield"){next.Y++;next.Shields=1;}
                 if(stage=="shield"){
                     next.Facing=1;next.Shields=0;next.Enemies[0].Hp-=20;

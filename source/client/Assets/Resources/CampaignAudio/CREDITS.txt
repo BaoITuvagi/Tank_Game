@@ -10,6 +10,7 @@ fortress.ogg <- forceField_000.ogg (Sci-fi Sounds)
 pierce.ogg <- laserLarge_001.ogg (Sci-fi Sounds)
 heal.ogg <- confirmation_002.ogg (Interface Sounds)
 purchase.ogg <- confirmation_001.ogg (Interface Sounds)
+Gold pickup reuses purchase.ogg at 1.35x playback pitch as a short confirmation chime; original file unchanged.
 victory.ogg <- confirmation_004.ogg (Interface Sounds)
 shop_open.ogg <- open_001.ogg (Interface Sounds)
 shop_close.ogg <- close_001.ogg (Interface Sounds)
