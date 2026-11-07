@@ -39,6 +39,7 @@ public class Database implements AutoCloseable  {
     final Connection db;
     final CampaignStore campaigns;
     final WalletStore wallet;
+    final PlayerReports reports;
     final Gson gson=new Gson();
     final Map<Long,Result> pending=new ConcurrentHashMap<>();
     public volatile long failures;
@@ -57,6 +58,8 @@ public class Database implements AutoCloseable  {
         }
         CampaignStore.schema(db);
         WalletStore.schema(db);
+        PlayerReports.schema(db);
+        reports=new PlayerReports(this);
         wallet=new WalletStore(this);
         migrateDurationColumn();
         migrateColumn("matches","room_mode","TEXT");
@@ -108,6 +111,12 @@ public class Database implements AutoCloseable  {
     }
     static void credentials(String u,String p) {
         if(!u.matches("[A-Za-z0-9_]{3,24}")||p.length()<8||p.length()>64||p.getBytes(java.nio.charset.StandardCharsets.UTF_8).length>256)throw new Failure(Protocol.Error.INVALID_REQUEST);
+    }
+    int nextRoomId()throws SQLException {
+        try(var s=db.prepareStatement("INSERT INTO server_sequences(name,value) VALUES('room_id',1) ON CONFLICT(name) DO UPDATE SET value=value+1 WHERE value<2147483647 RETURNING value");var r=s.executeQuery()) {
+            if(!r.next())throw new Failure(Protocol.Error.DATABASE_UNAVAILABLE);
+            return r.getInt(1);
+        }
     }
     static byte[] hash(String p,byte[] salt,int iterations)throws Exception {
         PBEKeySpec spec=new PBEKeySpec(p.toCharArray(),salt,iterations,256);

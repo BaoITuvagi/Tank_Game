@@ -1,5 +1,9 @@
 # Website quản trị kết nối Tank Battle
 
+Bổ sung ngày 07/11/2026: web có tab **Đơn tố cáo**, xem chi tiết/ghi chú/trạng thái và biểu đồ 14 ngày trên tab lẫn trang chính. Client mới có nút **Vào trận nhanh** và form tố cáo sau trận. Xem [hướng dẫn và kiểm chứng](docs/quick-join-and-reports.md). Các mốc protocol/client phát hành cũ bên dưới là lịch sử; tính năng mới cần build client/server từ source hiện tại.
+
+Quy trình xử lý hiện tại hỗ trợ **cảnh cáo, khóa tài khoản 1 giờ/1/3/7 ngày, gỡ khóa sớm**, phản hồi cho người chơi và chống xử lý trùng. Xem [tác động cụ thể sau khi lưu và hướng dẫn xem xét](docs/moderation-workflow.md).
+
 Nếu mới clone hoặc tải ZIP từ GitHub, bắt đầu từ [README chính](README.md). Các lệnh dưới đây chạy ở gốc repository branch tung, nơi có source, scripts, config và README.md. Source không kèm file chạy, database hay mật khẩu.
 
 Website nằm trong server Java, chạy cục bộ tại **http://127.0.0.1:8080**. Dữ liệu đến từ socket thật của game. Không cần Node.js, dịch vụ web riêng hay database trên máy người chơi.

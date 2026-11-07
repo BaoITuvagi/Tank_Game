@@ -13,7 +13,7 @@ Mục lục:
 - [Demo nhiều client trên cùng máy](#local-demo)
 - [Log và xử lý lỗi](#troubleshooting)
 
-Chạy lệnh PowerShell từ **thư mục gốc repository**. Cách cài phần mềm nằm trong [README](../README.md); các kiểm tra cần chạy sau khi sửa mã ở [kiểm thử](testing.md#matrix).
+Chạy lệnh PowerShell từ **thư mục gốc repository**. Cách cài phần mềm nằm trong [README](../README.md); các kiểm tra cần chạy sau khi sửa mã ở kiểm thử.
 
 Sau khi merge hoặc áp dụng stash có thay đổi code/map/contract, build lại **cả server và client**, rồi khởi động lại server và mở client mới. Các thao tác Git không cập nhật JAR hay `build/client` đã có. Server đọc map từ source, còn bản client dùng map đã đóng gói trong `TankBattle_Data/StreamingAssets`; hai bản khác byte khiến client rời phòng khi bắt đầu trận. Khi phân phối, thay toàn bộ thư mục client cùng đợt build. Các nút **Chiến dịch** và **BXH chiến dịch** xuất hiện trong cột thao tác của sảnh ở bản client đã build từ code tương ứng.
 
@@ -36,7 +36,7 @@ Java phải là 21 và Maven phải đang dùng JDK 21. Nếu chưa tìm đúng,
 
 [build-server.ps1](../scripts/build-server.ps1) chạy `python scripts/check-admin-integration.py --server` và `python scripts/sync-contracts.py --check`, sau đó Maven `clean package` gồm JUnit test và đóng gói JAR có dependency. Script mặc định làm sạch `source/server/target`, rồi xuất bản `build/server/tank-server-1.0.0.jar` qua file tạm. Kết quả test ở `source/server/target/surefire-reports/`; fixture Java/C# ở `source/server/target/interop/`. Không dùng `--check` để cập nhật generated code: quy trình sửa contract nằm ở [shared contracts](protocol.md#shared-contracts).
 
-Script có `-JavaHome <thu-muc-JDK>` và `-BuildDirectory <duong-dan>` khi cần chọn riêng; output khác `target` chỉ được chấp nhận trong cây `runtime/` hoặc `build/`, với tên thư mục cuối bắt đầu bằng `server-`. Dùng đường dẫn mặc định cho quy trình thông thường và xem [thứ tự tạo fixture/test](testing.md#prerequisites) trước khi tùy chỉnh output.
+Script có `-JavaHome <thu-muc-JDK>` và `-BuildDirectory <duong-dan>` khi cần chọn riêng; output khác `target` chỉ được chấp nhận trong cây `runtime/` hoặc `build/`, với tên thư mục cuối bắt đầu bằng `server-`. Dùng đường dẫn mặc định cho quy trình thông thường và xem thứ tự tạo fixture/test trước khi tùy chỉnh output.
 
 Nếu nhận JAR đã build từ dự án, có thể đặt vào `build/server/tank-server-1.0.0.jar` rồi chuyển sang [chạy server](#run-server). Máy chỉ chạy JAR cần JDK 21, không cần Maven, Python hoặc Unity. Các file cấu hình và map mà server sử dụng vẫn phải có ở đường dẫn đã cấu hình.
 
@@ -116,7 +116,7 @@ Trên cloud, server phải bind vào địa chỉ nhận kết nối bên ngoài
 
 Đăng ký tài khoản, đăng nhập, tạo/tham gia phòng, rồi tất cả sẵn sàng để chủ phòng bắt đầu. Cần ít nhất hai người và mỗi cửa sổ dùng một tài khoản riêng. Khi tạo phòng có thể chọn **Thường** hoặc **Nhập vai**; chế độ cố định cho phòng. Phòng Nhập vai yêu cầu mỗi người chọn quốc gia khác nhau trước khi ready, tải/đồng bộ loadout rồi đếm ngược ba giây. Xem [vòng đời phòng](architecture.md#lifecycle) và [kỹ năng](gameplay.md#skills).
 
-Sau kết quả, có thể trở lại cùng phòng để ready và chơi trận tiếp. Cách điều khiển ở [gameplay](gameplay.md#controls); cách thử timeout/vào lại và khớp phiên bản/map ở [kiểm tra mạng thủ công](testing.md#manual).
+Sau kết quả, có thể trở lại cùng phòng để ready và chơi trận tiếp. Cách điều khiển ở [gameplay](gameplay.md#controls); cách thử timeout/vào lại và khớp phiên bản/map ở kiểm tra mạng thủ công.
 
 <a id="configuration"></a>
 ## Cấu hình server và công cụ
@@ -176,9 +176,9 @@ Demo dùng server và dữ liệu riêng. Sau khi build server/client cùng đ�
 
 [demo.properties](../config/demo.properties) đặt `bind=127.0.0.1`, TCP **23888**, UDP **23889**, tối đa 16 phiên/4 phòng và `benchmark=true`. Database, spool, CSV và log nằm riêng trong `runtime/demo/`. Đây là demo chỉ trên cùng máy; cấu hình bind loopback không cho máy LAN kết nối.
 
-**Smoke tự động:** bản client build với IP cloud vẫn có thể chạy `--smoke --host 127.0.0.1 --tcp 23888 --udp 23889`. Chạy đủ hai lệnh chủ phòng/người tham gia tại [smoke hai client](testing.md#smoke), với hai tài khoản và hai file output riêng; harness tự đăng ký/đăng nhập, tạo/tham gia phòng, ready, chơi trận và kiểm tra lịch sử. Thêm `--roleplay` vào cả hai lệnh để kiểm tra Nhập vai. Đây là luồng kiểm thử tự động qua `ClientCore`, không phải thao tác giao diện thủ công.
+**Smoke tự động:** bản client build với IP cloud vẫn có thể chạy `--smoke --host 127.0.0.1 --tcp 23888 --udp 23889`. Chạy đủ hai lệnh chủ phòng/người tham gia tại smoke hai client, với hai tài khoản và hai file output riêng; harness tự đăng ký/đăng nhập, tạo/tham gia phòng, ready, chơi trận và kiểm tra lịch sử. Thêm `--roleplay` vào cả hai lệnh để kiểm tra Nhập vai. Đây là luồng kiểm thử tự động qua `ClientCore`, không phải thao tác giao diện thủ công.
 
-**Kiểm tra thủ công:** cần bản client dành cho demo. Trước khi build, đổi các hằng trong `TankApp.cs` thành `ServerHost="127.0.0.1"`, `ServerTcpPort=23888`, `ServerUdpPort=23889`. Giữ bản build demo trong thư mục riêng, mở ít nhất hai cửa sổ với tài khoản khác nhau và kiểm tra theo [checklist thủ công](testing.md#manual). Với Nhập vai, chọn quốc gia khác nhau trước khi ready. Bản client cloud mở bình thường vẫn kết nối cloud dù server demo đang chạy; không có ô nhập host/cổng hoặc cấu hình kết nối đã lưu để chuyển server.
+**Kiểm tra thủ công:** cần bản client dành cho demo. Trước khi build, đổi các hằng trong `TankApp.cs` thành `ServerHost="127.0.0.1"`, `ServerTcpPort=23888`, `ServerUdpPort=23889`. Giữ bản build demo trong thư mục riêng, mở ít nhất hai cửa sổ với tài khoản khác nhau và kiểm tra theo checklist thủ công. Với Nhập vai, chọn quốc gia khác nhau trước khi ready. Bản client cloud mở bình thường vẫn kết nối cloud dù server demo đang chạy; không có ô nhập host/cổng hoặc cấu hình kết nối đã lưu để chuyển server.
 
 Sau khi thử thủ công, khôi phục các hằng endpoint cloud và build lại client trước khi đóng gói/phân phối. Đóng client và Ctrl+C server demo khi xong; giữ database/log/output demo riêng trong `runtime/`, không đưa vào Git.
 
@@ -201,7 +201,7 @@ Sau khi thử thủ công, khôi phục các hằng endpoint cloud và build l�
 | `RATE_LIMITED` | Chờ theo thông báo client rồi thử lại; demo có cấu hình riêng. Không dùng `benchmark=true` như mặc định cho server chơi chung. |
 | Không khớp giao thức/nội dung/map | Dùng server và client cùng đợt build; đồng bộ contract đúng quy trình và giữ nguyên byte map. Xem [shared contracts](protocol.md#shared-contracts). |
 | Cổng hoặc database đang dùng | Dừng server cũ; chọn cổng và đường dẫn dữ liệu riêng khi chạy nhiều môi trường. |
-| Unity test thiếu file `.tsv` interop | Build server với test đầy đủ trước khi chạy Unity; xem [điều kiện test](testing.md#prerequisites). |
+| Unity test thiếu file `.tsv` interop | Build server với test đầy đủ trước khi chạy Unity; xem điều kiện test. |
 
 | File/thư mục | Nội dung |
 |---|---|
@@ -211,4 +211,4 @@ Sau khi thử thủ công, khôi phục các hằng endpoint cloud và build l�
 | `runtime/unity-tests.log`, `runtime/unity-tests.xml` | Log và kết quả NUnit của script test client. |
 | `source/server/target/surefire-reports/` | Kết quả JUnit khi dùng build directory mặc định. |
 
-Những file này được tạo khi chạy, không cần có sẵn sau clone. Một log hoặc bản build cũ không xác nhận working tree mới đã pass; cách ghi bằng chứng ở [testing](testing.md#evidence).
+Những file này được tạo khi chạy, không cần có sẵn sau clone. Một log hoặc bản build cũ không xác nhận working tree mới đã pass; cách ghi bằng chứng ở testing.

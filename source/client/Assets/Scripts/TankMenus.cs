@@ -8,7 +8,8 @@ namespace Tank  {
         Vector2 menuViewport,dialogScroll,lobbyActionScroll,nationScroll;
         GUIStyle afkText;
         int capacityChoice=2,durationChoice=1,roomMapId=MapCatalog.DefaultId;
-        bool registerTab,roomForm,editingRoom,profileForm,joinForm,useRoomPassword;
+        bool registerTab,roomForm,editingRoom,profileForm,joinForm,useRoomPassword,quickJoinForm;
+        int quickModeChoice,quickMapChoice;
         bool fieldSubmitRequested;
         string fieldFocusRequest;
         float loginContentHeight,registerContentHeight;
@@ -24,7 +25,7 @@ namespace Tank  {
         int windowWidth=1280,windowHeight=800;
         int observedAccountRevision;
         readonly System.Collections.Generic.Dictionary<GUIStyle,GUIStyle> flexibleButtons=new System.Collections.Generic.Dictionary<GUIStyle,GUIStyle>();
-        GUIStyle cardName,cardText,cardSmall,cardHeading,plainCardButton,compactAction,centerCardHeading,centerCardText,centerSection,centerHint;
+        GUIStyle cardName,cardText,cardSmall,cardHeading,plainCardButton,compactAction,reportAction,reportSentAction,centerCardHeading,centerCardText,centerSection,centerHint;
         GUIStyle depotKicker,depotTitle,depotText,depotName,depotSmall,depotNumber,depotAction,headerRowButton,headerBackButton;
         void InitMenuCards() {
             if(cardName!=null)return;
@@ -35,6 +36,8 @@ namespace Tank  {
             centerSection=new GUIStyle(menu.Section){alignment=TextAnchor.MiddleCenter};centerHint=new GUIStyle(menu.Hint){alignment=TextAnchor.UpperCenter};
             plainCardButton=new GUIStyle(menu.Secondary){fixedHeight=0,margin=new RectOffset(0,0,0,0),padding=new RectOffset()};
             compactAction=new GUIStyle(menu.Secondary){font=CartoonUi.BodyFont,fontSize=15,fixedHeight=40,margin=new RectOffset(0,0,0,0),padding=new RectOffset(8,8,3,7)};
+            reportAction=new GUIStyle(menu.Danger){font=CartoonUi.BodyFont,fontSize=16,fixedHeight=40,margin=new RectOffset(),padding=new RectOffset(8,8,4,8)};
+            reportSentAction=new GUIStyle(reportAction);reportSentAction.normal.background=menu.ReadyButton.normal.background;
             depotKicker=CartoonUi.Label(12,CartoonUi.Gold);depotTitle=CartoonUi.Label(28,CartoonUi.Text,true);
             depotText=CartoonUi.Label(16,CartoonUi.Text);depotName=CartoonUi.Label(19,CartoonUi.Text);
             depotSmall=CartoonUi.Label(14,CartoonUi.Muted);depotNumber=CartoonUi.Label(28,CartoonUi.Gold,true);
@@ -73,15 +76,17 @@ namespace Tank  {
             modeNavigation.Observe(client.AccountRevision,client.Phase);
             if(observedAccountRevision==client.AccountRevision)return;
             observedAccountRevision=client.AccountRevision;
-            history=roomForm=editingRoom=profileForm=joinForm=false;
+            history=roomForm=editingRoom=profileForm=joinForm=quickJoinForm=false;
             walletNotice="";
+            reportTarget=-1;reportToast="";
+            quickRoomIdText=quickJoinError="";
             scroll=Vector2.zero;
             roomPassword=joinPassword=displayName=formError="";
             if(client.Phase==ClientPhase.AUTHENTICATING&&client.Account==0)password=confirmPassword="";
         }
         bool AnyDialog  {
             get {
-                return settingsOpen||profileForm||joinForm||leaveMatchForm||roleplayShopOpen||!string.IsNullOrEmpty(walletNotice)||SkillDetailsUi.IsOpen;
+                return settingsOpen||profileForm||joinForm||quickJoinForm||reportTarget>=0||leaveMatchForm||roleplayShopOpen||!string.IsNullOrEmpty(walletNotice)||SkillDetailsUi.IsOpen;
             }
         }
         public ClientCore Core  {
@@ -174,8 +179,10 @@ namespace Tank  {
             GUI.SetNextControlName(key);
             string result=secret?GUILayout.PasswordField(value,'•',limit):GUILayout.TextField(value,limit);
             FocusRequestedField(key);
+#if TANK_QA
             bool qa=UxTestDriver.Arg("--qa-field-focus","")==key;
             if(qa)GUI.FocusControl(key);
+#endif
             return result;
         }
         void Feedback() {
@@ -299,28 +306,32 @@ namespace Tank  {
             Rect browser=new Rect(area.x,area.y+164,area.width,area.height-164);
             CartoonUi.Panel(browser,CartoonUi.PanelDark,8,0);
             float createWidth=Mathf.Max(112,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Tạo phòng")).x));
+            float quickWidth=Mathf.Max(154,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Vào trận nhanh")).x));
             float refreshWidth=Mathf.Max(94,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Làm mới")).x));
             float toggleWidth=Mathf.Max(128,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Danh sách phòng")).x),Mathf.Ceil(depotAction.CalcSize(new GUIContent("Lịch sử")).x));
-            float actionX=browser.xMax-20-createWidth-refreshWidth-toggleWidth-16;
-            GUI.Label(new Rect(browser.x+22,browser.y+18,actionX-browser.x-38,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
-            GUI.enabled=previous&&CanEnterMultiplayer;
-            if(GUI.Button(new Rect(actionX,browser.y+14,createWidth,42),"Tạo phòng",depotAction))OpenRoomForm(false);
+            bool stacked=browser.width<920;
+            float toolbarHeight=stacked?116:78;
+            float actionX=browser.xMax-20-createWidth-quickWidth-refreshWidth-toggleWidth-24,actionY=browser.y+(stacked?54:14);
+            GUI.Label(new Rect(browser.x+22,browser.y+18,stacked?browser.width-44:actionX-browser.x-38,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
+            GUI.enabled=previous&&CanEnterMultiplayer&&!client.QuickJoinPending;
+            if(GUI.Button(new Rect(actionX,actionY,createWidth,42),"Tạo phòng",depotAction))OpenRoomForm(false);
+            if(GUI.Button(new Rect(actionX+createWidth+8,actionY,quickWidth,42),client.QuickJoinPending?"Đang tìm…":"Vào trận nhanh",depotAction))OpenQuickJoin();
             GUI.enabled=previous;
-            if(GUI.Button(new Rect(actionX+createWidth+8,browser.y+14,refreshWidth,42),"Làm mới",depotAction)) {
+            if(GUI.Button(new Rect(actionX+createWidth+quickWidth+16,actionY,refreshWidth,42),"Làm mới",depotAction)) {
                 if(history) {
                     client.CloseHistoryDetail();
                     client.GetHistory();
                 }
                 else client.Refresh();
             }
-            if(GUI.Button(new Rect(actionX+createWidth+refreshWidth+16,browser.y+14,toggleWidth,42),history?"Danh sách phòng":"Lịch sử",depotAction)) {
+            if(GUI.Button(new Rect(actionX+createWidth+quickWidth+refreshWidth+24,actionY,toggleWidth,42),history?"Danh sách phòng":"Lịch sử",depotAction)) {
                 history=!history;
                 client.CloseHistoryDetail();
                 scroll=Vector2.zero;
                 if(history)client.GetHistory();
             }
-            DepotRule(new Rect(browser.x+22,browser.y+67,browser.width-44,3),CartoonUi.Gold);
-            GUILayout.BeginArea(new Rect(browser.x+20,browser.y+78,browser.width-40,browser.height-92));
+            DepotRule(new Rect(browser.x+22,browser.y+toolbarHeight-11,browser.width-44,3),CartoonUi.Gold);
+            GUILayout.BeginArea(new Rect(browser.x+20,browser.y+toolbarHeight,browser.width-40,browser.height-toolbarHeight-14));
             scroll=GUILayout.BeginScrollView(scroll);
             float listWidth=MenuScrollContentWidth(browser.width-40);
             GUILayout.BeginVertical(GUILayout.Width(listWidth));
@@ -364,7 +375,7 @@ namespace Tank  {
             bool available=(room.Phase==RoomPhase.WAITING||returning)&&room.Players<room.Capacity;
             bool full=room.Players>=room.Capacity;
             float detailWidth=Mathf.Max(100,width-284);
-            string title=WrapMenuText(room.Name,depotName,detailWidth);
+            string title=WrapMenuText("ID #"+room.Id+" · "+room.Name,depotName,detailWidth);
             string mode=WrapMenuText((room.Mode==RoomMode.ROLEPLAY?"NHẬP VAI · Kỹ năng Q riêng":"ĐẤU THƯỜNG · Tự do giao tranh")+"\n"+MapCatalog.Name(room.MapId),depotSmall,detailWidth);
             float titleHeight=MenuTextHeight(title,depotName,detailWidth),modeHeight=MenuTextHeight(mode,depotSmall,detailWidth);
             bool separateLock=room.Locked&&detailWidth<390;
@@ -563,6 +574,7 @@ namespace Tank  {
             roleplayInfoScroll=GUILayout.BeginScrollView(roleplayInfoScroll);
             GUILayout.BeginVertical(GUILayout.Width(info.width-70));
             GUILayout.Label(WrapMenuText(client.RoomName,menu.Name,info.width-70),menu.Name);
+            GUILayout.Label("ID PHÒNG #"+client.RoomId,menu.ReadyLabel);
             GUILayout.Label(client.RoomMode==RoomMode.ROLEPLAY?"NHẬP VAI":"ĐẤU THƯỜNG",menu.ReadyLabel);
             GUILayout.Space(8);
             DrawRoomMapSummary(client.RoomMapId,info.width-70);
@@ -728,22 +740,27 @@ namespace Tank  {
             public string Name,Details,Stats;
             public float NameHeight,DetailHeight,StatsHeight,Height;
             public bool Narrow;
+            public bool Report;
+            public float NameWidth;
         }
         ScoreCardLayout MeasureScoreCard(Score score,int ownSlot,float width) {
-            bool narrow=width<620;
+            bool narrow=width<740;
             float nameWidth=narrow?width-148:width-380;
+            bool resultRow=client.Phase==ClientPhase.RESULTS&&client.Scores.Contains(score);
+            bool report=resultRow&&score.Slot!=ownSlot;
+            if(resultRow)nameWidth-=narrow?128:114;
             string detail=score.Nation>=0?RoleplayContent.NationNames[score.Nation]:"Xe "+TankPalette.Names[Mathf.Clamp(score.Slot,0,7)];
             if(score.Disconnected)detail+=" · Rời trận sớm";
             string stats=score.Kills+" hạ gục / "+score.Deaths+" tử trận";
             var layout=new ScoreCardLayout {
                 Name=WrapMenuText(score.Name+(score.Slot==ownSlot?" · bạn":""),cardName,nameWidth),
                 Details=WrapMenuText(narrow?stats+" · "+detail:detail,cardSmall,nameWidth),
-                Stats=WrapMenuText(stats,cardText,210),Narrow=narrow
+                Stats=WrapMenuText(stats,cardText,210),Narrow=narrow,Report=report,NameWidth=nameWidth
             };
             layout.NameHeight=MenuTextHeight(layout.Name,cardName,nameWidth);
             layout.DetailHeight=MenuTextHeight(layout.Details,cardSmall,nameWidth);
             layout.StatsHeight=MenuTextHeight(layout.Stats,cardText,210);
-            layout.Height=Mathf.Max(82,24+Mathf.Max(layout.NameHeight+6+layout.DetailHeight,narrow?0:layout.StatsHeight));
+            layout.Height=Mathf.Max(88,24+Mathf.Max(layout.NameHeight+6+layout.DetailHeight,narrow?0:layout.StatsHeight));
             return layout;
         }
         void DrawScoreCard(Rect r,Score score,int ownSlot,ScoreCardLayout layout) {
@@ -752,12 +769,25 @@ namespace Tank  {
             CartoonUi.Panel(r,own?CartoonUi.Ready:CartoonUi.Cream,12,3);
             CartoonUi.Medal(new Rect(r.x+12,r.y+12,42,48),score.Rank);
             CartoonUi.TankPortrait(new Rect(r.x+64,r.y+8,54,54),score.Nation>=0?score.Nation:score.Slot);
-            float nameWidth=layout.Narrow?r.width-148:r.width-380;
+            float nameWidth=layout.NameWidth;
             GUI.Label(new Rect(r.x+132,r.y+12,nameWidth,layout.NameHeight),layout.Name,cardName);
             GUI.Label(new Rect(r.x+132,r.y+18+layout.NameHeight,nameWidth,layout.DetailHeight),layout.Details,cardSmall);
-            if(!layout.Narrow)GUI.Label(new Rect(r.xMax-226,r.center.y-layout.StatsHeight/2,210,layout.StatsHeight),layout.Stats,cardText);
+            if(layout.Report) {
+                bool enabled=GUI.enabled;GUI.enabled=enabled&&client.CanReport(score.Slot);
+                bool sent=client.HasReported(score.Slot);
+                if(GUI.Button(new Rect(r.xMax-120,r.center.y-20,104,40),sent?"Đã gửi":"Tố cáo",sent?reportSentAction:reportAction))OpenReport(score);
+                GUI.enabled=enabled;
+            }
+            bool resultRow=client.Phase==ClientPhase.RESULTS&&client.Scores.Contains(score);
+            if(!layout.Narrow)GUI.Label(new Rect(r.xMax-(resultRow?346:226),r.center.y-layout.StatsHeight/2,210,layout.StatsHeight),layout.Stats,cardText);
         }
         void DrawDialogs() {
+            if(reportTarget>=0){DrawReportDialog();return;}
+            if(client.QuickJoinPasswordRoom!=0&&client.Phase==ClientPhase.LOBBY) {
+                joinTarget=client.QuickJoinPasswordRoom;client.QuickJoinPasswordRoom=0;
+                joinPassword=formError="";quickJoinForm=false;joinForm=true;
+            }
+            if(quickJoinForm){if(client.Phase==ClientPhase.LOBBY){DrawQuickJoinDialog();return;}quickJoinForm=false;}
             if(settingsOpen)return;
             if(roleplayShopOpen) {
                 bool enabled=GUI.enabled;GUI.enabled=enabled&&string.IsNullOrEmpty(walletNotice);DrawRoleplayShop();GUI.enabled=enabled;

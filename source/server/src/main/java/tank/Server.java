@@ -121,6 +121,9 @@ public class Server implements AutoCloseable  {
         volatile long lastTcp=System.nanoTime(),lastUdp;
         volatile boolean open=true;
         volatile boolean authBusy;
+        volatile boolean moderationSuspended;
+        volatile boolean quickJoining;
+        int quickSequence;
         final AtomicInteger sequence=new AtomicInteger();
         Session(Socket s) {
             socket=s;
@@ -180,6 +183,7 @@ public class Server implements AutoCloseable  {
                 case HISTORY_DETAIL->HISTORY_DETAIL_RESULT;
                 case SET_DISPLAY_NAME->DISPLAY_NAME_RESULT;
                 case SHOP->SHOP_RESULT;
+                case PlayerReports.SUBMIT->PlayerReports.RESULT;
                 default->ACTION_RESULT;
             };
             try {
@@ -199,9 +203,39 @@ public class Server implements AutoCloseable  {
                     return;
                 }
                 if(account==null)throw new Database.Failure(Error.UNAUTHENTICATED);
+                if(moderationSuspended)throw new Database.Failure(Error.INVALID_STATE);
                 boolean matchAction=p.op()==USE_SKILL;
                 if(!(matchAction&&room!=null&&room.roleplay!=null)&&!actions.allow())throw new Database.Failure(Error.RATE_LIMITED);
                 switch(p.op()) {
+                    case QUICK_JOIN-> {
+                        int mode=r.u8(),map=r.b.hasRemaining()?r.u16():0,id=r.b.hasRemaining()?r.u32():0;r.end();
+                        if(id<0)throw new Database.Failure(Error.INVALID_REQUEST);
+                        if(id!=0){mode=255;map=0;}
+                        if((mode>1&&mode!=255)||campaign.active())throw new Database.Failure(Error.INVALID_STATE);
+                        if(map!=0&&!maps.contains(map))throw new Database.Failure(Error.INVALID_REQUEST);
+                        var candidates=new ArrayList<Room>();
+                        if(id!=0) {
+                            Room target=rooms.get(id);if(target==null)throw new Database.Failure(Error.ROOM_MISSING);
+                            if(target.access.locked)throw new Database.Failure(Error.ROOM_PASSWORD_REQUIRED);
+                            candidates.add(target);
+                        }else{candidates.addAll(rooms.values());Collections.shuffle(candidates);}
+                        synchronized(this) {
+                            if(room!=null||quickJoining)throw new Database.Failure(Error.INVALID_STATE);
+                            quickJoining=true;
+                            quickSequence=p.sequence();
+                        }
+                        maintenance.schedule(()->{synchronized(this){if(quickJoining&&quickSequence==p.sequence()){quickJoining=false;error(ACTION_RESULT,p.sequence(),Error.ROOM_MISSING);}}},3,TimeUnit.SECONDS);
+                        quickJoin(candidates,0,p.sequence(),account.id(),mode==255?null:RoomMode.values()[mode],map);
+                    }
+                    case PlayerReports.SUBMIT-> {
+                        long match=r.u64();int slot=r.u8(),reasons=r.u8();String details=PlayerReports.validate(reasons,r.str(1500));r.end();
+                        long reporter=account.id();
+                        db.submit(()->db.reports.submit(reporter,match,slot,reasons,details)).whenComplete((receipt,e)-> {
+                            if(!open||account==null||account.id()!=reporter)return;
+                            if(e!=null)error(PlayerReports.RESULT,p.sequence(),e instanceof Database.Failure f?f.code:Error.DATABASE_UNAVAILABLE);
+                            else {send(PlayerReports.RESULT,p.sequence(),new Writer().u16(0).u64(receipt.id()).u8(receipt.duplicate()?1:0).done());deliverModeration(reporter);}
+                        });
+                    }
                     case CHAT_SEND-> {
                         long match=r.u64();String text=r.str(MatchChat.MAX_BYTES);r.end();
                         Room target=requireRoom();
@@ -281,10 +315,15 @@ public class Server implements AutoCloseable  {
                         if(!maps.contains(mapId))throw new IllegalArgumentException("room map");
                         r.end();
                         if(name.isBlank())throw new IllegalArgumentException("name");
+                        if(room!=null||quickJoining)throw new Database.Failure(Error.INVALID_STATE);
+                        int allocated;
+                        try{allocated=db.submit(db::nextRoomId).get(5,TimeUnit.SECONDS);}
+                        catch(Exception e){if(e instanceof InterruptedException)Thread.currentThread().interrupt();throw new Database.Failure(Error.DATABASE_UNAVAILABLE);}
                         synchronized(rooms) {
-                            if(room!=null)throw new Database.Failure(Error.INVALID_STATE);
+                            if(room!=null||quickJoining)throw new Database.Failure(Error.INVALID_STATE);
                             if(rooms.size()>=cfg.integer("max.rooms",40))throw new Database.Failure(Error.ROOM_FULL);
-                            Room created=new Room(Server.this,roomId.incrementAndGet(),name,capacity,custom?seconds*30:cfg.integer("match.ticks",5400),RoomMode.values()[roomMode],mapId);
+                            roomId.set(allocated);
+                            Room created=new Room(Server.this,allocated,name,capacity,custom?seconds*30:cfg.integer("match.ticks",5400),RoomMode.values()[roomMode],mapId);
                             created.startingHp=hp;
                             created.access.set(roomPassword);
                             rooms.put(created.id,created);
@@ -300,7 +339,7 @@ public class Server implements AutoCloseable  {
                         RoomAccess.validate(joinPassword);
                         r.end();
                         synchronized(this) {
-                            if(room!=null)throw new Database.Failure(Error.INVALID_STATE);
+                            if(room!=null||quickJoining)throw new Database.Failure(Error.INVALID_STATE);
                             Room target=rooms.get(id);
                             if(target==null)throw new Database.Failure(Error.ROOM_MISSING);
                             room=target;
@@ -439,12 +478,15 @@ public class Server implements AutoCloseable  {
                 authBusy=true;
             }
             db.submit(()-> {
-                var authenticated=p.op()==REGISTER?db.register(username,password):db.login(username,password);if(p.op()==LOGIN)nickname=db.displayName(authenticated.id(),authenticated.name());return authenticated;
+                var authenticated=p.op()==REGISTER?db.register(username,password):db.login(username,password);
+                if(p.op()==LOGIN) {String blocked=db.reports.suspension(authenticated.id());if(blocked!=null)throw new PlayerReports.Problem(403,blocked);nickname=db.displayName(authenticated.id(),authenticated.name());}
+                return authenticated;
             }).whenComplete((a,e)-> {
                 synchronized(this) {
                     try {
                         if(!open)return; if(e!=null) {
-                            error(response,p.sequence(),e instanceof Database.Failure f?f.code:Error.DATABASE_UNAVAILABLE);return;
+                            if(e instanceof PlayerReports.Problem denied)send(response,p.sequence(),new Writer().u16(Error.INVALID_STATE.ordinal()).str(denied.getMessage()).done());
+                            else error(response,p.sequence(),e instanceof Database.Failure f?f.code:Error.DATABASE_UNAVAILABLE);return;
                         }
                         if(p.op()==REGISTER) {
                             ok(response,p.sequence());return;
@@ -453,8 +495,10 @@ public class Server implements AutoCloseable  {
                             error(response,p.sequence(),Error.ALREADY_LOGGED_IN);return;
                         }
                         account=a;
+                        moderationSuspended=false;
                         if(admin!=null)admin.store.identity(this,null);
                         token=new byte[16];new SecureRandom().nextBytes(token);tokens.put(HexFormat.of().formatHex(token),this); send(LOGIN_RESULT,p.sequence(),new Writer().u16(0).u64(a.id()).str(displayName()).bytes(token).str(a.name()).done());
+                        deliverModeration(a.id());
                     }
                     finally {
                         authBusy=false;
@@ -466,6 +510,28 @@ public class Server implements AutoCloseable  {
             Room r=room;
             if(r==null)throw new Database.Failure(Error.INVALID_STATE);
             return r;
+        }
+        void quickJoin(List<Room> candidates,int index,int seq,long actor,RoomMode mode,int map) {
+            synchronized(this) {
+                if(quickSequence!=seq)return;
+                if(!open||account==null||account.id()!=actor||!quickJoining){quickJoining=false;return;}
+                if(room!=null||campaign.active()){quickJoining=false;error(ACTION_RESULT,seq,Error.INVALID_STATE);return;}
+                if(index>=candidates.size()){quickJoining=false;error(ACTION_RESULT,seq,Error.ROOM_MISSING);return;}
+            }
+            Room target=candidates.get(index);
+            if(!target.alive||mode!=null&&target.roomMode!=mode||map!=0&&target.arenaMap.mapId!=map||target.access.locked||target.view.state()!=RoomState.WAITING||target.view.count()>=target.capacity){quickJoin(candidates,index+1,seq,actor,mode,map);return;}
+            try {
+                target.enqueue(()-> {
+                    synchronized(this) {
+                        if(quickSequence!=seq)return;
+                        if(!open||account==null||account.id()!=actor||!quickJoining){quickJoining=false;return;}
+                        if(room==null&&!campaign.active()&&target.alive&&target.phase==RoomState.WAITING&&(mode==null||target.roomMode==mode)&&(map==0||target.arenaMap.mapId==map)&&!target.access.locked&&target.members.size()<target.capacity) {
+                            quickJoining=false;room=target;target.join(this,seq);return;
+                        }
+                    }
+                    quickJoin(candidates,index+1,seq,actor,mode,map);
+                });
+            }catch(Database.Failure e){quickJoin(candidates,index+1,seq,actor,mode,map);}
         }
         void leave(int reason) {
             Room target=room;
@@ -504,6 +570,25 @@ public class Server implements AutoCloseable  {
             return true;
         }
     }
+    CompletableFuture<Boolean> deliverModeration(long account) {
+        return db.submit(()-> {
+            Session s=accounts.get(account);if(s==null||!s.open||s.account==null||s.account.id()!=account)return false;
+            synchronized(s) {
+                if(!s.open||s.account==null||s.account.id()!=account)return false;
+                db.reports.execute("UPDATE account_notifications SET delivered=1 WHERE account_id=? AND delivered=0 AND sanction_id IN (SELECT id FROM account_sanctions WHERE action='SUSPEND' AND (revoked=1 OR expires<=?))",account,System.currentTimeMillis());
+                for(var row:db.reports.rows("SELECT id,message,code FROM account_notifications WHERE account_id=? AND delivered=0 ORDER BY id LIMIT 20",account)) {
+                    byte[] payload=new Writer().u16(((Number)row.get("code")).intValue()).str((String)row.get("message")).done();
+                    if(!s.outbound.offer(frame(NOTICE,0,payload))){s.close();return false;}
+                    db.reports.execute("UPDATE account_notifications SET delivered=1 WHERE id=?",row.get("id"));
+                }
+                if(db.reports.suspension(account)!=null&&!s.moderationSuspended) {
+                    s.moderationSuspended=true;
+                    maintenance.schedule(()->s.closeWithReason("Khóa tài khoản có thời hạn"),500,TimeUnit.MILLISECONDS);
+                }
+                return true;
+            }
+        });
+    }
     void udpLoop() {
         byte[] buffer=new byte[1201];
         while(running)try {
@@ -525,7 +610,7 @@ public class Server implements AutoCloseable  {
             Reader r=new Reader(p.payload());
             Session s=tokens.get(HexFormat.of().formatHex(r.bytes(16)));
             long match=r.u64();
-            if(s==null||!s.open||s.room==null||!s.udpRate.allow())return;
+            if(s==null||!s.open||s.moderationSuspended||s.room==null||!s.udpRate.allow())return;
             Room room=s.room;
             if(room.match!=match||(room.phase!=RoomState.PREPARING&&room.phase!=RoomState.RUNNING))return;
             if(p.op()==HANDSHAKE) {

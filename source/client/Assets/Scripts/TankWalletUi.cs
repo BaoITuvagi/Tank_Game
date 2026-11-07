@@ -6,6 +6,7 @@ namespace Tank {
         const string WalletPurpose="Vàng dùng để mua vật phẩm trong cửa hàng ở chế độ nhập vai";
         const string WalletEarn="Vàng có thể được tìm thêm khi tham gia chế độ chiến trường. Vàng còn lại sau mỗi chuyến đi sẽ được cộng dồn vào tài khoản";
         GUIStyle walletNumber,walletPlus;
+#if TANK_QA
         void SetupShopUiPreview() {
             var args=System.Environment.GetCommandLineArgs();
             if(IsMenuPreview&&client.Phase>=ClientPhase.LOBBY)client.SetWalletPreview(19372,new int[GameRules.ItemTypeCount]);
@@ -18,6 +19,7 @@ namespace Tank {
             client.SetWalletPreview(19372,new[]{1,2,1,1,1,1});
             if(System.Array.IndexOf(args,"--preview-open-shop")>=0)roleplayShopOpen=true;
         }
+#endif
         void DrawWalletBadge(Rect rect) {
             if(walletNumber==null) {
                 walletNumber=CartoonUi.Label(20,CartoonUi.Gold);

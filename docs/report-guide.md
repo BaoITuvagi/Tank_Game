@@ -30,7 +30,7 @@ Yêu cầu đáng chú ý trong `Instruction.md`: báo cáo theo dạng technica
 | Proposed Approach, System Architecture | [architecture](architecture.md#data-flow), [concurrency](architecture.md#concurrency) | Giải thích quyết định và tradeoff, xuất sơ đồ ở dạng yêu cầu của bản nộp |
 | Network Communication Design | [protocol](protocol.md#transport), [TCP](protocol.md#tcp), [snapshot](protocol.md#snapshot), [rejoin](protocol.md#rejoin) | Sequence cụ thể, request/response, định dạng và xử lý lỗi tiêu biểu |
 | Implementation | [source map](architecture.md#source-map), [client](client.md), [data](data.md), [gameplay](gameplay.md) | Chọn module/thuật toán quan trọng; không chép toàn bộ source vào báo cáo |
-| Experimental Setup | [evaluation](evaluation.md#reproducibility), [testing](testing.md#prerequisites), [deployment](deployment.md) | Môi trường thực tế, cấu hình/hash, workload, seed và số lần lặp |
+| Experimental Setup | [evaluation](evaluation.md#reproducibility), testing, [deployment](deployment.md) | Môi trường thực tế, cấu hình/hash, workload, seed và số lần lặp |
 | Results, Discussion | [evaluation](evaluation.md#metrics), [kết quả](evaluation.md#results) | CSV/JSON/log/ảnh thật, biểu đồ, phương pháp xử lý và giải thích giới hạn |
 | Novelty and Contributions | [bảng đóng góp](evaluation.md#contributions) | Baseline kế thừa, phần nhóm bổ sung, tác giả/nguồn và bằng chứng |
 | Limitations, Future Work | [context](context.md#status), [evaluation](evaluation.md#results) | Giới hạn quan sát được và hướng phát triển, không trình bày đề xuất như tính năng đã có |
@@ -44,7 +44,7 @@ Sơ đồ Mermaid trong docs là nguồn chỉnh sửa. Nếu bản PDF cần PN
 - [ ] Bổ sung và đối chiếu ba tài liệu môn học, chủ đề đăng ký chính thức, nhóm, lớp, giảng viên, hạn và cách nộp.
 - [ ] Chốt phiên bản source/build/working tree dùng cho báo cáo; lưu patch nếu có thay đổi chưa commit.
 - [ ] Người khác cài đặt và chạy được theo [README](../README.md) và [deployment](deployment.md); các dependency/asset/giấy phép được khai báo.
-- [ ] Có kết quả Java/Unity và kiểm tra thủ công phù hợp kèm lệnh, ngày, revision và file kết quả theo [testing](testing.md#evidence).
+- [ ] Có kết quả Java/Unity và kiểm tra thủ công phù hợp kèm lệnh, ngày, revision và file kết quả theo testing.
 - [ ] Có ít nhất một nhóm thực nghiệm mạng phù hợp yêu cầu môn học, raw data và cách tổng hợp theo [evaluation](evaluation.md#scenarios).
 - [ ] Có bảng baseline/phần kế thừa/phần nhóm thực hiện, đóng góp và bằng chứng; không xem thay đổi hình ảnh đơn thuần là đóng góp mạng.
 - [ ] Có phân tích ưu/nhược điểm, lỗi/thất bại, giới hạn và hướng phát triển.

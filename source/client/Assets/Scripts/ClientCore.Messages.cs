@@ -17,6 +17,8 @@ namespace Tank  {
             if(p.Op==Tank.Campaign.CampaignClient.Response){Campaign.Read(r);return;}
             if(p.Op==Op.ShopResult){ReadShop(r,p.Sequence);return;}
             if(p.Op==Op.ChatMessages){Chat.Receive(r,Match,Phase==ClientPhase.PREPARING||Phase==ClientPhase.PLAYING);return;}
+            if(p.Op==Op.ReportResult||p.Op==Op.ActionResult&&request==Op.ReportPlayer){ReadReportResult(r,p.Sequence);return;}
+            if(p.Op==Op.ActionResult&&request==Op.QuickJoin){ReadQuickJoin(r,p.Sequence);return;}
             if(p.Op==Op.ActionResult&&request==Op.ChatSend){ReadChatResult(r,p.Sequence);return;}
             if(p.Op==Op.ActionResult&&request==Op.Shop){ReadShop(r,p.Sequence);return;}
             if(p.Op==Op.ActionResult&&request==Tank.Campaign.CampaignClient.Request){Campaign.Pending=false;Campaign.Error="Server chưa hỗ trợ chiến dịch. Hãy cập nhật server và client cùng phiên bản.";return;}
@@ -261,6 +263,7 @@ namespace Tank  {
                     int n=r.U8();
                     if(n>8)throw new InvalidDataException("scores");
                     Scores.Clear();
+                    ClearReports();
                     for(int i=0;i<n;i++)Scores.Add(new Score {
                         Slot=r.U8(),Name=r.Str(96),Kills=r.U16(),Deaths=r.U16(),LastKill=r.U32(),Rank=r.U8(),Disconnected=r.Bool()
                     });

@@ -186,7 +186,7 @@ Q/item không bị sao chép thành một combat event hình ảnh tương đư�
 
 Client chống trùng theo match/stream/ID/phase, phân quyền hiệu ứng theo cause, không suy nguyên nhân từ khoảng cách. COMBAT giữ khi tuổi <**90 tick**, tối đa **256** record: **160** nhóm trang trí và **96** DEATH/BRICK_DESTROYED. Tràn mỗi nhóm bỏ record cũ nhất và tăng counter, không đổi gameplay. Q/item giữ đến End+24 với ngân sách riêng. Không bảo đảm giao mọi one-shot nếu mất mạng vượt retention. Snapshot đầu khi vào/rejoin đặt watermark bỏ one-shot cũ; trạng thái liên tục được dựng lại.
 
-Nguồn: [CombatEvents.Event/add/prune/delta/apply](../source/server/src/main/java/tank/CombatEvents.java), [CombatEvent/CombatCodec](../source/client/Assets/Scripts/CombatState.cs), [CombatPresentation](../source/client/Assets/Scripts/CombatPresentation.cs), [CombatRendering](../source/client/Assets/Scripts/CombatRendering.cs). Test: [CombatEventsTest](../source/server/src/test/java/tank/CombatEventsTest.java), [CombatTests](../source/client/Assets/Tests/Editor/CombatTests.cs).
+Nguồn: [CombatEvents.Event/add/prune/delta/apply](../source/server/src/main/java/tank/CombatEvents.java), [CombatEvent/CombatCodec](../source/client/Assets/Scripts/CombatState.cs), [CombatPresentation](../source/client/Assets/Scripts/CombatPresentation.cs), [CombatRendering](../source/client/Assets/Scripts/CombatRendering.cs). Test: CombatEventsTest, CombatTests.
 
 <a id="battlefield-wire"></a>
 ## Wave battlefield v21
@@ -206,7 +206,7 @@ Bão **phủ toàn map trong `[impact,end)`**, không có tọa độ dải ho�
 
 Protocol **21** thay dải quét v20 bằng bão phủ toàn map 12 giây và thêm giảm 50% tốc độ bắn do bão cát; giữ kind 4/5, zero targets và cause 13–14. Client v20 sẽ prediction sai tốc độ tuyết ngoài dải cũ, còn NORMAL chưa có bước kiểm content hash như Nhập vai. Tăng version chặn peer khác luật ngay ở framing, dù layout không thêm byte; cả server và client phải được cập nhật cùng đợt. Protocol 20 trước đó đổi thời lượng bão v19 từ 8 lên 12 giây. Khiên hồi sinh 90 tick vẫn dùng deadline Shield u32 sẵn có; riêng khiên không đòi hỏi thêm field hoặc tăng protocol. Đợt này không đổi schema map/database hoặc IP/port. Codec giữ nguyên năm vùng cho biến cố cũ; v14 với sáu vùng/round không tương thích dù tên field không đổi. Thời điểm round, damage, lịch và trình bày hiện tại nằm ở [gameplay/battlefield](gameplay.md#battlefield).
 
-Nguồn: [WorldBattlefield.Wave/encode/read](../source/server/src/main/java/tank/WorldBattlefield.java), [BattlefieldWave/Codec](../source/client/Assets/Scripts/BattlefieldState.cs). Test: [BattlefieldTest](../source/server/src/test/java/tank/BattlefieldTest.java), [BattlefieldTests](../source/client/Assets/Tests/Editor/BattlefieldTests.cs).
+Nguồn: [WorldBattlefield.Wave/encode/read](../source/server/src/main/java/tank/WorldBattlefield.java), [BattlefieldWave/Codec](../source/client/Assets/Scripts/BattlefieldState.cs). Test: BattlefieldTest, BattlefieldTests.
 
 <a id="tcp"></a>
 ## Điều khiển TCP và chuẩn bị trận
@@ -278,7 +278,7 @@ action:u8, slot:u8, appliedTick:u32, readyTick:u16
 
 Kết quả được gửi sau khi intent được áp dụng; intent cùng tick giữ thứ tự hàng đợi trước di chuyển/bắn/damage. Thất bại không tiêu cooldown Q. Mỗi participant giữ **256** kết quả gần nhất, kể cả từ chối, cùng opcode và bytes request gốc. Replay đúng trả kết quả cũ **trước** rate/cooldown check; cùng ID nhưng lệnh khác bị từ chối. Request đang chờ có thể giữ tối đa 16 response sequence. ID unsigned tăng trong từng trận, 0 không hợp lệ; high-water từ chối ID đã bị loại khỏi cache và được gửi khi rejoin để client tiếp tục dãy ID. Mất response không được coi là Q chưa áp dụng.
 
-Nguồn: [RoleplayMatch.dispatch/use/result](../source/server/src/main/java/tank/RoleplayMatch.java), [ClientCore.UseSkill/RoleplayResult](../source/client/Assets/Scripts/ClientCore.Roleplay.cs). Test: [RoleplayRoomTest.duplicateSkillRequestsApplyOnceAndReturnTheSameAppliedTick/evictedRequestIdsAreRejected](../source/server/src/test/java/tank/RoleplayRoomTest.java).
+Nguồn: [RoleplayMatch.dispatch/use/result](../source/server/src/main/java/tank/RoleplayMatch.java), [ClientCore.UseSkill/RoleplayResult](../source/client/Assets/Scripts/ClientCore.Roleplay.cs). Test: RoleplayRoomTest.duplicateSkillRequestsApplyOnceAndReturnTheSameAppliedTick/evictedRequestIdsAreRejected.
 
 ### Kết quả và lịch sử
 
@@ -311,7 +311,7 @@ Nếu ngắt khi còn sống, deadline Armor/HE/Invincibility và số lượt M
 
 Client xóa lịch input/snapshot/fragment cũ khi PREPARE; snapshot đầu dựng lại continuous state và đặt watermark bỏ one-shot trước/đúng tick đầu. Round Bombstorm đã qua bị bỏ, round tương lai vẫn hiện; không dùng replay toàn bộ hiệu ứng để bù khoảng ngắt.
 
-Nguồn: [Room.Member.canRejoin/rejoin/prepared/leave/tick](../source/server/src/main/java/tank/Room.java), [ClientCore PREPARE handler](../source/client/Assets/Scripts/ClientCore.Messages.cs), [NationSkills.trackBomb/expireDebuffs](../source/server/src/main/java/tank/NationSkills.java). Test: [NetworkRejoinTest](../source/server/src/test/java/tank/NetworkRejoinTest.java), [PlayerRecoveryTest](../source/server/src/test/java/tank/PlayerRecoveryTest.java), [RejoinProtocolTests](../source/client/Assets/Tests/Editor/RejoinProtocolTests.cs), [PlayerRecoveryTests](../source/client/Assets/Tests/Editor/PlayerRecoveryTests.cs).
+Nguồn: [Room.Member.canRejoin/rejoin/prepared/leave/tick](../source/server/src/main/java/tank/Room.java), [ClientCore PREPARE handler](../source/client/Assets/Scripts/ClientCore.Messages.cs), [NationSkills.trackBomb/expireDebuffs](../source/server/src/main/java/tank/NationSkills.java). Test: NetworkRejoinTest, PlayerRecoveryTest, RejoinProtocolTests, PlayerRecoveryTests.
 
 <a id="prediction"></a>
 ## Đồng hồ, prediction và reconciliation
@@ -324,20 +324,20 @@ Hệ số địa hình lấy cùng ID map và vị trí tâm xe đầu bước �
 
 Xe khác dùng `Rendering.Interpolate`: vị trí và góc ngắn nhất giữa snapshot; chỉ nội suy xe sống có cùng respawn/Life, không nội suy xuyên chỗ bị map chặn. Đạn chỉ nội suy khi ID tồn tại và bounce không đổi. Thiếu snapshot sau điểm render thì copy state gần nhất, không tự kéo dài đạn xuyên tường. `TankApp` render trễ 100 ms so với đồng hồ server, phối hợp state đó với xe predicted; khi snapshot cũ quá 500 ms, ẩn xe từ xa. Trình bày combat/wave dùng tick server và dedup riêng.
 
-Nguồn: [ClientCore.ReceiveSnapshot/Reconcile/DesiredInputTick/UpdateInputLead/GenerateInput](../source/client/Assets/Scripts/ClientCore.cs), [ClientCore PONG handler](../source/client/Assets/Scripts/ClientCore.Messages.cs), [Movement/Rendering](../source/client/Assets/Scripts/GameState.cs), [TankApp](../source/client/Assets/Scripts/TankApp.cs). Test: [PredictionTest](../source/server/src/test/java/tank/PredictionTest.java), [ProtocolTests](../source/client/Assets/Tests/Editor/ProtocolTests.cs), [RoleplayClientTests](../source/client/Assets/Tests/Editor/RoleplayClientTests.cs).
+Nguồn: [ClientCore.ReceiveSnapshot/Reconcile/DesiredInputTick/UpdateInputLead/GenerateInput](../source/client/Assets/Scripts/ClientCore.cs), [ClientCore PONG handler](../source/client/Assets/Scripts/ClientCore.Messages.cs), [Movement/Rendering](../source/client/Assets/Scripts/GameState.cs), [TankApp](../source/client/Assets/Scripts/TankApp.cs). Test: PredictionTest, ProtocolTests, RoleplayClientTests.
 
 <a id="tests"></a>
 ## Điều hướng kiểm chứng
 
-Các test sau là điểm đọc để hiểu assertion/fixture, chưa được chạy trong đợt viết tài liệu này. Hướng dẫn thực thi và điều kiện môi trường nằm ở [testing](testing.md).
+Các test sau là điểm đọc để hiểu assertion/fixture, chưa được chạy trong đợt viết tài liệu này. Hướng dẫn thực thi và điều kiện môi trường nằm ở testing.
 
 | Hợp đồng | Test/fixture liên quan |
 |---|---|
-| Header, byte order, frame lỗi và phiên bản | [ProtocolTest](../source/server/src/test/java/tank/ProtocolTest.java), [ProtocolTests](../source/client/Assets/Tests/Editor/ProtocolTests.cs), [ItemCodecTest](../source/server/src/test/java/tank/ItemCodecTest.java) |
-| FULL/delta/base ACK và đối chiếu Java/C# | [DeltaTest](../source/server/src/test/java/tank/DeltaTest.java), [GoldenInteropTest](../source/server/src/test/java/tank/GoldenInteropTest.java), [RoleplayCodecTest](../source/server/src/test/java/tank/RoleplayCodecTest.java), [RoleplayCodecTests](../source/client/Assets/Tests/Editor/RoleplayCodecTests.cs) |
-| Item/buff/purification/hồi Q và mất delta/rejoin | [ItemCodecTest](../source/server/src/test/java/tank/ItemCodecTest.java), [ItemTests](../source/client/Assets/Tests/Editor/ItemTests.cs) |
-| Record bất biến, cause, retention, FULL/delta cực đại và fragments | [CombatEventsTest](../source/server/src/test/java/tank/CombatEventsTest.java), [CombatTests](../source/client/Assets/Tests/Editor/CombatTests.cs) |
-| Năm vùng × ba round, timing, v15 và snapshot lỗi không đổi ACK | [BattlefieldTest](../source/server/src/test/java/tank/BattlefieldTest.java), [BattlefieldTests](../source/client/Assets/Tests/Editor/BattlefieldTests.cs) |
-| Chuẩn bị loadout/request replay | [RoleplayRoomTest](../source/server/src/test/java/tank/RoleplayRoomTest.java), [RoleplayClientTests](../source/client/Assets/Tests/Editor/RoleplayClientTests.cs) |
+| Header, byte order, frame lỗi và phiên bản | ProtocolTest, ProtocolTests, ItemCodecTest |
+| FULL/delta/base ACK và đối chiếu Java/C# | DeltaTest, GoldenInteropTest, RoleplayCodecTest, RoleplayCodecTests |
+| Item/buff/purification/hồi Q và mất delta/rejoin | ItemCodecTest, ItemTests |
+| Record bất biến, cause, retention, FULL/delta cực đại và fragments | CombatEventsTest, CombatTests |
+| Năm vùng × ba round, timing, v15 và snapshot lỗi không đổi ACK | BattlefieldTest, BattlefieldTests |
+| Chuẩn bị loadout/request replay | RoleplayRoomTest, RoleplayClientTests |
 
 Fixture liên ngôn ngữ được Java ghi trong `source/server/target/interop`, rồi client tests đọc; build server trước client tests. Có fixture trace di chuyển, roleplay, bom di chuyển, item/combat, phân mảnh và Bombstorm/rejoin. Mất gói có thể bỏ một-shot quá retention; test phục hồi state không chứng minh mọi animation được giao hoặc cảm giác chơi đã đạt yêu cầu.

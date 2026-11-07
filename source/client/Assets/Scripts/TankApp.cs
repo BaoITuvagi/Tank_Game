@@ -4,7 +4,11 @@ using System.Security.Cryptography;
 using UnityEngine;
 namespace Tank  {
     public partial class TankApp : MonoBehaviour  {
+#if TANK_LOCAL
+        const string ServerHost="127.0.0.1";
+#else
         const string ServerHost="13.75.2.41";
+#endif
         const int ServerTcpPort=8888,ServerUdpPort=8889;
         ClientCore client;
         GameMap map;
@@ -16,8 +20,14 @@ namespace Tank  {
         float arenaX,arenaY,scale;
         string status="";
         bool leaveMatchForm;
+#if !TANK_QA
+        bool IsMenuPreview {get{return false;}}
+#endif
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() {
-            if(!SmokePlayer.Enabled&&FindFirstObjectByType<TankApp>()==null)new GameObject("Tank Battle").AddComponent<TankApp>();
+#if TANK_QA
+            if(SmokePlayer.Enabled)return;
+#endif
+            if(FindFirstObjectByType<TankApp>()==null)new GameObject("Tank Battle").AddComponent<TankApp>();
         }
         void Awake() {
             Directory.CreateDirectory(Application.persistentDataPath);
@@ -27,6 +37,7 @@ namespace Tank  {
             client=MapLoader.CreateClient(out map);
             client.SnapshotAccepted+=snapshot=>arenaRenderer.AcceptEffects(client,snapshot);
             nextStep=ClientCore.NowUs;
+#if TANK_QA
             if(ArenaPreview.Enabled)ArenaPreview.Setup(client);
             SetupMenuPreview();
             SetupCampaignPreview();
@@ -34,6 +45,7 @@ namespace Tank  {
             SetupShopUiPreview();
             if(ArenaPreview.Enabled&&Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-leave-confirm")>=0)leaveMatchForm=true;
             if(UxTestDriver.Enabled)new GameObject("UX Test Driver").AddComponent<UxTestDriver>().App=this;
+#endif
         }
         readonly AutoFireControl autoFire=new AutoFireControl();
         internal bool ChatTyping {get {return arenaRenderer.Chat.Typing;}}
@@ -41,7 +53,9 @@ namespace Tank  {
         internal bool AutoFireEnabled {get {return autoFire.Enabled;}}
         internal int LastInputButtons {get;private set;}
         bool inputWasActive;
+#if TANK_QA
         bool previewChatSelected;
+#endif
         int frozenAim,lastAim;
         SkillSounds skillAudio;
         int heardSkillPress,heardSkillFeedback;
@@ -52,12 +66,16 @@ namespace Tank  {
             if(heardSkillFeedback!=client.SkillFeedbackRevision) {heardSkillFeedback=client.SkillFeedbackRevision;skillAudio.Confirm(client.LastSkillSucceeded);}
         }
         void Update() {
+            UpdateReportDialog();
             if(client.Phase!=ClientPhase.PLAYING)leaveMatchForm=false;
             UpdateSkillDetails();
             arenaRenderer.Chat.Sync(client,Screen.height);
+#if TANK_QA
             if(ArenaPreview.Enabled&&!previewChatSelected&&Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-chat-open")>=0){arenaRenderer.Chat.SelectChat(true);previewChatSelected=true;}
+#endif
             arenaRenderer.Chat.BeforeInput(GameWindowFocus.IsForeground,AnyDialog);
             if(!settingsOpen&&GameWindowFocus.IsForeground&&(Input.GetKeyDown(KeyCode.F11)||(Input.GetKey(KeyCode.LeftAlt)&&Input.GetKeyDown(KeyCode.Return))))ToggleFullscreen();
+#if TANK_QA
             if(IsMenuPreview)return;
             if(ArenaPreview.Enabled) {
                 ArenaPreview.Animate(client);
@@ -66,6 +84,7 @@ namespace Tank  {
                 arenaRenderer.UpdateEffects(client,Time.unscaledDeltaTime,skillAudio);
                 return;
             }
+#endif
             client.Poll();
             SkillAudio();
             if(skillAudio==null)skillAudio=new SkillSounds();
@@ -166,6 +185,7 @@ namespace Tank  {
                 GUI.enabled=true;
                 if(playing&&AnyDialog){menu.Init();GUI.skin=menu.Skin;}
                 DrawDialogs();
+                DrawReportToast();
                 if(viewport)GUI.EndScrollView();
                 DrawPreferencesDialog();
                 SkillDetailsUi.Draw(viewWidth,viewHeight);
@@ -218,7 +238,9 @@ namespace Tank  {
             }
         }
         void LateUpdate() {
+#if TANK_QA
             if(ArenaPreview.Enabled||IsMenuPreview)return;
+#endif
             if(client.Phase==ClientPhase.DISCONNECTED) {
                 pendingLogin=pendingRegister=false;
                 pendingPassword=null;

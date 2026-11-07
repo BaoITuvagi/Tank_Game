@@ -1,12 +1,12 @@
 'use strict';
 const $=id=>document.getElementById(id), labels={UNAUTHENTICATED:'Chưa đăng nhập',LOBBY:'Ở sảnh',WAITING:'Trong phòng chờ',PREPARING:'Chuẩn bị trận',RUNNING:'Đang chơi',CAMPAIGN:'Chiến dịch',RESULTS:'Xem kết quả',DISCONNECTED:'Đã ngắt kết nối'};
-const titles={connections:'Kết nối trực tiếp',bans:'Quy tắc ban IP',history:'Lịch sử IP–tài khoản',notice:'Gửi thông báo',audit:'Nhật ký quản trị'};
+const titles={connections:'Kết nối trực tiếp',bans:'Quy tắc ban IP',history:'Lịch sử IP–tài khoản',notice:'Gửi thông báo',audit:'Nhật ký quản trị',reports:'Đơn tố cáo'};
 let csrf='',data=null,lastSuccess=0,tab='connections',page=0,historyPage=0,auditPage=0,bans=[],action=null,polling=false,authenticated=false,toastTimer;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=v=>v?new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',dateStyle:'short',timeStyle:'medium'}).format(new Date(Number(v))):'—';
 const short=v=>String(v||'').slice(0,8);
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6500);}
-function setAuth(value){authenticated=value;$('app').hidden=!value;$('login').hidden=value;if(!value){csrf='';data=null;lastSuccess=0;if($('action-dialog').open)$('action-dialog').close();}}
+function setAuth(value){authenticated=value;$('app').hidden=!value;$('login').hidden=value;if(!value){csrf='';data=null;lastSuccess=0;if($('action-dialog').open)$('action-dialog').close();if($('report-dialog').open)$('report-dialog').close();}}
 async function api(path,body){
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
  try{const r=await fetch('/api/'+path,{credentials:'same-origin',signal:controller.signal,headers:body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{},method:body?'POST':'GET',body:body?JSON.stringify(body):undefined});const result=await r.json();if(!r.ok){if(r.status===401)setAuth(false);throw Error(result.message||'Không xử lý được yêu cầu');}return result;}
@@ -14,13 +14,13 @@ async function api(path,body){
 }
 function stale(message){$('live').textContent='Mất kết nối · dữ liệu cũ';$('live').classList.add('stale');$('service-error').textContent=message||'Không nhận được dữ liệu mới. Các thao tác với phiên được tạm khóa.';$('service-error').hidden=false;document.querySelectorAll('#session-rows button').forEach(b=>b.disabled=true);}
 function fresh(){return authenticated&&Date.now()-lastSuccess<7000;}
-async function refresh(){if(!authenticated||polling)return;polling=true;try{data=await api('state');lastSuccess=Date.now();$('live').textContent='● Trực tiếp · '+fmt(data.time).split(' ')[0];$('live').classList.remove('stale');$('service-error').hidden=data.storageFailures===0;if(data.storageFailures)$('service-error').textContent='Có '+data.storageFailures+' lỗi lưu trữ từ khi khởi động. Lịch sử có thể thiếu; kiểm tra ổ đĩa và khởi động lại sau khi xử lý.';$('ports').textContent=`TCP ${data.tcpPort} / UDP ${data.udpPort}`;renderSessions();}catch(e){if(authenticated)stale(e.message);}finally{polling=false;}}
+async function refresh(){if(!authenticated||polling)return;polling=true;try{data=await api('state');lastSuccess=Date.now();$('live').textContent='● Trực tiếp · '+fmt(data.time).split(' ')[0];$('live').classList.remove('stale');$('service-error').hidden=data.storageFailures===0;if(data.storageFailures)$('service-error').textContent='Có '+data.storageFailures+' lỗi lưu trữ từ khi khởi động. Lịch sử có thể thiếu; kiểm tra ổ đĩa và khởi động lại sau khi xử lý.';$('ports').textContent=`TCP ${data.tcpPort} / UDP ${data.udpPort}`;renderSessions();await loadReportSummary();if(tab==='reports')await loadReports();}catch(e){if(authenticated)stale(e.message);}finally{polling=false;}}
 function empty(cols,title,detail=''){return `<tr><td colspan="${cols}" class="empty"><strong>${esc(title)}</strong>${esc(detail)}</td></tr>`;}
 function renderSessions(){if(!data)return;const names=[['sessions','Phiên kết nối','◉','Kết nối TCP đang mở'],['ips','IP đang kết nối','⌘','Địa chỉ mạng riêng biệt'],['accounts','Tài khoản online','♙','Đã đăng nhập game'],['playing','Người đang chơi','⚑','Trong trận đấu'],['bans','IP đang bị ban','⊘','Quy tắc có hiệu lực']];$('stats').innerHTML=names.map(([key,name,icon,hint])=>`<div class="stat"><span class="stat-symbol">${icon}</span><div class="stat-title">${name}</div><strong>${data.stats[key]}</strong><small>${hint}</small></div>`).join('');
  const q=$('search').value.toLowerCase(),state=$('state-filter').value,rows=data.sessions.filter(s=>(s.ip+' '+s.account+' '+s.id).toLowerCase().includes(q)&&(!state||s.state===state));page=Math.min(page,Math.max(0,Math.ceil(rows.length/12)-1));
  $('session-count').textContent=data.sessions.length;$('session-rows').innerHTML=rows.slice(page*12,page*12+12).map(s=>`<tr><td><button class="link mono" data-history="${esc(s.ip)}">${esc(s.ip)}</button><small class="mono" title="${esc(s.id)}">${short(s.id)} · :${s.port}</small></td><td>${s.account?`<button class="link" data-history="${esc(s.account)}">${esc(s.account)}</button>`:'<span class="muted">Chưa đăng nhập</span>'}</td><td><span class="badge ${s.state}">${labels[s.state]||esc(s.state)}</span></td><td><div class="channels"><span class="badge on">TCP</span><span class="badge ${s.udp?'on':''}">${s.udp?'UDP':'UDP —'}</span></div><small>RTT: chưa thu thập</small></td><td>${s.room?'#'+s.room:'—'}<small>${s.match?'Trận '+esc(s.match):'Chưa có trận'}</small></td><td>${esc(fmt(s.connected))}<small>Hoạt động: ${esc(fmt(s.lastActivity))}</small></td><td><div class="row-actions"><button data-notice="${esc(s.ip)}" title="Gửi tin tới mọi kết nối cùng IP">Gửi tin</button><button data-kickip="${esc(s.ip)}">Ngắt IP</button><button class="red" data-ban="${esc(s.ip)}">Ban IP</button></div></td></tr>`).join('')||empty(7,rows.length?'':'Chưa có kết nối phù hợp',data.sessions.length?'Thử thay đổi bộ lọc.':'Mở client Tank Battle và kết nối tới server để bắt đầu theo dõi.');
  $('shown').textContent=`Hiển thị ${rows.length? page*12+1:0}–${Math.min(rows.length,page*12+12)} / ${rows.length} phiên`;$('page-number').textContent=page+1;$('prev').disabled=page===0;$('next').disabled=(page+1)*12>=rows.length;}
-async function switchTab(next){tab=next;document.querySelectorAll('.panel').forEach(e=>e.hidden=e.id!==tab);document.querySelectorAll('nav button').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));$('page-title').textContent=titles[tab];$('breadcrumb').textContent=titles[tab];$('subtitle').textContent=tab==='connections'?'Theo dõi và quản lý các kết nối thực tế tới máy chủ.':'Quản trị dữ liệu và thao tác trên máy chủ Tank Battle.';try{if(tab==='bans')await loadBans();if(tab==='history'||tab==='audit')await loadRecords(tab);}catch(e){toast(e.message);}}
+async function switchTab(next){tab=next;document.querySelectorAll('.panel').forEach(e=>e.hidden=e.id!==tab);document.querySelectorAll('nav button').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));$('page-title').textContent=titles[tab];$('breadcrumb').textContent=titles[tab];$('subtitle').textContent=tab==='connections'?'Theo dõi và quản lý các kết nối thực tế tới máy chủ.':'Quản trị dữ liệu và thao tác trên máy chủ Tank Battle.';try{if(tab==='bans')await loadBans();if(tab==='reports'){await loadReportSummary();await loadReports();}if(tab==='history'||tab==='audit')await loadRecords(tab);}catch(e){toast(e.message);}}
 async function loadBans(){bans=await api('bans');renderBans();}
 function renderBans(){const q=$('ban-search').value.toLowerCase(),f=$('ban-filter').value;const rows=bans.filter(b=>(b.ip+' '+b.reason).toLowerCase().includes(q)&&(f===''||String(b.active)===f));$('ban-rows').innerHTML=rows.map(b=>`<tr><td><button class="link mono" data-history="${esc(b.ip)}">${esc(b.ip)}</button></td><td>${esc(b.reason)}</td><td><span class="badge ${b.active?'on':''}">${b.active?'Có hiệu lực':'Tạm dừng'}</span></td><td>${esc(fmt(b.updated))}</td><td><div class="row-actions"><button data-edit="${esc(b.ip)}">Sửa</button><button data-toggle="${esc(b.ip)}">${b.active?'Tạm dừng':'Kích hoạt'}</button><button class="red" data-delete="${esc(b.ip)}">Xóa / bỏ ban</button></div></td></tr>`).join('')||empty(5,'Chưa có quy tắc phù hợp','Thêm IP cụ thể để quản lý truy cập.');}
 function dateValue(id,end){const v=$(id).value;if(!v)return end?String(Number.MAX_SAFE_INTEGER):'0';return String(new Date(v+(end?'T23:59:59.999+07:00':'T00:00:00+07:00')).getTime());}
@@ -53,3 +53,97 @@ setInterval(()=>{if(authenticated){refresh();if(lastSuccess&&Date.now()-lastSucc
 
 function setPasswordVisible(visible){const input=$('admin-password'),button=$('toggle-password'),label=visible?'\u1ea8n m\u1eadt kh\u1ea9u':'Hi\u1ec3n th\u1ecb m\u1eadt kh\u1ea9u';input.type=visible?'text':'password';button.setAttribute('aria-pressed',String(visible));button.setAttribute('aria-label',label);button.title=label;button.querySelector('.eye-slash').toggleAttribute('hidden',!visible);}
 $('toggle-password').onclick=()=>setPasswordVisible($('admin-password').type==='password');
+
+const reportReasons=['AFK / Rời trận','Phá trận / Cố ý bị hạ','Ngôn từ xúc phạm','Gian lận / Dùng phần mềm','Tên không phù hợp','Lý do khác'];
+const reportStatuses={OPEN:'Chờ xem xét',IN_REVIEW:'Đang xem xét',REVIEWED:'Đã xử lý',DISMISSED:'Đã bác bỏ'};
+const reportActions={NONE:'Chỉ ghi nhận',WARN:'Cảnh cáo',SUSPEND:'Khóa có thời hạn',REVOKE:'Gỡ khóa',LINKED:'Gộp cùng vụ việc'};
+let reportPage=0,reportRevision=0,reportDetailId='',reportDetailRevision=0,reportChartSignature='',reportRecord=null,reportSaveRequest=null;
+let reportRelatedContext=null,reportRelatedRequest=0;
+function relatedReportItems(rows){return rows.map(v=>`<li><button type="button" class="link" data-report="${Number(v.id)}">Đơn #${Number(v.id)}</button> · Trận ${esc(v.match_id)} · ${esc(reportStatuses[v.status]||v.status)}<br><small>${esc(fmt(v.created))} · ${esc(reasonText(v.reasons))}</small></li>`).join('');}
+function renderRelatedReports(rows,total,page=null){
+ const all=page!==null;
+ return `<summary>${all?'Toàn bộ đơn khác về cùng tài khoản':'10 đơn gần nhất về cùng tài khoản'} (${all?Number(total):rows.length})</summary><p class="muted">Dùng để đối chiếu vụ việc; số đơn không chứng minh vi phạm. Không gồm đơn đang mở.</p><ul class="report-related-list">${relatedReportItems(rows)||'<li>Chưa có đơn khác.</li>'}</ul><div class="report-related-actions">${all?`<button type="button" data-related-recent>10 đơn gần nhất</button><button type="button" data-related-page="${page-1}" ${page===0?'disabled':''}>Trước</button><span>Trang ${page+1} / ${Math.max(1,Math.ceil(total/25))} · ${Number(total)} đơn</span><button type="button" data-related-page="${page+1}" ${(page+1)*25>=total?'disabled':''}>Sau</button>`:`<button type="button" data-related-page="0">Xem toàn bộ (${Number(total)} đơn)</button>`}</div><p id="report-related-error" class="muted" role="status"></p>`;
+}
+async function loadRelatedReports(page){
+ if(!reportRelatedContext)return;const context=reportRelatedContext,revision=reportDetailRevision,request=++reportRelatedRequest;
+ const holder=$('report-related'),buttons=[...holder.querySelectorAll('button')].map(b=>({b,disabled:b.disabled}));buttons.forEach(({b})=>b.disabled=true);$('report-related-error').textContent='Đang tải…';
+ try{const result=await api('report-related?id='+encodeURIComponent(context.id)+'&page='+page);if(revision!==reportDetailRevision||request!==reportRelatedRequest||!$('report-dialog').open)return;holder.innerHTML=renderRelatedReports(result.rows,Number(result.total),page);holder.open=true;}
+ catch(e){if(revision===reportDetailRevision&&request===reportRelatedRequest){buttons.forEach(({b,disabled})=>b.disabled=disabled);$('report-related-error').textContent=e.message;}}
+}
+const reasonText=mask=>reportReasons.filter((_,i)=>(Number(mask)&(1<<i))!==0).join(' · ');
+function reportChart(daily,id){
+ const max=Math.max(4,Math.ceil(Math.max(0,...daily.map(d=>Number(d.count)))/4)*4),sum=daily.reduce((n,d)=>n+Number(d.count),0),step=54;
+ let chart=`<svg viewBox="0 0 810 205" role="img" aria-label="${sum} đơn tố cáo trong 14 ngày gần nhất"><title>Số đơn tố cáo theo ngày, giờ Việt Nam</title>`;
+ for(let i=0;i<=4;i++){const y=160-i*34;chart+=`<line x1="40" x2="800" y1="${y}" y2="${y}" class="chart-grid"/><text x="30" y="${y+4}" text-anchor="end" class="chart-label">${Math.ceil(max*i/4)}</text>`;}
+ daily.forEach((d,i)=>{const count=Number(d.count),h=136*count/max,x=48+i*step;chart+=`<rect x="${x}" y="${160-h}" width="30" height="${h}" rx="3" class="chart-bar"><title>${esc(d.day)}: ${count} đơn</title></rect><text x="${x+15}" y="${Math.max(16,153-h)}" text-anchor="middle" class="chart-value">${count||''}</text><text x="${x+15}" y="180" text-anchor="middle" class="chart-label">${esc(d.day.slice(8))}/${esc(d.day.slice(5,7))}</text>`;});
+ chart+='</svg>';
+ if(sum===0)chart+='<p class="chart-empty">Chưa có đơn tố cáo trong 14 ngày gần nhất.</p>';
+ chart+='<details class="chart-data"><summary>Xem dữ liệu theo ngày</summary><div class="table-wrap"><table><thead><tr><th>Ngày (UTC+7)</th><th>Số đơn</th></tr></thead><tbody>'+daily.map(d=>`<tr><td>${esc(d.day)}</td><td>${Number(d.count)}</td></tr>`).join('')+'</tbody></table></div></details>';
+ $(id).innerHTML=chart;
+}
+async function loadReportSummary(){
+ try{
+  const summary=await api('report-summary'),c=summary.counts;
+  const cards=[['total','Tổng số đơn','Tất cả thời gian'],['open','Chờ xem xét','Chưa kết luận'],['inReview','Đang xem xét','Đang đối chiếu dữ liệu'],['reviewed','Đã xử lý','Gồm các đơn cùng vụ được gộp'],['dismissed','Đã bác bỏ','Chưa đủ cơ sở / không phù hợp']];
+  $('report-stats').innerHTML=cards.map(([key,label,hint])=>`<div class="stat"><div class="stat-title">${label}</div><strong>${Number(c[key])}</strong><small>${hint}</small></div>`).join('');
+  $('report-overview-counts').innerHTML=`<span><b>${Number(c.total)}</b> tổng số đơn</span><span><b>${Number(c.open)}</b> chờ xem xét</span><span><b>${summary.daily.reduce((n,d)=>n+Number(d.count),0)}</b> trong 14 ngày</span>`;
+  $('report-overview-status').textContent='Số đơn theo ngày · 14 ngày gần nhất · giờ Việt Nam';
+  const signature=JSON.stringify(summary.daily);if(signature!==reportChartSignature){reportChart(summary.daily,'report-overview-chart');reportChart(summary.daily,'report-chart');reportChartSignature=signature;}
+ }catch(e){$('report-overview-status').textContent='Chưa tải được thống kê tố cáo: '+e.message;$('report-stats').textContent='Không tải được thống kê. Hãy làm mới.';}
+}
+async function loadReports(){
+ const revision=++reportRevision,q=new URLSearchParams({q:$('report-q').value,status:$('report-status').value,reason:$('report-reason').value,from:dateValue('report-from'),to:dateValue('report-to',true),page:reportPage});
+ try{
+  const result=await api('reports?'+q);if(revision!==reportRevision)return;
+  if(!result.rows.length&&reportPage>0&&Number(result.total)<=reportPage*25){reportPage=Math.max(0,Math.ceil(Number(result.total)/25)-1);return loadReports();}
+  $('report-rows').innerHTML=result.rows.map(r=>`<tr><td><b>#${Number(r.id)}</b><small>Trận ${esc(r.match_id)}</small></td><td>${esc(r.target_name)}<small>@${esc(r.target_account)}</small></td><td>${esc(r.reporter_name)}<small>@${esc(r.reporter_account)}</small></td><td>${esc(reasonText(r.reasons))}</td><td>${esc(fmt(r.created))}</td><td><span class="badge ${r.status==='OPEN'?'report-open':r.status==='REVIEWED'?'on':''}">${reportStatuses[r.status]||esc(r.status)}</span></td><td><button data-report="${Number(r.id)}">Xem đơn</button></td></tr>`).join('')||empty(7,'Không có đơn tố cáo phù hợp','Thử thay đổi bộ lọc hoặc chờ phản hồi từ người chơi.');
+  $('report-list-summary').textContent=`${Number(result.total)} đơn · Trang ${reportPage+1}`;$('report-page').textContent=reportPage+1;$('report-prev').disabled=reportPage===0;$('report-next').disabled=(reportPage+1)*25>=Number(result.total);
+ }catch(e){if(revision===reportRevision){$('report-rows').innerHTML=empty(7,'Không tải được đơn tố cáo',e.message);$('report-list-summary').textContent='Dữ liệu chưa được cập nhật';$('report-prev').disabled=$('report-next').disabled=true;}}
+}
+async function openReportDetail(id){
+ const revision=++reportDetailRevision;reportDetailId=String(id);reportRecord=null;reportSaveRequest=null;reportRelatedContext=null;$('report-detail-title').textContent='Đơn tố cáo #'+id;$('report-detail').textContent='Đang tải…';$('report-review-error').textContent='';$('report-decision').hidden=true;$('report-save').disabled=true;$('report-save').hidden=false;if(!$('report-dialog').open)$('report-dialog').showModal();
+ try{
+  const detail=await api('report-detail?id='+encodeURIComponent(id));if(revision!==reportDetailRevision||!$('report-dialog').open)return;const r=detail.report;
+  reportRecord=r;
+  const closed=r.status==='REVIEWED'&&r.review_action!=='NONE';
+  const history=detail.reviews.length?`<details class="report-history"><summary>Lịch sử xử lý (${detail.reviews.length})</summary><ol class="report-history-list">${detail.reviews.map(v=>`<li><div class="report-history-meta"><strong>${esc(v.admin)}</strong><time>${esc(fmt(v.time))}</time><span>${esc(reportStatuses[v.status]||v.status)}${v.action!=='NONE'?' · '+esc(reportActions[v.action]||v.action):''}</span></div><div class="report-history-note">${esc(v.note||'Không có ghi chú')}</div>${v.public_reason?`<div class="report-public-reason"><b>Lý do gửi người chơi:</b> ${esc(v.public_reason)}</div>`:''}</li>`).join('')}</ol></details>`:'';
+  const sanctions=(detail.sanctions||[]).length?`<details class="report-history" open><summary>Biện pháp đã áp dụng cho tài khoản (${detail.sanctions.length})</summary><div class="report-sanctions">${detail.sanctions.map(s=>`<article class="report-sanction"><div class="report-history-meta"><strong>${esc(reportActions[s.action])}</strong><span>Đơn #${Number(s.report_id)} · ${esc(s.admin)}</span></div><p>${esc(s.reason)}</p><p class="muted">${s.action==='WARN'?'Cảnh cáo được gửi ngay nếu online, hoặc khi đăng nhập tiếp theo.':Number(s.revoked)?'Đã gỡ: '+esc(s.revoke_reason):Number(s.active)?'Đang khóa đến '+esc(fmt(s.expires)):'Đã hết hạn khóa.'}</p>${Number(s.active)?`<label>Lý do gỡ khóa<textarea id="revoke-reason-${Number(s.id)}" maxlength="500" rows="2" placeholder="Căn cứ sửa quyết định / kết quả kiểm tra lại"></textarea></label><button type="button" data-revoke="${Number(s.id)}">Gỡ biện pháp khóa này</button>`:''}</article>`).join('')}</div></details>`:'';
+  reportRelatedContext={id:String(id),recent:detail.related||[],total:Number(detail.relatedTotal||0)};
+  const related=`<details id="report-related" class="report-history">${renderRelatedReports(reportRelatedContext.recent,reportRelatedContext.total)}</details>`;
+  $('report-detail').innerHTML=`<div class="report-identities"><p><b>Người bị tố cáo</b><br>${esc(r.target_name)} <span class="muted">@${esc(r.target_account)}</span></p><p><b>Người gửi</b><br>${esc(r.reporter_name)} <span class="muted">@${esc(r.reporter_account)}</span></p></div><p><b>Trận ${esc(r.match_id)}</b> · Map #${Number(r.map_id)} · ${r.room_mode==='ROLEPLAY'?'Nhập vai':'Thường'}<br><span class="muted">Gửi lúc ${esc(fmt(r.created))}</span></p><p><b>Lý do tố cáo</b><br>${esc(reasonText(r.reasons))}</p><div class="report-description">${esc(r.details||'Người gửi không thêm mô tả.')}</div>${closed?`<div class="report-effect">${r.review_action==='LINKED'?'Đã gộp và xử lý theo đơn #'+Number(r.resolved_by_report):'Đã xử lý: '+esc(reportActions[r.review_action])}. Quyết định đã được lưu; không áp dụng lại hình phạt khi bấm nhiều lần.</div>`:r.status==='REVIEWED'?'<p class="muted">Bản ghi cũ chỉ lưu trạng thái, chưa áp dụng biện pháp. Cần xem xét và chọn quyết định cụ thể.</p>':''}${history}${sanctions}${related}`;
+  const f=$('report-review-form');f.elements.status.value=r.status;f.elements.action.value='NONE';f.elements.minutes.value='60';f.elements.reason.value='';f.elements.note.value=r.review_note;
+  $('report-decision').hidden=closed;$('report-save').hidden=closed;updateReportDecision();
+  $('report-dialog').scrollTop=0;
+ }catch(e){if(revision===reportDetailRevision)$('report-detail').textContent=e.message;}
+}
+function updateReportDecision(){
+ const f=$('report-review-form'),resolved=f.elements.status.value==='REVIEWED',action=resolved?f.elements.action.value:'NONE';
+ $('report-penalty-fields').hidden=!resolved;$('report-duration-label').hidden=action!=='SUSPEND';
+ const effects=action==='WARN'?'Gửi cảnh cáo đến tài khoản bị tố cáo và phản hồi chung cho người gửi. Người chơi vẫn được tiếp tục chơi.':action==='SUSPEND'?'Khóa đăng nhập theo thời hạn đã chọn, chặn thao tác và ngắt phiên đang online. Hết hạn tự mở lại; có thể gỡ sớm sau khi kiểm tra lại.':resolved?'Chọn cảnh cáo hoặc khóa có thời hạn, ghi căn cứ và lý do gửi người chơi.':f.elements.status.value==='DISMISSED'?'Đóng đơn với lý do chưa đủ cơ sở và gửi phản hồi cho người tố cáo. Không xử phạt.':f.elements.status.value==='IN_REVIEW'?'Đang xem xét: admin đã đánh dấu bắt đầu kiểm tra, đối chiếu bằng chứng. Lưu chỉ cập nhật tiến trình và ghi chú, chưa xử phạt.':'Chờ xem xét: đơn nằm trong hàng chờ, chưa được đánh dấu bắt đầu kiểm tra. Lưu không áp dụng hình phạt hay gửi cảnh cáo.';
+ $('report-effect').textContent=effects;
+ $('report-save').textContent=action==='WARN'?'Lưu và gửi cảnh cáo':action==='SUSPEND'?'Lưu và khóa tài khoản':f.elements.status.value==='DISMISSED'?'Bác bỏ đơn':'Lưu tiến trình';
+ f.elements.reason.required=resolved;f.elements.note.required=resolved||f.elements.status.value==='DISMISSED';
+ $('report-save').disabled=!reportRecord;
+}
+$('open-reports').onclick=()=>switchTab('reports');
+$('report-find').onclick=()=>{reportPage=0;loadReports();};
+for(const id of ['report-status','report-reason'])$(id).onchange=()=>{reportPage=0;loadReports();};
+$('report-q').onkeydown=e=>{if(e.key==='Enter'){reportPage=0;loadReports();}};
+$('report-prev').onclick=()=>{reportPage=Math.max(0,reportPage-1);loadReports();};$('report-next').onclick=()=>{reportPage++;loadReports();};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-report]');if(b)openReportDetail(b.dataset.report);});
+document.addEventListener('click',e=>{const page=e.target.closest('[data-related-page]'),recent=e.target.closest('[data-related-recent]');if(page&&!page.disabled)loadRelatedReports(Number(page.dataset.relatedPage));if(recent&&reportRelatedContext){reportRelatedRequest++;$('report-related').innerHTML=renderRelatedReports(reportRelatedContext.recent,reportRelatedContext.total);$('report-related').open=true;}});
+$('report-close').onclick=$('report-cancel').onclick=()=>{$('report-dialog').close();reportDetailRevision++;};
+for(const field of ['status','action','minutes'])$('report-review-form').elements[field].onchange=updateReportDecision;
+$('report-review-form').onsubmit=async e=>{
+ e.preventDefault();if(!reportRecord)return;const f=e.currentTarget,b=$('report-save'),id=reportDetailId,status=f.elements.status.value,action=status==='REVIEWED'?f.elements.action.value:'NONE';
+ const body={id,revision:Number(reportRecord.revision),status,action,minutes:action==='SUSPEND'?Number(f.elements.minutes.value):0,reason:action==='NONE'?'':f.elements.reason.value.trim(),note:f.elements.note.value.trim()};
+ if(status==='REVIEWED'&&(action==='NONE'||body.reason.length<5||body.note.length<10)){$('report-review-error').textContent='Chọn biện pháp, nhập lý do (ít nhất 5 ký tự) và căn cứ xem xét (ít nhất 10 ký tự).';return;}
+ if(status==='DISMISSED'&&body.note.length<5){$('report-review-error').textContent='Hãy ghi lý do bác bỏ đơn (ít nhất 5 ký tự).';return;}
+ const signature=JSON.stringify(body);if(!reportSaveRequest||reportSaveRequest.signature!==signature)reportSaveRequest={signature,id:crypto.randomUUID()};body.requestId=reportSaveRequest.id;
+ b.disabled=true;$('report-review-error').textContent='';try{const r=await api('report-review',body);toast(r.message);$('report-dialog').close();reportDetailRevision++;reportSaveRequest=null;await loadReports();await loadReportSummary();}catch(error){$('report-review-error').textContent=error.message;}finally{b.disabled=false;}
+};
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('[data-revoke]');if(!b)return;const id=b.dataset.revoke,reason=$('revoke-reason-'+id).value.trim();
+ if(reason.length<5){$('report-review-error').textContent='Cần ghi lý do gỡ khóa (ít nhất 5 ký tự).';return;}
+ b.disabled=true;try{const r=await api('report-revoke',{id,reason});toast(r.message);await openReportDetail(reportDetailId);await loadReportSummary();}catch(error){$('report-review-error').textContent=error.message;b.disabled=false;}
+});

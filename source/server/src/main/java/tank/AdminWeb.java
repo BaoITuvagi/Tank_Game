@@ -80,10 +80,28 @@ final class AdminWeb implements AutoCloseable {
                 case "/api/history"->query(x,false);
                 case "/api/relations"->query(x,false);
                 case "/api/audit"->query(x,true);
+                case "/api/reports"->reportQuery(x);
+                case "/api/report-summary"->game.db.submit(()->game.db.reports.summary()).get(5,TimeUnit.SECONDS);
+                case "/api/report-detail"->reportDetail(x);
+                case "/api/report-related"->reportRelated(x);
                 default->throw new Problem(404,"Không tìm thấy API");
             }; else if(path.equals("/api/logout")) {
                 store.submit(()->{store.audit(login.name(),"LOGOUT","","","OK");return null;}).get(5,TimeUnit.SECONDS);
                 logins.remove(cookie(x));x.getResponseHeaders().add("Set-Cookie","tank_admin=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");result=Map.of("message","Đã đăng xuất");
+            } else if(path.equals("/api/report-review")) {
+                String id=text(body,"id",24),status=text(body,"status",16),note=text(body,"note",500);
+                long reportId;try{reportId=Long.parseLong(id);if(reportId<=0)throw new NumberFormatException();}catch(NumberFormatException e){throw new Problem(400,"Mã đơn không hợp lệ");}
+                String action=text(body,"action",16),reason=text(body,"reason",300),requestId=text(body,"requestId",64);int revision,minutes;
+                try{revision=body.get("revision").getAsInt();minutes=body.get("minutes").getAsInt();}catch(Exception e){throw new Problem(400,"Thiếu phiên bản đơn hoặc thời hạn khóa. Hãy mở lại đơn.");}
+                var decision=new PlayerReports.Decision(reportId,revision,status,action,minutes,reason,note,requestId);
+                var saved=reportWork(()->game.db.reports.review(decision,login.name()));
+                if(saved.changed()){game.deliverModeration(saved.target()).get(5,TimeUnit.SECONDS);for(long recipient:new HashSet<>(saved.recipients()))game.deliverModeration(recipient).get(5,TimeUnit.SECONDS);}
+                result=Map.of("message",saved.message(),"changed",saved.changed());
+            } else if(path.equals("/api/report-revoke")) {
+                String value=text(body,"id",24),reason=text(body,"reason",500);long id;
+                try{id=Long.parseLong(value);if(id<=0)throw new NumberFormatException();}catch(NumberFormatException e){throw new Problem(400,"Mã biện pháp không hợp lệ.");}
+                long account=reportWork(()->game.db.reports.revoke(id,login.name(),reason));game.deliverModeration(account).get(5,TimeUnit.SECONDS);
+                result=Map.of("message","Đã gỡ biện pháp khóa này. Các biện pháp khác (nếu có) vẫn giữ hiệu lực.");
             } else {
                 synchronized(game.accessGate){result=mutate(path,body,login.name());}
             }
@@ -107,6 +125,31 @@ final class AdminWeb implements AutoCloseable {
         json(x,200,Map.of("name",name,"csrf",login.csrf()));
     }
     String cookie(HttpExchange x){String h=x.getRequestHeaders().getFirst("Cookie");if(h!=null)for(String p:h.split(";"))if(p.strip().startsWith("tank_admin="))return p.strip().substring(11);return "";}
+    Map<String,String> reportParams(HttpExchange x) {
+        var q=new HashMap<String,String>();String raw=x.getRequestURI().getRawQuery();
+        try {if(raw!=null)for(String p:raw.split("&")){String[] pair=p.split("=",2);q.put(URLDecoder.decode(pair[0],StandardCharsets.UTF_8),pair.length<2?"":URLDecoder.decode(pair[1],StandardCharsets.UTF_8));}}catch(IllegalArgumentException e){throw new Problem(400,"Bộ lọc không hợp lệ");}
+        return q;
+    }
+    <T> T reportWork(Callable<T> work)throws Exception {
+        try{return game.db.submit(work).get(5,TimeUnit.SECONDS);}catch(ExecutionException e){if(e.getCause() instanceof PlayerReports.Problem p)throw new Problem(p.code,p.getMessage());throw e;}
+    }
+    Object reportQuery(HttpExchange x)throws Exception {
+        var q=reportParams(x);String search=q.getOrDefault("q",""),status=q.getOrDefault("status","");
+        int page,reason;long from,to;
+        try{page=Integer.parseInt(q.getOrDefault("page","0"));reason=Integer.parseInt(q.getOrDefault("reason","0"));from=Long.parseLong(q.getOrDefault("from","0"));to=Long.parseLong(q.getOrDefault("to",Long.toString(Long.MAX_VALUE)));}catch(NumberFormatException e){throw new Problem(400,"Bộ lọc không hợp lệ");}
+        if(search.length()>200||!Set.of("","OPEN","IN_REVIEW","REVIEWED","DISMISSED").contains(status)||page<0||page>100000||reason<0||reason>32||(reason!=0&&(reason&(reason-1))!=0)||from<0||to<from)throw new Problem(400,"Bộ lọc không hợp lệ");
+        return game.db.submit(()->game.db.reports.list(search,status,reason,from,to,page)).get(5,TimeUnit.SECONDS);
+    }
+    Object reportDetail(HttpExchange x)throws Exception {
+        long id;try{id=Long.parseLong(reportParams(x).getOrDefault("id","0"));if(id<=0)throw new NumberFormatException();}catch(NumberFormatException e){throw new Problem(400,"Mã đơn không hợp lệ");}
+        if(game.db.submit(()->game.db.reports.rows("SELECT id FROM player_reports WHERE id=?",id).isEmpty()).get(5,TimeUnit.SECONDS))throw new Problem(404,"Không tìm thấy đơn tố cáo");
+        return game.db.submit(()->game.db.reports.detail(id)).get(5,TimeUnit.SECONDS);
+    }
+    Object reportRelated(HttpExchange x)throws Exception {
+        var q=reportParams(x);long id;int page;
+        try{id=Long.parseLong(q.getOrDefault("id","0"));page=Integer.parseInt(q.getOrDefault("page","0"));if(id<=0||page<0||page>100000)throw new NumberFormatException();}catch(NumberFormatException e){throw new Problem(400,"Bộ lọc đơn liên quan không hợp lệ");}
+        return reportWork(()->game.db.reports.related(id,page));
+    }
     Login authenticate(HttpExchange x){String token=cookie(x);Login l=logins.get(token);if(l==null||l.expires()<System.currentTimeMillis()){logins.remove(token);throw new Problem(401,"Cần đăng nhập quản trị");}return l;}
     Object query(HttpExchange x,boolean audit)throws Exception {
         Map<String,String> q=new HashMap<>();String raw=x.getRequestURI().getRawQuery();

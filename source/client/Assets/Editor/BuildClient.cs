@@ -9,6 +9,12 @@ public static class BuildClient {
  public static void BuildCurrentScene(){BuildExistingScene("../../build/client/TankBattle.exe");}
  public static void BuildUiReview(){BuildExistingScene("../../build/client-ui/TankBattle.exe");}
  public static void BuildUiRevision(){BuildExistingScene("../../build/client-ui-revision/TankBattle.exe");}
+ public static void BuildLocal(){
+  string path=Path.GetFullPath("../../build/client-local/TankBattle.exe");Directory.CreateDirectory(Path.GetDirectoryName(path));
+  var options=new BuildPlayerOptions {scenes=new[]{"Assets/Scenes/Main.unity"},locationPathName=path,target=BuildTarget.StandaloneWindows64,options=BuildOptions.None,extraScriptingDefines=new[]{"TANK_LOCAL"}};
+  var result=BuildPipeline.BuildPlayer(options);
+  if(result.summary.result!=UnityEditor.Build.Reporting.BuildResult.Succeeded)throw new System.Exception("Local build failed: "+result.summary.result);
+ }
  static void BuildExistingScene(string output){
   string path=Path.GetFullPath(output);Directory.CreateDirectory(Path.GetDirectoryName(path));
   var result=BuildPipeline.BuildPlayer(new[]{"Assets/Scenes/Main.unity"},path,BuildTarget.StandaloneWindows64,BuildOptions.None);

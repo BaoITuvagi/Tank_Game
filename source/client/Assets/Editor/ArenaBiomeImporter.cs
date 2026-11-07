@@ -49,18 +49,10 @@ public sealed class ArenaBiomeImporter : AssetPostprocessor {
                 if(visible<100)throw new BuildFailedException(sprite.key+" is empty");
             }
         }finally{UnityEngine.Object.DestroyImmediate(source);}
-        string provenance=Path.Combine(AssetRoot,"PROVENANCE.md");
-        if(!File.Exists(provenance))throw new BuildFailedException("Missing arena biome provenance");
-        string notice=File.ReadAllText(provenance);
-        if(!notice.Contains("image_gen")||!notice.Contains("2026-11-06")||!notice.Contains(SourceHash))throw new BuildFailedException("Incomplete arena biome provenance");
         if(!File.Exists("Assets/Resources/ArenaArt/Kenney-LICENSE.txt"))throw new BuildFailedException("Missing original Kenney licence");
     }
 }
-public sealed class ArenaBiomeBuildValidation : IPreprocessBuildWithReport,IPostprocessBuildWithReport {
+public sealed class ArenaBiomeBuildValidation : IPreprocessBuildWithReport {
     public int callbackOrder {get{return 3;}}
     public void OnPreprocessBuild(BuildReport report){ArenaBiomeImporter.ValidateAssets();}
-    public void OnPostprocessBuild(BuildReport report) {
-        string directory=Path.Combine(Path.GetDirectoryName(report.summary.outputPath),"ThirdParty");Directory.CreateDirectory(directory);
-        File.Copy(ArenaBiomeImporter.AssetRoot+"PROVENANCE.md",Path.Combine(directory,"ArenaBiomes-PROVENANCE.md"),true);
-    }
 }

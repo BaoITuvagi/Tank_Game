@@ -10,6 +10,10 @@ Dành cho người chơi trên **Windows 64 bit**: không cần clone repository
 
 ## Phát triển và vận hành server
 
+Repository gồm mã nguồn, tài nguyên/giấy phép, cấu hình mẫu, công cụ build/chạy và tài liệu báo cáo. Log, build, database, thông tin AI, bộ test và công cụ QA được giữ cục bộ, không đưa lên Git. Bản build thông thường không phụ thuộc các file cục bộ này.
+
+Repository gồm mã nguồn, tài nguyên/giấy phép, cấu hình mẫu, công cụ build/chạy và tài liệu báo cáo. Log, build, database, thông tin AI, bộ test và công cụ QA được giữ cục bộ, không đưa lên Git. Bản build thông thường không phụ thuộc các file cục bộ này.
+
 Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3). Working tree bổ sung chat, chọn ba map multiplayer và bão phủ toàn map; phiên bản hiện tại dùng giao thức **21**, nội dung **7** với hash được sinh lại, cần server và client build cùng đợt. Quản trị mạng được ghép bổ sung; các thay đổi UI/asset và bản đồ đang có được mô tả tại [context](docs/context.md). Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
 
 Các lệnh CMD chạy tại thư mục gốc repository:
@@ -112,7 +116,7 @@ Tại Unity Hub, thêm project `source/client`. Tài nguyên game cần thiết 
 | Luật chơi, kỹ năng, item, battlefield | [Gameplay](docs/gameplay.md) |
 | Giao thức, đồng bộ và dữ liệu | [Protocol](docs/protocol.md), [SQLite và lịch sử](docs/data.md) |
 | Unity, UI, tài nguyên và preview | [Client](docs/client.md) |
-| Kiểm tra và đo đạc | [Testing](docs/testing.md), [thực nghiệm](docs/evaluation.md) |
+| Kiểm tra và đo đạc | Testing, [thực nghiệm](docs/evaluation.md) |
 | Chuẩn bị báo cáo môn Lập trình mạng | [Hướng dẫn báo cáo](docs/report-guide.md) |
 
 ## Chế độ chiến dịch

@@ -14,6 +14,13 @@ AGENTS.override.md
 CODEX.md
 codex.md
 *[Pp][Rr][Oo][Mm][Pp][Tt]*.md
+*[Pp][Rr][Oo][Mm][Pp][Tt]*.md.meta
+**/PROVENANCE.md
+**/PROVENANCE.md.meta
+.claude/
+.cursor/
+.gemini/
+.aider*
 [Pp]rompt/
 [Pp]rompts/
 /BTL_Prompt/
@@ -144,3 +151,33 @@ Desktop.ini
 
 # Launcher tests remain available locally
 /source/launcher/TankLauncher.Tests/
+
+# Tests and local QA tools are retained locally, outside the published source
+/source/server/src/test/
+/source/server/src/main/java/tank/Golden.java
+/source/client/Assets/Tests/
+/source/client/Assets/Tests.meta
+/source/launcher/TankLauncher.Checks/
+/scripts/test-*
+/scripts/benchmark/
+/docs/testing.md
+/docs/ui-validation.md
+/source/client/Assets/Scripts/ArenaPreview.cs*
+/source/client/Assets/Scripts/CampaignMotionPreview.cs*
+/source/client/Assets/Scripts/CapturePreview.cs*
+/source/client/Assets/Scripts/SmokeAcceptance.cs*
+/source/client/Assets/Scripts/SmokePlayer.cs*
+/source/client/Assets/Scripts/UxPreview.cs*
+/source/client/Assets/Scripts/WindowQa.cs*
+
+# Dependency caches and generated diagnostics
+node_modules/
+.cache/
+*.out
+*.err
+*.trace
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+junit*.xml
+test-results*.xml

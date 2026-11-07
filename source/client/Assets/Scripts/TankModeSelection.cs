@@ -54,10 +54,14 @@ namespace Tank {
                 modeHeading=CartoonUi.Label(23,CartoonUi.Text,true);
                 modeDescription=CartoonUi.Label(16,CartoonUi.Text);
                 modeStatus=CartoonUi.Label(14,CartoonUi.Muted);
+                modeTitle.alignment=modeHeading.alignment=modeStatus.alignment=TextAnchor.MiddleCenter;
+                modeDescription.alignment=TextAnchor.UpperCenter;
             }
+            float groupHeight=Mathf.Min(634,area.height);
+            area=new Rect(area.x,area.y+(area.height-groupHeight)/2,area.width,groupHeight);
             CartoonUi.Panel(new Rect(area.x,area.y,area.width,76),CartoonUi.PanelDark,8);
             GUI.Label(new Rect(area.x+16,area.y+6,area.width-32,36),"CHỌN MẶT TRẬN",modeTitle);
-            GUI.Label(new Rect(area.x+16,area.y+44,area.width-32,26),"Một đội hình thiết giáp · Hai cách chinh phục chiến trường",depotSmall);
+            GUI.Label(new Rect(area.x+16,area.y+44,area.width-32,26),"Một đội hình thiết giáp · Hai cách chinh phục chiến trường",centerHint);
             float top=area.y+84,gap=22,width=(area.width-gap)/2;
             float height=Mathf.Min(550,area.height-84);
             DrawModeCard(new Rect(area.x,top,width,height),true);

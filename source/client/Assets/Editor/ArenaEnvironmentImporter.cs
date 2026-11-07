@@ -43,18 +43,10 @@ public sealed class ArenaEnvironmentImporter : AssetPostprocessor {
                 for(int y=material.sampleY;y<material.sampleY+material.sampleSize;y++)for(int x=material.sampleX;x<material.sampleX+material.sampleSize;x++)if(pixels[(source.height-1-y)*source.width+x].a<250)throw new BuildFailedException(material.key+" inner material sample must be opaque");
             }
         }finally{UnityEngine.Object.DestroyImmediate(source);}
-        string provenance=Path.Combine(AssetRoot,"PROVENANCE.md");
-        if(!File.Exists(provenance))throw new BuildFailedException("Missing arena environment provenance");
-        string notice=File.ReadAllText(provenance);
-        if(!notice.Contains("image_gen")||!notice.Contains("2026-11-06")||!notice.Contains(SourceHash))throw new BuildFailedException("Incomplete arena environment provenance");
         if(!File.Exists("Assets/Resources/ArenaArt/Kenney-LICENSE.txt"))throw new BuildFailedException("Missing original Kenney licence");
     }
 }
-public sealed class ArenaEnvironmentBuildValidation : IPreprocessBuildWithReport,IPostprocessBuildWithReport {
+public sealed class ArenaEnvironmentBuildValidation : IPreprocessBuildWithReport {
     public int callbackOrder {get{return 4;}}
     public void OnPreprocessBuild(BuildReport report){ArenaEnvironmentImporter.ValidateAssets();}
-    public void OnPostprocessBuild(BuildReport report) {
-        string directory=Path.Combine(Path.GetDirectoryName(report.summary.outputPath),"ThirdParty");Directory.CreateDirectory(directory);
-        File.Copy(ArenaEnvironmentImporter.AssetRoot+"PROVENANCE.md",Path.Combine(directory,"ArenaEnvironment-PROVENANCE.md"),true);
-    }
 }

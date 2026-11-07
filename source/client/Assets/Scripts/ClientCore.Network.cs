@@ -117,10 +117,11 @@ namespace Tank  {
             return id;
         }
         static bool IsResponse(byte op)  {
-            if(op==Tank.Campaign.CampaignClient.Response||op==Op.ShopResult)return true;
+            if(op==Tank.Campaign.CampaignClient.Response||op==Op.ShopResult||op==Op.ReportResult)return true;
             return op==Op.RegisterResult||op==Op.LoginResult||op==Op.LogoutResult||op==Op.ActionResult|| op==Op.RoomListResult||op==Op.HistoryResult||op==Op.HistoryDetailResult||op==Op.DisplayNameResult||op==Op.HeartbeatAck;
         }
         void ClearAccountState()  {
+            ClearReports();quickRequest=0;
             ClearChat();
             ClearWallet();
             Campaign=new Tank.Campaign.CampaignClient();

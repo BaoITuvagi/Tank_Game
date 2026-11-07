@@ -587,12 +587,12 @@ public class Room  {
             result.add(new Database.ResultPlayer(m.account.id(),m.displayName,m.slot,t.kills,t.deaths,rank,m.disconnected,roleplay==null?null:m.roleplay.nation));
         }
         byte[] payload=w.done();
-        for(Member m:members.values())m.session.event(END,payload);
         Database.Result record=new Database.Result(match,arenaMap.mapId,HexFormat.of().formatHex(arenaMap.hash),server.cfg.mode().name(),startedUtc,System.currentTimeMillis(),reason,seed,List.copyOf(result),world==null?null:world.tick,roomMode.name(),roleplay==null?null:RoleplayContent.Version+"@"+RoleplayContent.Hash);
         List<Server.Session> notify=members.values().stream().map(m->m.session).toList();
         server.db.save(record).thenAccept(saved-> {
             if(!saved)for(var s:notify)s.notice(Error.DATABASE_UNAVAILABLE.ordinal(),"Kết quả đang chờ lưu; kiểm tra log và spool");
         });
+        for(Member m:members.values())m.session.event(END,payload);
         phase=RoomState.WAITING;
         for(Member m:members.values()) {
             m.ready=m.prepared=m.rejoining=m.afkWarn=false;

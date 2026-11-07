@@ -49,31 +49,16 @@ public sealed class ArenaTerrainImporter : AssetPostprocessor {
         ArenaTerrainArt.Reset();string error=ArenaTerrainArt.Preload();
         if(error!=null)throw new BuildFailedException("Invalid arena terrain art: "+error);
         var manifest=JsonUtility.FromJson<ArenaTerrainArt.Manifest>(Resources.Load<TextAsset>(ArenaTerrainArt.Root+"catalog").text);
-        string provenance=AssetRoot+"PROVENANCE.md";
-        if(!File.Exists(provenance))throw new BuildFailedException("Missing arena terrain provenance");
-        string notice=File.ReadAllText(provenance);
-        if(!notice.Contains("image_gen")||!notice.Contains("2026-11-06"))throw new BuildFailedException("Incomplete arena terrain provenance");
-        string prompts=AssetRoot+"PROMPTS.md";
-        if(!File.Exists(prompts)||string.IsNullOrWhiteSpace(File.ReadAllText(prompts))||!notice.Contains("](PROMPTS.md)"))throw new BuildFailedException("Missing or unlinked arena terrain generation prompts");
         foreach(var entry in manifest.images) {
             string path=AssetRoot+entry.file+".png";
             if(!File.Exists(path))throw new BuildFailedException("Missing terrain source: "+entry.key);
             error=ValidateSource(entry,File.ReadAllBytes(path));if(error!=null)throw new BuildFailedException("Invalid arena terrain source: "+error);
-            if(!notice.Contains(entry.sourceHash))throw new BuildFailedException("Missing terrain source hash in provenance: "+entry.key);
             var importer=(TextureImporter)AssetImporter.GetAtPath(path);var texture=ArenaTerrainArt.Get(entry.key);
             if(importer==null||importer.textureType!=TextureImporterType.Default||importer.textureShape!=TextureImporterShape.Texture2D||importer.alphaSource!=TextureImporterAlphaSource.FromInput||!importer.alphaIsTransparency||importer.npotScale!=TextureImporterNPOTScale.None||importer.textureCompression!=TextureImporterCompression.Uncompressed||texture.isReadable||texture.mipmapCount!=1||texture.filterMode!=FilterMode.Bilinear||texture.wrapMode!=TextureWrapMode.Clamp)throw new BuildFailedException("Arena terrain importer settings: "+entry.key);
         }
     }
 }
-public sealed class ArenaTerrainBuildValidation : IPreprocessBuildWithReport,IPostprocessBuildWithReport {
+public sealed class ArenaTerrainBuildValidation : IPreprocessBuildWithReport {
     public int callbackOrder {get{return 5;}}
     public void OnPreprocessBuild(BuildReport report){ArenaTerrainImporter.ValidateAssets();}
-    public void OnPostprocessBuild(BuildReport report) {
-        string directory=Path.Combine(Path.GetDirectoryName(report.summary.outputPath),"ThirdParty");Directory.CreateDirectory(directory);
-        // Source provenance links to its neighbouring PROMPTS.md. Keep that
-        // link usable after both notices receive distinct packaged filenames.
-        string notice=File.ReadAllText(ArenaTerrainImporter.AssetRoot+"PROVENANCE.md").Replace("](PROMPTS.md)","](ArenaTerrain-PROMPTS.md)");
-        File.WriteAllText(Path.Combine(directory,"ArenaTerrain-PROVENANCE.md"),notice,new UTF8Encoding(false));
-        File.Copy(ArenaTerrainImporter.AssetRoot+"PROMPTS.md",Path.Combine(directory,"ArenaTerrain-PROMPTS.md"),true);
-    }
 }

@@ -23,6 +23,7 @@ namespace Tank {
         }
         readonly int[] campaignNations={0,1,5};
         bool CampaignOpen {get{return campaignPage!=0;}}
+#if TANK_QA
         void SetupCampaignPreview() {
             if(!IsMenuPreview)return;
             string page=UxTestDriver.Arg("--menu-preview","");
@@ -73,6 +74,7 @@ namespace Tank {
             if(System.Array.IndexOf(args,"--preview-wide-names")>=0){client.Nickname=new string('M',24);foreach(var rank in client.Campaign.Rankings)rank.Name=client.Nickname;}
             if(System.Array.IndexOf(args,"--preview-scroll-bottom")>=0){campaignBriefingOpen=true;campaignSkillDetailsOpen=true;campaignHudScroll=campaignScroll=campaignResultScroll=campaignShopScroll=new Vector2(0,10000);}
         }
+#endif
         void CampaignEntryButtons() {
             if(Button("Chiến dịch",true,true)){campaignPage=1;campaignScroll=Vector2.zero;}
             if(Button("BXH chiến dịch",true,true)){campaignPage=2;campaignScroll=Vector2.zero;if(client.Phase==ClientPhase.LOBBY)client.CampaignCommand(3);}

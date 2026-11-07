@@ -20,7 +20,7 @@ Mục lục: [Schema](#schema) · [Lưu và phục hồi](#persistence) · [Lị
 
 Sau schema, constructor gọi migration thêm `matches.duration_ticks`, `matches.room_mode`, `matches.content_version`, `match_players.nation_id` nếu chưa có. Mỗi migration đọc `PRAGMA table_info` trước `ALTER TABLE`, nên chạy lặp được. Các dòng lịch sử cũ giữ null; không suy nation hoặc content từ bản hiện tại. Cột dư trong database cũ, chẳng hạn `card_skill_id`, được giữ nguyên để không mất dữ liệu nhưng application hiện tại không đọc/ghi cột đó; JSON spool có field cũ cũng không biến nó thành tính năng đang dùng.
 
-Nguồn: [Database constructor/migrateDurationColumn/migrateColumn](../source/server/src/main/java/tank/Database.java), [Room.finish](../source/server/src/main/java/tank/Room.java). Test mô tả yêu cầu tương thích: [RoleplayDatabaseTest](../source/server/src/test/java/tank/RoleplayDatabaseTest.java), [MatchDurationTest.legacyDatabaseMigratesIdempotentlyWithoutChangingHistory](../source/server/src/test/java/tank/MatchDurationTest.java).
+Nguồn: [Database constructor/migrateDurationColumn/migrateColumn](../source/server/src/main/java/tank/Database.java), [Room.finish](../source/server/src/main/java/tank/Room.java). Test mô tả yêu cầu tương thích: RoleplayDatabaseTest, MatchDurationTest.legacyDatabaseMigratesIdempotentlyWithoutChangingHistory.
 
 <a id="persistence"></a>
 ## Lưu kết quả, spool và phục hồi
@@ -37,7 +37,7 @@ Constructor đọc lại các file `.json` trong spool vào pending; file không
 
 Database, WAL/SHM, spool, log và kết quả build/test là dữ liệu local/runtime, phải giữ ngoài Git. Vận hành/cấu hình nằm ở [deployment](deployment.md); tài liệu này không yêu cầu thay schema hoặc thao tác dữ liệu đang có.
 
-Nguồn: [Database.Result/ResultPlayer/save/persistOrSpool/persist/retryPending/spoolOnly/close/nextMatch](../source/server/src/main/java/tank/Database.java), [Room.finish](../source/server/src/main/java/tank/Room.java), [Server constructor](../source/server/src/main/java/tank/Server.java). Test: [DatabaseTest.spoolAndRetry/queueOverflowSpoolsAndStartupRecovers/databaseAndSpoolFailureKeepsResultUntilRecovery](../source/server/src/test/java/tank/DatabaseTest.java), [RoleplayDatabaseTest.oldSpoolWithoutRoleplayMetadataStillPersists](../source/server/src/test/java/tank/RoleplayDatabaseTest.java).
+Nguồn: [Database.Result/ResultPlayer/save/persistOrSpool/persist/retryPending/spoolOnly/close/nextMatch](../source/server/src/main/java/tank/Database.java), [Room.finish](../source/server/src/main/java/tank/Room.java), [Server constructor](../source/server/src/main/java/tank/Server.java). Test: DatabaseTest.spoolAndRetry/queueOverflowSpoolsAndStartupRecovers/databaseAndSpoolFailureKeepsResultUntilRecovery, RoleplayDatabaseTest.oldSpoolWithoutRoleplayMetadataStillPersists.
 
 <a id="history"></a>
 ## Lịch sử và thời lượng
@@ -48,7 +48,7 @@ Nguồn: [Database.Result/ResultPlayer/save/persistOrSpool/persist/retryPending/
 
 Wire detail giữ phần duration tùy chọn để đọc được bản ghi cũ. Nếu có metadata mà không có duration, server gửi sentinel `u32.MaxValue` trước metadata version1; nation null thành 255. Bố cục byte đầy đủ được duy trì tại [protocol/TCP](protocol.md#tcp). Metadata RP là dấu vết phiên bản của trận đã diễn ra; giữ null khi spool cũ không có metadata, không suy từ loadout đang chạy.
 
-Nguồn: [Database.history/historyDetail](../source/server/src/main/java/tank/Database.java), [Server.Session.request — HISTORY/HISTORY_DETAIL](../source/server/src/main/java/tank/Server.java), [ClientCore.Handle — HistoryResult/HistoryDetailResult](../source/client/Assets/Scripts/ClientCore.Messages.cs), [ClientModels](../source/client/Assets/Scripts/ClientModels.cs). Test: [MatchDurationTest](../source/server/src/test/java/tank/MatchDurationTest.java), [MatchDurationTests](../source/client/Assets/Tests/Editor/MatchDurationTests.cs), [RoleplayDatabaseTest](../source/server/src/test/java/tank/RoleplayDatabaseTest.java).
+Nguồn: [Database.history/historyDetail](../source/server/src/main/java/tank/Database.java), [Server.Session.request — HISTORY/HISTORY_DETAIL](../source/server/src/main/java/tank/Server.java), [ClientCore.Handle — HistoryResult/HistoryDetailResult](../source/client/Assets/Scripts/ClientCore.Messages.cs), [ClientModels](../source/client/Assets/Scripts/ClientModels.cs). Test: MatchDurationTest, MatchDurationTests, RoleplayDatabaseTest.
 
 <a id="accounts"></a>
 ## Tài khoản và tên hiển thị
@@ -83,7 +83,7 @@ Nguồn: [Database.credentials/hash/register/login/validDisplayName/displayName/
 
 `Metrics` thu số từ room thread vào queue **8192**; một writer riêng định dạng/ghi CSV. Cột gồm tick/encode/send time, overrun, full/delta/fallback/resync, input ontime/missing/late/duplicate/conflict/drop, command depth, byte/packet TX/RX, invalid/UDP drop, heap/GC/process CPU, schedule lag và metrics drop. Byte/packet/các counter transport có phạm vi server; dòng vẫn gắn room/match. `tick_us`/`encode_us`/`send_us`/`schedule_lag_us` là microsecond, timestamp lịch sử là millisecond; không trộn hai đơn vị.
 
-COMBAT retention/overflow có counter riêng; việc loại event trang trí/critical không làm đổi damage hoặc state gameplay. Giới hạn và dedup của event được mô tả ở [protocol/combat](protocol.md#combat-events). CSV/log hỗ trợ chẩn đoán và đánh giá mạng; số liệu và test tự động không thay thế playtest về cảm giác chơi/cân bằng. Phương pháp đánh giá và cách chạy test nằm ở [evaluation](evaluation.md) và [testing](testing.md).
+COMBAT retention/overflow có counter riêng; việc loại event trang trí/critical không làm đổi damage hoặc state gameplay. Giới hạn và dedup của event được mô tả ở [protocol/combat](protocol.md#combat-events). CSV/log hỗ trợ chẩn đoán và đánh giá mạng; số liệu và test tự động không thay thế playtest về cảm giác chơi/cân bằng. Phương pháp đánh giá và cách chạy test nằm ở [evaluation](evaluation.md) và testing.
 
 Nguồn: [Main.main/Tee](../source/server/src/main/java/tank/Main.java), [Metrics.row/writeLoop](../source/server/src/main/java/tank/Metrics.java), [RoleplayMatch.use/dispatch/observe/summary](../source/server/src/main/java/tank/RoleplayMatch.java), [Room.prepare](../source/server/src/main/java/tank/Room.java), [CombatEvents.add/prune](../source/server/src/main/java/tank/CombatEvents.java).
 
@@ -92,9 +92,9 @@ Nguồn: [Main.main/Tee](../source/server/src/main/java/tank/Main.java), [Metric
 
 | Phạm vi | Test hiện có để đọc/chạy theo testing guide |
 |---|---|
-| DB lock, spool/retry, worker đầy, startup recovery | [DatabaseTest](../source/server/src/test/java/tank/DatabaseTest.java) |
-| Migration lặp, null legacy, field/cột cũ và RP metadata | [RoleplayDatabaseTest](../source/server/src/test/java/tank/RoleplayDatabaseTest.java) |
-| Đủ phút, kết thúc sớm, duration nullable | [MatchDurationTest](../source/server/src/test/java/tank/MatchDurationTest.java), [MatchDurationTests](../source/client/Assets/Tests/Editor/MatchDurationTests.cs) |
-| Kết quả phòng, tên và lịch sử | [RoomFeaturesTest](../source/server/src/test/java/tank/RoomFeaturesTest.java), [RoomRefinementTest](../source/server/src/test/java/tank/RoomRefinementTest.java) |
+| DB lock, spool/retry, worker đầy, startup recovery | DatabaseTest |
+| Migration lặp, null legacy, field/cột cũ và RP metadata | RoleplayDatabaseTest |
+| Đủ phút, kết thúc sớm, duration nullable | MatchDurationTest, MatchDurationTests |
+| Kết quả phòng, tên và lịch sử | RoomFeaturesTest, RoomRefinementTest |
 
 Không có kết quả chạy mới được tạo cho thay đổi tài liệu này; các test được liên kết làm bằng chứng về yêu cầu mà mã hiện tại cố gắng đáp ứng.

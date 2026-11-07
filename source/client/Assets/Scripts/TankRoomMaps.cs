@@ -36,13 +36,17 @@ namespace Tank {
             GUILayout.Label(fixedMap?"Bản đồ được giữ cố định từ khi tạo phòng.":"Áp dụng cho cả Đấu thường và Nhập vai.",menu.Hint);
             GUILayout.Space(8);
             if(fixedMap) {DrawRoomMapSummary(roomMapId,width);return;}
+            roomMapId=DrawMapChoiceCards(width,roomMapId,true);
+        }
+        int DrawMapChoiceCards(float width,int selectedId,bool showDefault=false) {
+            InitRoomMapStyles();
             int count=MapCatalog.Entries.Count;
             Rect bounds=GUILayoutUtility.GetRect(width,RoomMapUiGeometry.Height(width,count),GUILayout.Width(width));
             for(int i=0;i<count;i++) {
                 var entry=MapCatalog.Entries[i];
                 Rect card=RoomMapUiGeometry.Card(bounds,i,count);
-                bool selected=entry.id==roomMapId;
-                if(GUI.Button(card,"",plainCardButton)){roomMapId=entry.id;GUI.FocusControl(null);}
+                bool selected=entry.id==selectedId;
+                if(GUI.Button(card,"",plainCardButton)){selectedId=entry.id;GUI.FocusControl(null);}
                 if(Event.current.type==EventType.Repaint) {
                     CartoonUi.Panel(card,selected?CartoonUi.PanelColor:CartoonUi.Backdrop,6,0);
                     ArenaRenderer.Fill(new Rect(card.x+8,card.y+1,card.width-16,3),selected?CartoonUi.Gold:CartoonUi.Outline);
@@ -50,10 +54,11 @@ namespace Tank {
                 DrawRoomMapThumbnail(new Rect(card.x+14,card.y+14,card.width-28,112),entry.Map);
                 GUI.Label(new Rect(card.x+12,card.y+137,card.width-24,26),entry.name,roomMapName);
                 GUI.Label(new Rect(card.x+12,card.y+166,card.width-24,36),entry.description,roomMapDescription);
-                string state=selected?"ĐÃ CHỌN":entry.id==MapCatalog.DefaultId?"MẶC ĐỊNH":"CHỌN BẢN ĐỒ";
-                if(selected&&entry.id==MapCatalog.DefaultId)state+=" · MẶC ĐỊNH";
+                string state=selected?"ĐÃ CHỌN":showDefault&&entry.id==MapCatalog.DefaultId?"MẶC ĐỊNH":"CHỌN BẢN ĐỒ";
+                if(selected&&showDefault&&entry.id==MapCatalog.DefaultId)state+=" · MẶC ĐỊNH";
                 GUI.Label(new Rect(card.x+12,card.yMax-23,card.width-24,21),state,roomMapState);
             }
+            return selectedId;
         }
         void DrawRoomMapSummary(int id,float width) {
             InitRoomMapStyles();

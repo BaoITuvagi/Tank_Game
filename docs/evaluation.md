@@ -9,7 +9,7 @@ Mục lục: [Tái lập](#reproducibility) · [Chỉ số](#metrics) · [Kịch
 
 Mỗi đợt đo cần ghi: ngày, mục tiêu, commit và patch/chỉ dấu working tree, hash bản build, JDK/Unity/OS, CPU/RAM, máy vật lý hay VM, client/server cùng máy hay khác máy, LAN/VPN, mode mạng, mode phòng, map/content hash, số người/phòng, thời lượng, seed và toàn bộ cấu hình impairment. Không ghi credentials hoặc dữ liệu người chơi vào báo cáo.
 
-Build và checks trước khi đo theo [testing](testing.md#matrix); chạy trên cấu hình/dữ liệu thử nghiệm theo [deployment](deployment.md#local-demo). Raw CSV, JSON và log ứng dụng có thể nằm trong `runtime/` theo quy ước ignore. Khi lập báo cáo, lưu bộ dữ liệu đã loại thông tin riêng cùng biểu đồ và mô tả cách xử lý ở nơi nhóm thống nhất để người khác tái lập được; không chỉ dẫn tới file local sẽ mất sau khi clone.
+Build và checks trước khi đo theo testing; chạy trên cấu hình/dữ liệu thử nghiệm theo [deployment](deployment.md#local-demo). Raw CSV, JSON và log ứng dụng có thể nằm trong `runtime/` theo quy ước ignore. Khi lập báo cáo, lưu bộ dữ liệu đã loại thông tin riêng cùng biểu đồ và mô tả cách xử lý ở nơi nhóm thống nhất để người khác tái lập được; không chỉ dẫn tới file local sẽ mất sau khi clone.
 
 Giữ các biến ngoài mục tiêu so sánh giống nhau. Kế hoạch khởi đầu: trận 180 giây, bỏ 10 giây đầu khi tổng hợp hiệu năng ổn định, ít nhất ba lần lặp cho mỗi cấu hình. Tách số liệu khởi động và phục hồi khỏi cửa sổ ổn định; không bỏ những lần thất bại khỏi bảng kết quả. Đây là quy ước đề xuất, không phải kết quả hoặc tiêu chí đã nghiệm thu của môn học.
 
@@ -41,12 +41,12 @@ Impairment có thể tác động hai chiều UDP. Phải ghi nơi bật, chiề
 | Tải người chơi | 2, 4, 8 client trong một phòng | Cùng mode mạng; tick time, băng thông, CPU/heap/GC; không gọi 8 client cục bộ là kết quả 8 máy LAN |
 | Chất lượng UDP | Không impairment; delay 50 ms/jitter 10 ms; loss 1% và 5%; một nhóm reorder/duplicate riêng | Dùng seed được ghi lại, bật một cấu hình mỗi lần; missing/resync, trạng thái client và hoàn thành trận |
 | Mất mạng và vào lại | Ngắt một client khi các client khác vẫn giữ trận RUNNING, rồi reconnect trong giới hạn hiện có | Ghi thời điểm ngắt/phục hồi, đúng match/slot/life, snapshot/buff/deadline, kết quả và lịch sử |
-| Chức năng Nhập vai/battlefield | Thường và Nhập vai; chọn đội khác nhau; có cả hai loại battlefield | Theo [kiểm tra thủ công](testing.md#manual), ảnh hoặc smoke JSON; ghi seed và tình huống thực tế, không suy luận từ ảnh đơn lẻ |
-| Lỗi lưu dữ liệu | Theo fixture cô lập của [DatabaseTest.spoolAndRetry, databaseAndSpoolFailureKeepsResultUntilRecovery, queueOverflowSpoolsAndStartupRecovers](../source/server/src/test/java/tank/DatabaseTest.java) | Bằng chứng transaction/spool/retry và thông báo; không gây lỗi trên database đang sử dụng |
+| Chức năng Nhập vai/battlefield | Thường và Nhập vai; chọn đội khác nhau; có cả hai loại battlefield | Theo kiểm tra thủ công, ảnh hoặc smoke JSON; ghi seed và tình huống thực tế, không suy luận từ ảnh đơn lẻ |
+| Lỗi lưu dữ liệu | Theo fixture cô lập của DatabaseTest.spoolAndRetry, databaseAndSpoolFailureKeepsResultUntilRecovery, queueOverflowSpoolsAndStartupRecovers | Bằng chứng transaction/spool/retry và thông báo; không gây lỗi trên database đang sử dụng |
 
 Các thiết lập impairment là tỷ lệ/xấp xỉ cấu hình của wrapper, không đảm bảo toàn bộ mạng thực tế có đúng tỷ lệ đó. Đọc giới hạn và điều kiện rejoin trong [protocol](protocol.md#rejoin) trước khi chọn thời lượng ngắt.
 
-Chạy harness bằng [ví dụ smoke host/join](testing.md#smoke). `SmokeResult` xuất JSON acceptance, không xuất chuỗi mẫu RTT/jitter/recovery, bandwidth hoặc toàn bộ counter client; cần bổ sung phương pháp thu mẫu trong tác vụ thực nghiệm sau này để tính các percentile client nêu trên. Các test [DeltaTest](../source/server/src/test/java/tank/DeltaTest.java), [PredictionTest](../source/server/src/test/java/tank/PredictionTest.java), [NetworkRejoinTest](../source/server/src/test/java/tank/NetworkRejoinTest.java), [ReliabilityTest](../source/server/src/test/java/tank/ReliabilityTest.java) và [BattlefieldTests](../source/client/Assets/Tests/Editor/BattlefieldTests.cs) là điểm tìm hiểu workload/assertion; sự tồn tại của chúng không xác nhận kết quả lần chạy hiện tại.
+Chạy harness bằng ví dụ smoke host/join. `SmokeResult` xuất JSON acceptance, không xuất chuỗi mẫu RTT/jitter/recovery, bandwidth hoặc toàn bộ counter client; cần bổ sung phương pháp thu mẫu trong tác vụ thực nghiệm sau này để tính các percentile client nêu trên. Các test DeltaTest, PredictionTest, NetworkRejoinTest, ReliabilityTest và BattlefieldTests là điểm tìm hiểu workload/assertion; sự tồn tại của chúng không xác nhận kết quả lần chạy hiện tại.
 
 <a id="results"></a>
 ## Kết quả và trạng thái bằng chứng
@@ -78,6 +78,6 @@ Chưa có bảng xác nhận tác giả/phạm vi kế thừa trong bộ docs n�
 <a id="sources"></a>
 ## Nguồn và cách cập nhật
 
-Nguồn chỉ số: `Metrics.row/writeLoop`, `Room.loop/snapshot`, `ClientCore`, `ClientCore.Network`, `UdpTransport`, `UdpImpairment` và `SmokePlayer.Save` đã dẫn ở trên. Thiết lập và log: [deployment](deployment.md#configuration). Quy tắc nghiệm thu chức năng: [testing](testing.md#evidence).
+Nguồn chỉ số: `Metrics.row/writeLoop`, `Room.loop/snapshot`, `ClientCore`, `ClientCore.Network`, `UdpTransport`, `UdpImpairment` và `SmokePlayer.Save` đã dẫn ở trên. Thiết lập và log: [deployment](deployment.md#configuration). Quy tắc nghiệm thu chức năng: testing.
 
 Cập nhật tài liệu này khi thực sự có phép đo mới hoặc định nghĩa chỉ số thay đổi; giữ cả hạn chế và lần chạy thất bại. Kết quả nghiên cứu cần trích nguồn riêng cho lý thuyết/giải pháp liên quan, không lấy docs nội bộ làm thay thế toàn bộ tài liệu tham khảo học thuật.
