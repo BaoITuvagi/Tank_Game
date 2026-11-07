@@ -5,18 +5,16 @@ namespace Tank {
         bool roleplayShopOpen;
         Vector2 roleplayShopScroll;
         readonly RoleplayShopOpeningNotice shopOpeningNotice=new RoleplayShopOpeningNotice();
-        GUIStyle shopOpeningText,shopName,shopDescription,shopPrice,shopSymbol,shopBuy;
+        GUIStyle shopOpeningText,shopName,shopDescription,shopPrice,shopBuy;
         static readonly string[] ShopItemNames={"Cứu thương","Giáp","Đạn nổ","Thanh tẩy","Bất tử","Phân tách"};
         static readonly string[] ShopItemDescriptions={"Hồi 30% máu tối đa.","Giảm 35% sát thương trong 6 giây.","Đạn gây nổ lan trong 5 giây.","Gỡ các hiệu ứng bất lợi đang có.","Chặn sát thương trong 3 giây.","3 phát bắn có khả năng tách đạn."};
-        static readonly string[] ShopItemSymbols={"+","A","HE","P","I","M"};
         static readonly Color[] ShopItemColors={new Color(.2f,1,.42f),new Color(.7f,.84f,.96f),new Color(1,.42f,.08f),Color.white,new Color(1,.9f,.18f),new Color(.82f,.32f,1)};
         void InitRoleplayShopStyles() {
             if(shopName!=null)return;
             shopName=CartoonUi.Label(19,CartoonUi.Ink);
             shopDescription=CartoonUi.Label(14,CartoonUi.Ink);
             shopPrice=CartoonUi.Label(15,CartoonUi.Ink);shopPrice.alignment=TextAnchor.MiddleRight;
-            shopSymbol=CartoonUi.Label(20,CartoonUi.Text);shopSymbol.alignment=TextAnchor.MiddleCenter;
-            shopBuy=CartoonUi.Button(CartoonUi.Gold,15,40);shopBuy.padding=new RectOffset(6,6,3,5);
+            shopBuy=CartoonUi.Button(CartoonUi.Gold,15,48);shopBuy.padding=new RectOffset(6,6,3,5);
         }
         void UpdateRoleplayShop() {
             UpdateShopOpeningNotice();
@@ -65,7 +63,7 @@ namespace Tank {
             GUILayout.BeginVertical(GUILayout.Width(contentWidth));
             Rect account=GUILayoutUtility.GetRect(contentWidth,48,GUILayout.Width(contentWidth));
             DrawWalletBadge(new Rect(account.x,account.y,210,40));
-            GUI.Label(new Rect(account.x+230,account.y+8,contentWidth-230,32),ItemScheduleText(),menu.Text);
+            GUI.Label(new Rect(account.x+230,account.y,contentWidth-230,44),"Vàng tài khoản\n"+ItemScheduleText(),menu.Hint);
             GUILayout.Label("Mỗi loại mua tối đa 1 lần/đợt. Item được cất vào túi; bấm icon ở sidebar để dùng khi cần.",menu.Hint);
             TankState own;bool alive=client.Latest!=null&&client.Latest.World.Tanks.TryGetValue(client.Slot,out own)&&own.Hp>0;
             if(!alive)GUILayout.Label("Chờ xe hồi sinh để mua vật phẩm.",menu.Hint);
@@ -82,14 +80,14 @@ namespace Tank {
                 Rect insignia=new Rect(row.x+14,row.y+18,46,46);
                 CartoonUi.Panel(insignia,CartoonUi.PanelDark,5);
                 ArenaRenderer.Fill(new Rect(insignia.x,insignia.y+4,3,insignia.height-8),ShopItemColors[type]);
-                shopSymbol.normal.textColor=ShopItemColors[type];
-                GUI.Label(insignia,ShopItemSymbols[type],shopSymbol);
+                ItemIconArt.DrawItem(new Rect(insignia.x+4,insignia.y+3,insignia.width-7,insignia.height-6),type);
                 GUI.Label(new Rect(row.x+76,row.y+12,textWidth,nameHeight),name,shopName);
                 GUI.Label(new Rect(row.x+76,row.y+18+nameHeight,textWidth,descriptionHeight),description,shopDescription);
-                GUI.Label(new Rect(row.xMax-130,row.y+7,112,24),GameRules.RoleplayItemPrice+" vàng",shopPrice);
+                ItemIconArt.DrawGold(new Rect(row.xMax-130,row.y+9,18,18));
+                GUI.Label(new Rect(row.xMax-107,row.y+7,89,24),GameRules.RoleplayItemPrice+" vàng",shopPrice);
                 bool enabled=GUI.enabled;GUI.enabled=enabled&&client.CanBuyItem(type);
-                string action=client.ItemBought(type)?"Đã mua":client.ShopPending?"Đang mua…":!alive?"Chờ hồi sinh":client.WalletLoaded&&client.WalletGold<GameRules.RoleplayItemPrice?"Thiếu vàng":"Mua";
-                if(GUI.Button(new Rect(row.xMax-130,row.y+36,112,40),action,shopBuy))client.BuyItem(type);
+                string action=client.ItemBought(type)?"Đã mua":client.ShopPending?"Đang xử lý…":!alive?"Chờ hồi sinh":client.WalletLoaded&&client.WalletGold<GameRules.RoleplayItemPrice?"Thiếu vàng":"Mua vào túi";
+                if(GUI.Button(new Rect(row.xMax-130,row.y+34,112,48),action,shopBuy))client.BuyItem(type);
                 GUI.enabled=enabled;
             }
             GUILayout.EndVertical();GUILayout.EndScrollView();GUILayout.EndArea();

@@ -1,0 +1,16 @@
+{
+  "renderer": "kenney-flat-v1",
+  "sources": [
+    {"key": "crate", "resource": "ArenaArt/crateMetal", "width": 28, "height": 28},
+    {"key": "bullet", "resource": "ArenaArt/bulletSand1_outline", "width": 8, "height": 14}
+  ],
+  "icons": [
+    {"key": "medical", "source": "crate"},
+    {"key": "armor", "source": "crate"},
+    {"key": "he", "source": "crate"},
+    {"key": "purification", "source": "crate"},
+    {"key": "invincibility", "source": "crate"},
+    {"key": "mirror", "source": "crate"},
+    {"key": "gold", "source": "single-coin"}
+  ]
+}

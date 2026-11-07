@@ -30,9 +30,7 @@ namespace Tank {
             CartoonUi.Panel(rect,hovered?Color.Lerp(CartoonUi.PanelDark,CartoonUi.PanelColor,.55f):CartoonUi.PanelDark,5,1);
             if(GUI.Button(info,GUIContent.none,GUIStyle.none))walletNotice=WalletPurpose;
             Rect coin=new Rect(rect.x+9,rect.center.y-12,24,24);
-            CartoonUi.Panel(coin,new Color(.82f,.47f,.1f),12,0);
-            CartoonUi.Panel(new Rect(coin.x+2,coin.y+2,20,20),CartoonUi.Gold,10,0);
-            ArenaRenderer.Fill(new Rect(coin.center.x-1.5f,coin.y+6,3,12),new Color(.9f,.57f,.1f));
+            ItemIconArt.DrawGold(coin);
             string amount=client.WalletLoaded?client.WalletGold.ToString("N0",CultureInfo.InvariantCulture):"…";
             Rect number=new Rect(rect.x+38,rect.y+3,rect.width-82,rect.height-6);
             walletNumber.fontSize=20;

@@ -86,6 +86,7 @@ Hiệu ứng chiến đấu được nhận từ snapshot trong [ArenaRenderer.A
 | Tài nguyên | Cách dùng và yêu cầu bảo toàn |
 |---|---|
 | `Assets/Resources/ArenaArt/` | Texture được nạp bằng tên qua `Resources.Load`, ví dụ trong [ArenaRenderer.Art](../source/client/Assets/Scripts/ArenaRenderer.cs). Giữ tên/đường dẫn, `.meta` và GUID để bảo toàn tham chiếu. |
+| `Assets/Resources/ItemCartoon/` | Catalog hoạt động của `ItemIconArt` tham chiếu thùng/đạn Kenney trong ArenaArt và các hình chức năng được vẽ bằng code, dùng chung trên map/shop/túi. Giữ importer và giấy phép nguồn Kenney. |
 | `Assets/Resources/MenuArt/` | Bản sao nguyên byte `logo.png`, `anh_nen.png` và bộ thành phần Chequered Ink — Cartoon UI Pack đã import; checkbox/thanh cuộn vẫn dùng pack. Nút/panel dùng texture hình học của CartoonUi. Giữ [giấy phép riêng](../source/client/Assets/Resources/MenuArt/ChequeredInk-LICENSE.txt). Không dùng ảnh tham khảo Goose Goose Duck trong game. |
 | `Assets/Resources/MenuArt/Fonts/` | Hai TTF static Bungee Regular và Nunito Bold; giữ `Bungee-OFL.txt`, `Nunito-OFL.txt`, `NOTICE.txt` với nguồn/hash/cách tạo instance Nunito. Không cần cài font trên máy người chơi. |
 | `Assets/Resources/CombatFx/CozyChunky/` | Đã kèm **21 clip Cooked FX — Cozy Chunky**, PNG, `catalog.json`, `LICENSE.pdf` và `.meta`; clone đủ repository là Unity có thể import ngay, không cần chọn ZIP trước khi Play, build hoặc test. |

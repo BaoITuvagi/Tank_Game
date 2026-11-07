@@ -3,14 +3,8 @@ using UnityEngine;
 namespace Tank {
     public sealed partial class ArenaRenderer {
         static readonly Color[] ItemColors={new Color(.2f,1,.42f),new Color(.7f,.84f,.96f),new Color(1,.42f,.08f),Color.white,new Color(1,.9f,.18f),new Color(.82f,.32f,1)};
-        static readonly string[] ItemSymbols={"+","A","HE","P","I","M"};
-        static readonly string[] ItemNames={"Cứu thương","Giáp","Đạn nổ","Thanh tẩy","Bất tử","Phân tách"};
         void ItemIcon(Rect r,int type) {
-            Color c=ItemColors[type];
-            Shadow(r);Fill(r,new Color(.04f,.07f,.1f,.95f));
-            Fill(new Rect(r.x,r.y,r.width,2),c);Fill(new Rect(r.x,r.yMax-2,r.width,2),c);
-            Fill(new Rect(r.x,r.y,2,r.height),c);Fill(new Rect(r.xMax-2,r.y,2,r.height),c);
-            GUI.color=c;GUI.Label(r,new GUIContent(ItemSymbols[type],ItemNames[type]),small);GUI.color=Color.white;
+            ItemIconArt.DrawItem(r,type);
         }
         void DrawItemWorld(WorldState world,TankState observer,uint tick) {
             EffectTextures();
@@ -19,7 +13,7 @@ namespace Tank {
                 float pulse=.75f+.2f*Mathf.Sin(Time.unscaledTime*4+item.Id);
                 FxSprite("pickup_ui/item_glow",item.X,item.Y,2,combatFx.Clock,new Color(1,1,1,.6f));
                 Disc(item.X,item.Y,1,glow,Fade(ItemColors[item.Type],pulse*.55f));
-                float side=Mathf.Max(16,GameRules.ItemHalfSize*2*scale);
+                float side=Mathf.Max(24,GameRules.ItemHalfSize*2*scale);
                 Vector2 p=Point(item.X,item.Y);ItemIcon(new Rect(p.x-side/2,p.y-side/2,side,side),item.Type);
             }
             foreach(var tank in world.Tanks.Values) {
