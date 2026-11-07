@@ -144,7 +144,7 @@ Giá trị trong `config/server.properties` và ý nghĩa vận hành:
 | `spool.path` | `runtime/spool` | Dữ liệu chờ persistence; xem [persistence](data.md#persistence). |
 | `metrics.path` | `runtime/server.csv` | Metrics CSV; xem [ý nghĩa metrics](evaluation.md#metrics). |
 | `log.path` | `runtime/server.log` | Log console/lỗi được ghi nối tiếp bởi `Main.main`. |
-| `map.path` | `source/client/Assets/StreamingAssets/map.json` | Map cơ sở. `Server` còn tải `map-large.json` cùng thư mục, hoặc đường dẫn `map.large.path` nếu đặt riêng. Định dạng và map thực dùng ở [map](gameplay.md#maps). |
+| `map.path` | `source/client/Assets/StreamingAssets/map.json` | Map legacy. `Server` còn tải `map-large.json` (hoặc `map.large.path`) và `multiplayer-maps.json` cùng thư mục map lớn; manifest tham chiếu thêm `map-fortress.json`/`map-river.json`. Phân phối đủ manifest và ba map cùng client/server v18; xem [map](gameplay.md#maps). |
 | `benchmark`, `match.ticks` | `false`, `5400` | Chế độ thử nghiệm và thời lượng mặc định bằng tick. `match.ticks` hợp lệ 1–65535; giá trị khác 5400 yêu cầu `benchmark=true`. Đây không thay thế các lựa chọn thời lượng phòng trong UI. |
 | `impairment.enabled`, `impairment.seed` | `false`, `20261007` | Bật mô phỏng mạng và seed. |
 | `impairment.delay.ms`, `impairment.jitter.ms` | `0`, `0` | Độ trễ và jitter giả lập, không âm. |

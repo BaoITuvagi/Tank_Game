@@ -64,10 +64,10 @@ class RoomGameplayUpgradeTest {
    a.setSoTimeout(5000);b.setSoTimeout(5000);BaselineTest.auth(a,"hphost");BaselineTest.auth(b,"hpjoin");
    for(int hp:new int[]{0,501}){BaselineTest.send(a,CREATE_ROOM,new Writer().str("HP").u8(4).u16(180).str("").u16(hp).done());assertEquals(Protocol.Error.INVALID_REQUEST.ordinal(),new Reader(BaselineTest.waitFor(a,ACTION_RESULT).payload()).u16());assertTrue(s.rooms.isEmpty());}
    BaselineTest.send(a,CREATE_ROOM,new Writer().str("HP").u8(4).u16(180).str("").u16(500).done());assertEquals(0,new Reader(BaselineTest.waitFor(a,ACTION_RESULT).payload()).u16());
-   byte[] state=BaselineTest.waitFor(a,ROOM_STATE).payload();assertEquals(500,new Reader(Arrays.copyOfRange(state,state.length-2,state.length)).u16());int id=new Reader(state).u32();
-   BaselineTest.send(b,JOIN_ROOM,new Writer().u32(id).done());BaselineTest.waitFor(b,ACTION_RESULT);state=BaselineTest.waitFor(b,ROOM_STATE).payload();assertEquals(500,new Reader(Arrays.copyOfRange(state,state.length-2,state.length)).u16());BaselineTest.waitFor(a,ROOM_STATE);
+   byte[] state=BaselineTest.waitFor(a,ROOM_STATE).payload();assertEquals(500,new Reader(Arrays.copyOfRange(state,state.length-5,state.length-3)).u16());int id=new Reader(state).u32();
+   BaselineTest.send(b,JOIN_ROOM,new Writer().u32(id).done());BaselineTest.waitFor(b,ACTION_RESULT);state=BaselineTest.waitFor(b,ROOM_STATE).payload();assertEquals(500,new Reader(Arrays.copyOfRange(state,state.length-5,state.length-3)).u16());BaselineTest.waitFor(a,ROOM_STATE);
    BaselineTest.send(a,ROOM_SETTINGS,new Writer().str("New HP").u8(4).u16(180).u8(0).u16(300).done());assertEquals(0,new Reader(BaselineTest.waitFor(a,ACTION_RESULT).payload()).u16());
-   for(var socket:List.of(a,b)){state=BaselineTest.waitFor(socket,ROOM_STATE).payload();assertEquals(300,new Reader(Arrays.copyOfRange(state,state.length-2,state.length)).u16());}assertEquals(300,s.rooms.get(id).startingHp);
+   for(var socket:List.of(a,b)){state=BaselineTest.waitFor(socket,ROOM_STATE).payload();assertEquals(300,new Reader(Arrays.copyOfRange(state,state.length-5,state.length-3)).u16());}assertEquals(300,s.rooms.get(id).startingHp);
   }}
  }
 }

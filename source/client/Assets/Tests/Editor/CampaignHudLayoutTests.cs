@@ -32,6 +32,23 @@ public class CampaignHudLayoutTests {
         Assert.AreEqual("Đang xử lý…",BattleHudUi.State(false,3,"lượt",blockedReason:"Đang xử lý…"));
         Assert.AreEqual("Xác nhận mục tiêu",BattleHudUi.State(true,0,"giây","Xác nhận mục tiêu"));
     }
+    [TestCase(ClientPhase.ROOM)] [TestCase(ClientPhase.PREPARING)] [TestCase(ClientPhase.PLAYING)] [TestCase(ClientPhase.RESULTS)] [TestCase(ClientPhase.DISCONNECTED)]
+    public void AuthoritativeMultiplayerOrDisconnectPhaseClosesCampaignPresentationWithoutDiscardingTheRun(ClientPhase phase){
+        var host=new GameObject("Campaign phase regression");host.SetActive(false);
+        using(var client=new ClientCore(null,new byte[32]))try{
+            var app=host.AddComponent<TankApp>();var flags=BindingFlags.Instance|BindingFlags.NonPublic;
+            var run=new RunState{Id="resumable",Turn=42,Gold=185};client.Campaign.Run=run;client.Campaign.Pending=true;client.Phase=phase;
+            typeof(TankApp).GetField("client",flags).SetValue(app,client);
+            foreach(string field in new[]{"campaignPage","queuedCampaignAction"})typeof(TankApp).GetField(field,flags).SetValue(app,3);
+            foreach(string field in new[]{"campaignShopOpen","campaignEndConfirm"})typeof(TankApp).GetField(field,flags).SetValue(app,true);
+            typeof(TankApp).GetMethod("UpdateCampaign",flags).Invoke(app,null);
+            Assert.AreEqual(0,typeof(TankApp).GetField("campaignPage",flags).GetValue(app));
+            Assert.AreEqual(-1,typeof(TankApp).GetField("queuedCampaignAction",flags).GetValue(app));
+            foreach(string field in new[]{"campaignShopOpen","campaignEndConfirm"})Assert.IsFalse((bool)typeof(TankApp).GetField(field,flags).GetValue(app),field);
+            Assert.AreSame(run,client.Campaign.Run);Assert.AreEqual(42,run.Turn);Assert.AreEqual(185,run.Gold);
+            Assert.IsTrue(client.Campaign.Pending,"Closing a local screen must not forge completion of a network request.");
+        }finally{Object.DestroyImmediate(host);}
+    }
     static void AssertCombatActionsFit(CampaignHudLayout layout,float height){
         Assert.LessOrEqual(layout.Vitals.yMax,layout.Objective.y);
         Assert.LessOrEqual(layout.Objective.yMax,layout.Fire.y);

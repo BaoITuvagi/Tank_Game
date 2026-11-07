@@ -14,8 +14,30 @@ class GameplayTest {
   w.step(Map.of());assertFalse(w.bullets.containsKey(1));assertEquals(37+150,w.tick);
  }
  @Test void movementWaterWallsTurret(){World w=new World(map,1);w.add(0);var t=w.tanks.get(0);t.x=t.y=5;World.movement(t,new World.Input(1,1,0),map,w.bricks);float straight=t.y-5;t.x=t.y=5;World.movement(t,new World.Input(1,9,0),map,w.bricks);assertEquals(straight,Math.hypot(t.x-5,t.y-5),1e-5);t.x=28;t.y=15;World.movement(t,new World.Input(1,1,0),map,w.bricks);assertEquals(.15,t.y-15,1e-5);t.x=1.85f;t.y=5;World.movement(t,new World.Input(1,4,0),map,w.bricks);assertEquals(1.85,t.x,1e-5);assertEquals(100,World.turn(35900,100));assertEquals(35600,World.turn(0,18000));}
- @Test void cooldownLifetimeDamageAndRespawn(){World w=new World(map,1);w.add(0);var t=w.tanks.get(0);t.x=t.y=5;for(int i=1;i<=30;i++)w.step(Map.of(0,new World.Input(i,16,0)));assertEquals(1,w.nextBullet-1);w.step(Map.of(0,new World.Input(31,16,0)));assertEquals(2,w.nextBullet-1);w.damage(t,0);assertEquals(80,t.hp);w.tick=151;w.damage(t,0,100);assertEquals(0,t.hp);assertEquals(1,t.deaths);assertEquals(0,t.kills);for(int i=0;i<90;i++)w.step(Map.of());assertEquals(100,t.hp);assertEquals(w.tick,t.shield);}
+ @Test void cooldownLifetimeDamageAndRespawn(){World w=new World(map,1);w.add(0);var t=w.tanks.get(0);t.x=t.y=5;for(int i=1;i<=30;i++)w.step(Map.of(0,new World.Input(i,16,0)));assertEquals(1,w.nextBullet-1);w.step(Map.of(0,new World.Input(31,16,0)));assertEquals(2,w.nextBullet-1);w.damage(t,0);assertEquals(100,t.hp);w.tick=90;w.damage(t,0);assertEquals(80,t.hp);w.tick=151;w.damage(t,0,100);assertEquals(0,t.hp);assertEquals(1,t.deaths);assertEquals(0,t.kills);for(int i=0;i<90;i++)w.step(Map.of());assertEquals(100,t.hp);assertEquals(w.tick+90,t.shield);}
  @Test void sweepAndCorner(){var h=World.sweep(0,0,20,20,5,5,6,6,null,null,1);assertNotNull(h);assertEquals(.25,h.time());assertEquals(-1,h.nx());assertEquals(-1,h.ny());assertNull(World.sweep(0,0,0,10,5,5,6,6,null,null,1));}
+ @Test void doubledProjectilesHitAlongTheirNewLengthAndWidthForEveryKind(){
+  for(int kind=0;kind<=5;kind++)for(boolean sideways:new boolean[]{false,true}){
+   GameMap open=new GameMap();open.walls=new GameMap.Rect[0];open.bricks=new GameMap.Rect[0];open.water=new GameMap.Rect[0];
+   World w=new World(open,1);var target=new World.Tank();target.slot=1;target.x=target.y=10;w.tanks.put(1,target);
+   var b=new World.Bullet();b.id=1;b.owner=0;b.kind=kind;b.damage=WorldItems.isMirrorChild(kind)?WorldItems.MIRROR_DAMAGE:GameRules.BulletDamage;float size=WorldItems.size(b);
+   // Both paths missed the old 0.3/0.16 half extents, and now overlap the larger projectile.
+   b.x=sideways?9.5f:10-GameRules.TankHalfSize-.6f*size-.6f;
+   b.y=sideways?10+GameRules.TankHalfSize+.16f*size+.04f:10;w.bullets.put(1,b);
+   w.advance(b);assertEquals(100-b.damage-(WorldItems.hasHe(kind)?6:0),target.hp,"kind="+kind+", sideways="+sideways);assertFalse(w.bullets.containsKey(1));
+   target.hp=100;b.x=9.5f;b.y=10+GameRules.TankHalfSize+.32f*size+.02f;w.bullets.put(1,b);
+   w.advance(b);assertEquals(100,target.hp,"outside enlarged width, kind="+kind);assertTrue(w.bullets.containsKey(1));
+  }
+ }
+ @Test void doubledOrdinaryWallContactReflectsAtNewEdgeButPreservesNearMiss(){
+  for(int kind:new int[]{WorldItems.NORMAL_BULLET,WorldItems.MIRROR_BULLET})for(float gap:new float[]{.12f,.18f}){
+   GameMap open=new GameMap();var wall=new GameMap.Rect();wall.x=wall.y=10;wall.w=1;wall.h=2;
+   open.walls=new GameMap.Rect[]{wall};open.bricks=new GameMap.Rect[0];open.water=new GameMap.Rect[0];World w=new World(open,1);
+   var b=new World.Bullet();b.id=1;b.kind=kind;b.x=9.5f;b.y=10-gap;w.nextBullet=2;w.bullets.put(1,b);w.advance(b);
+   if(gap<.16f){if(kind==WorldItems.MIRROR_BULLET){assertEquals(3,w.bullets.size());assertFalse(w.bullets.containsKey(1));}else{assertEquals(1,b.bounces);assertEquals(18000,b.heading);}}
+   else{assertEquals(0,b.bounces);assertTrue(w.bullets.containsKey(1));}
+  }
+ }
  @Test void brickReflectAndSelfHit(){World w=new World(map,1);World.Bullet b=new World.Bullet();b.id=1;b.owner=0;b.x=19;b.y=19.8f;b.heading=9000;w.bullets.put(1,b);w.advance(b);assertEquals(2,w.bricks[0]);assertEquals(1,b.bounces);assertEquals(27000,b.heading);w.add(0);var t=w.tanks.get(0);t.x=5;t.y=5;t.shield=0;w.tick=20;b.x=4.6f;b.y=5;b.heading=0;b.born=0;w.bullets.put(1,b);w.advance(b);assertEquals(80,t.hp);assertFalse(w.bullets.containsKey(1));}
  @Test void inputDeadlines(){InputBuffer b=new InputBuffer();var in=new World.Input(3,9,35999);b.put(in,1);b.put(in,1);b.put(new World.Input(3,16,0),1);assertEquals(in,b.resolve(3,0));assertEquals(1,b.duplicate);assertEquals(1,b.conflict);b.put(in,3);assertEquals(1,b.late);assertEquals(0,b.resolve(4,18000).buttons());assertEquals(1,b.missing);}
  @Test void maxSnapshot(){World w=new World(map,1);for(int i=0;i<8;i++)w.add(i);for(int i=0;i<32;i++){var b=new World.Bullet();b.id=i;w.bullets.put(i,b);}byte[] encoded=w.encode();assertEquals(1363,encoded.length);assertEquals(1405,12+30+encoded.length);assertArrayEquals(encoded,World.decode(encoded).encode());}

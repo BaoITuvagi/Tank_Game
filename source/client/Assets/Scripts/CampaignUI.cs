@@ -37,7 +37,7 @@ namespace Tank.Campaign {
             Outcome=CartoonUi.Label(29,CartoonUi.Text,true);Outcome.alignment=TextAnchor.MiddleCenter;
             GoldValue=CartoonUi.Label(38,CartoonUi.Gold,true);GoldValue.alignment=TextAnchor.MiddleCenter;
             RankingDistance=CartoonUi.Label(24,CartoonUi.Gold,true);RankingDistance.alignment=TextAnchor.MiddleRight;
-            CenteredValue=new GUIStyle(RankingDistance){alignment=TextAnchor.MiddleCenter};
+            CenteredValue=new GUIStyle(RankingDistance){alignment=TextAnchor.MiddleCenter,wordWrap=false};
             CenteredLight=new GUIStyle(SmallLight){alignment=TextAnchor.MiddleCenter};
             SkillTitleLight=CartoonUi.Label(16,CartoonUi.Text);
             ErrorLabel=CartoonUi.Label(14,CartoonUi.Danger);

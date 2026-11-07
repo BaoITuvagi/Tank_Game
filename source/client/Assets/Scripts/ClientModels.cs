@@ -4,6 +4,7 @@ namespace Tank {
         public uint Id;
         public string Name;
         public int Players,Capacity;
+        public int MapId=MapCatalog.DefaultId;
         public RoomPhase Phase;
         public RoomMode Mode;
         public bool Locked,CanRejoin;

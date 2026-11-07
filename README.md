@@ -10,7 +10,7 @@ Dành cho người chơi trên **Windows 64 bit**: không cần clone repository
 
 ## Phát triển và vận hành server
 
-Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3). Working tree bổ sung chat trong trận dùng giao thức **17**, nội dung **7** với hash được sinh lại; cần server và client build cùng đợt. Phần gameplay, đồ họa, map, item, shop và chiến dịch giữ theo bản của Bảo; quản trị mạng được ghép bổ sung. Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
+Bản tích hợp quản trị mạng này đã đồng bộ branch **Bao**, commit **ec3221e** (nền game v1.0.3). Working tree bổ sung chat, chọn ba map multiplayer và bão phủ toàn map; phiên bản hiện tại dùng giao thức **21**, nội dung **7** với hash được sinh lại, cần server và client build cùng đợt. Quản trị mạng được ghép bổ sung; các thay đổi UI/asset và bản đồ đang có được mô tả tại [context](docs/context.md). Xem [ADMIN_WEB.md](ADMIN_WEB.md), web mặc định http://127.0.0.1:8080.
 
 Các lệnh CMD chạy tại thư mục gốc repository:
 
@@ -20,9 +20,13 @@ scripts\init-admin.cmd -Name admin
 scripts\start-server.cmd
 ```
 
-Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; server phải dừng khi khởi tạo. Client cũ dùng giao thức 16 không kết nối được server 17. Chat và hộp nổi admin cần client được build từ source tích hợp này; website/server không tự thay file client trong Launcher. Build local chưa cập nhật bản phân phối Launcher.
+Chỉ tạo admin lần đầu hoặc khi cần đặt lại mật khẩu; server phải dừng khi khởi tạo. Client/server dùng giao thức 18; các bản cũ không kết nối được. Chat, chọn map và hộp nổi admin cần client được build từ source tích hợp này; website/server không tự thay file client trong Launcher. Build local chưa cập nhật bản phân phối Launcher.
 
-**Chat trong trận Thường/Nhập vai:** bấm khung Chat ở sidebar bên phải rồi bấm ô nhập; Enter gửi, Esc hủy. Tên có màu theo xe của người gửi; khi đang gõ, xe ngừng nhận điều khiển và tự bắn tắt. Cửa sổ thấp dùng tab Xếp hạng/Chat. Khi vào lại cùng trận, khôi phục tối đa 100 tin gần nhất; không lưu chat sau trận. Xem [giao diện](docs/client.md) và [giao thức chat](docs/protocol.md#match-chat).
+**Chọn map nhiều người:** trong **Tạo phòng**, chọn thẻ bản đồ trước khi xác nhận. Cả Thường và Nhập vai có **Tiền Đồn Xanh** (map hiện tại, mặc định), **Pháo Đài Cát** (sa mạc vàng, công sự sa thạch, sân giữa có bốn cổng) và **Sông Băng** (tuyết trắng xanh, công sự phủ tuyết, sông lạnh với các lối vượt tuyết nén). Mỗi thẻ có hình xem trước địa hình thật, cùng diện mạo với trong trận; ba map khác nhau cả bối cảnh lẫn bố cục. Map giữ cố định cho phòng đó, kể cả trận tiếp theo; muốn đổi map hãy tạo phòng mới. Tên map hiện trong danh sách phòng, phòng chờ và chi tiết lịch sử.
+
+**Chat trong trận Thường/Nhập vai:** bấm tab Chat ở phần trên sidebar bên phải rồi bấm ô nhập; Enter gửi, Esc hủy. Xếp hạng/Chat dùng chung vùng thông tin ở mọi kích thước, mặc định chọn Xếp hạng; Chat có số tin chưa đọc. Cụm kỹ năng/túi vật phẩm phía dưới giữ nguyên vị trí khi đổi tab. Tên có màu theo xe của người gửi; khi đang gõ, xe ngừng nhận điều khiển và tự bắn tắt. Khi vào lại cùng trận, khôi phục tối đa 100 tin gần nhất; không lưu chat sau trận. Xem [giao diện](docs/client.md) và [giao thức chat](docs/protocol.md#match-chat).
+
+Trong trận Nhập vai và Chiến dịch, **chuột phải vào ô kỹ năng** để xem mô tả; Đóng, Esc hoặc bấm ra ngoài để đóng. HUD giữ tên và trạng thái hồi chiêu; kỹ năng Nhập vai có viền xanh rút dần, kỹ năng Chiến dịch chỉ ghi số lượt còn lại. Mở khung mô tả khóa điều khiển và tắt tự bắn; trận multiplayer vẫn tiếp tục. **Cài đặt** cho đổi phím bằng cách nhập tên; riêng phím mũi tên có thể nhấn trực tiếp trong ô, hiển thị **↑ ↓ ← →**. Bấm Lưu để áp dụng.
 
 Muốn gửi game một lần và tự cập nhật cho người chơi: xem [launcher](source/launcher/README.md). Từ bản 1.2.0, launcher tự tải và mở lại khi có phiên bản launcher mới; người dùng bản cũ cần tải bản hỗ trợ một lần. Build local chưa tự phát hành các asset/manifest lên GitHub Releases.
 
@@ -34,7 +38,7 @@ Dự án đang được phát triển. Repository cung cấp **mã nguồn**, kh
 
 ## Phạm vi dự án
 
-- Tài khoản, phòng chờ, trận Thường/Nhập vai, chiến đấu, kỹ năng Q, item, Red Zone/Bombstorm và lịch sử trận.
+- Tài khoản, phòng chờ, trận Thường/Nhập vai, chiến đấu, kỹ năng Q, item, Red Zone/Bombstorm, bão cát phủ toàn map giảm 50% tốc độ bắn, bão tuyết phủ toàn map giảm 50% tốc độ di chuyển và lịch sử trận.
 - Server Java mô phỏng gameplay; client Unity hiển thị, nhận điều khiển và đồng bộ qua TCP/UDP.
 - Bộ docs mô tả implementation và nguồn kiểm chứng; kết quả thực nghiệm mạng chưa được xác nhận trong đợt tổ chức tài liệu này.
 
@@ -113,7 +117,7 @@ Tại Unity Hub, thêm project `source/client`. Tài nguyên game cần thiết 
 
 ## Chế độ chiến dịch
 
-Từ menu, chọn **Chiến dịch**, chọn quốc gia rồi bắt đầu chuyến giải cứu. Chiến dịch dùng bộ luật, bố cục map và giao diện riêng.
+Sau đăng nhập, chọn **Chiến dịch** ở màn chọn chế độ, chọn quốc gia rồi bắt đầu chuyến giải cứu. Chiến dịch dùng cùng phong cách cartoon và khung header/bản đồ/cột HUD bên phải với multiplayer; bộ luật theo lượt và bố cục map vẫn riêng. Thanh máu nằm trên xe; sidebar giữ quãng đường, số trùm, vàng và các thao tác cần thiết. Tên khu vực hiện ngắn khi đến nơi rồi mờ đi, không nằm thường trực bên phải; số lượt và số địch đã hạ chỉ dành cho kết quả, không chiếm HUD trong trận. Ô Khiên/Đòn ×2 hiện số lần chặn/đòn cường hóa còn lại. Ba nút Bắn/Kỹ năng/Tiếp tế luôn nằm ở cuối cột HUD. Thẻ **Tiếp tục chuyến đi** chỉ tiếp tục run còn trong phiên đăng nhập hiện tại. Có thể xem sảnh multiplayer khi còn run, nhưng phải kết thúc và lưu chuyến đi trước khi tạo/tham gia phòng.
 
 - **WASD / phím mũi tên:** di chuyển; đi vào ô có địch để cận chiến.
 - **I:** bắn theo hướng xe, tầm 4 ô; hồi sau 5 lượt hợp lệ.
@@ -130,4 +134,6 @@ Shop và vật phẩm hồi máu theo giới hạn riêng của từng xe. Khiê
 
 Mỗi chuyến đi bắt đầu với **0 vàng**. Kết thúc chuyến đi, vàng còn lại sau mua vật phẩm được cộng vào **vàng tài khoản** khi lưu kết quả. Huy hiệu vàng có đồng xu, số dư và nút **+**: bấm số vàng để xem công dụng, bấm + để xem cách kiếm thêm. Trong trận **Nhập vai**, bấm **E** để mở shop theo hướng dẫn sidebar: 6 loại, **50 vàng/loại**, mỗi loại mua tối đa một lần mỗi đợt. Item mua cất vào túi ở sidebar, **bấm icon để dùng sau**, kể cả lúc shop đóng. Túi giữ qua chết/hồi sinh/vào lại và chỉ dùng trong trận hiện tại. Vẫn được mua sau khi đã nhặt item; nhặt trên map có hiệu lực ngay. Cứ **40 giây** có một đợt item và shop mở **20 giây**, không phụ thuộc thời lượng trận; trận 3 phút có các đợt ở giây **40/80/120/160**. Item xuất hiện ngẫu nhiên trong vòng tròn giữa map (bán kính 25% cạnh ngắn) và biến mất khi hết đợt. Nút **Đóng**, E hoặc Esc đóng shop; mở shop không tạm dừng trận. Xem [luật vật phẩm](docs/gameplay.md#items).
 
-UI chiến dịch sử dụng Theme Wood và Sprout Lands UI của Cup Nooble. Tệp ghi công và điều khoản Sprout nằm trong [CampaignUI/Sprout-License.txt](source/client/Assets/Resources/CampaignUI/Sprout-License.txt).
+Vàng dùng chung biểu tượng **một đồng xu** trên bản đồ, ví, cửa hàng và kết quả; nhặt xu thành công có âm thanh xác nhận theo cài đặt Âm thanh. Sáu icon item Nhập vai ghép từ thùng/đạn Kenney cùng bộ với xe, kèm hình chức năng thống nhất trên map/shop/túi.
+
+UI chiến dịch dùng chung theme `CartoonUi`, font Bungee/Nunito và xe nhìn từ trên xuống của multiplayer. Scenery và địch/boss cartoon bổ sung ở `CampaignCartoon`; tài nguyên pixel/Theme Wood/Sprout gốc vẫn được giữ cùng tệp ghi công và [điều khoản Sprout](source/client/Assets/Resources/CampaignUI/Sprout-License.txt).

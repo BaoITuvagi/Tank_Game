@@ -110,7 +110,7 @@ public class SkillContractTests {
             c.LoadoutReady=true;c.Loadouts[0]=new MatchLoadout{Slot=0,Nation=5};
             var handle=typeof(ClientCore).GetMethod("Handle",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
             handle.Invoke(c,new object[]{new Packet{Op=Op.End,Payload=new WireWriter().U64(7).U8(0).U8(1).U8(0).Str("Player").U16(3).U16(1).U32(100).U8(1).U8(0).Done()}});
-            handle.Invoke(c,new object[]{new Packet{Op=Op.RoomState,Payload=new WireWriter().U32(1).Str("Room").U8(0).U8(0).U8(1).U8(0).Str("Player").U8(0).U8(2).U16(180).U8(0).U8(0).U16(100).U8(1).U8(0).U64(0).U64(7).U32(0).U8(5).Done()}});
+            handle.Invoke(c,new object[]{new Packet{Op=Op.RoomState,Payload=new WireWriter().U32(1).Str("Room").U8(0).U8(0).U8(1).U8(0).Str("Player").U8(0).U8(2).U16(180).U8(0).U8(0).U16(100).U16(2).U8(1).U8(0).U64(0).U64(7).U32(0).U8(5).Done()}});
             Assert.AreEqual(ClientPhase.RESULTS,c.Phase);Assert.AreEqual(RoomPhase.WAITING,c.RoomPhase);Assert.AreEqual(5,c.Scores[0].Nation);Assert.IsTrue(c.LoadoutReady);
             var finalWorld=new WorldState();finalWorld.Tanks[0]=new TankState{Slot=0};
             handle.Invoke(c,new object[]{new Packet{Op=Op.Full,Payload=new WireWriter().U64(7).U32(1).U32(1800).U64(0).U32(1800).U16(0).Bytes(finalWorld.Encode()).Done()}});

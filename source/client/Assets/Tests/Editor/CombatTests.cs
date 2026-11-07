@@ -226,15 +226,26 @@ public class CombatTests {
         var audio=(IDisposable)Activator.CreateInstance(type,true);
         var voices=(Array)type.GetField("voices",flags).GetValue(audio);
         var play=type.GetMethod("PlayWorld");var stop=type.GetMethod("Stop");
-        int opened=0,prepared=0,closed=0;
+        int opened=0,prepared=0,closed=0;bool soundEnabled=ClientPreferences.Active.SoundEnabled;
         try {
             // Exercise the real Windows device/buffer lifecycle without audible output.
             var clips=(System.Collections.IDictionary)type.GetField("clips",flags).GetValue(audio);
             foreach(byte[] pcm in clips.Values)Array.Clear(pcm,0,pcm.Length);
             foreach(object voice in voices)if(voice!=null)opened++;
-            Assert.LessOrEqual(opened,6);
+            Assert.AreEqual(7,voices.Length);Assert.LessOrEqual(opened,7);
             for(int match=0;match<10;match++) {
                 for(int cue=0;cue<6;cue++)play.Invoke(audio,new object[]{24,1f,cue<2});
+                // The seventh voice carries weather without replacing combat buffers.
+                type.GetMethod("Weather").Invoke(audio,new object[]{match%2==0?4:5});
+                if(voices.GetValue(6)!=null)Assert.IsTrue((bool)voices.GetValue(6).GetType().GetField("Prepared").GetValue(voices.GetValue(6)));
+                type.GetMethod("WeatherGain").Invoke(audio,new object[]{4,.125f});
+                if(voices.GetValue(6)!=null)Assert.AreEqual(0,type.GetField("weatherLevel",flags).GetValue(audio));
+                type.GetMethod("WeatherGain").Invoke(audio,new object[]{4,.625f});
+                if(voices.GetValue(6)!=null)Assert.AreEqual(4,type.GetField("weatherLevel",flags).GetValue(audio));
+                ClientPreferences.Active.SoundEnabled=false;
+                type.GetMethod("Weather").Invoke(audio,new object[]{4});
+                if(voices.GetValue(6)!=null)Assert.IsFalse((bool)voices.GetValue(6).GetType().GetField("Prepared").GetValue(voices.GetValue(6)));
+                ClientPreferences.Active.SoundEnabled=true;
                 foreach(object voice in voices)if(voice!=null&&(bool)voice.GetType().GetField("Prepared").GetValue(voice))prepared++;
                 stop.Invoke(audio,null);
                 foreach(object voice in voices)if(voice!=null) {
@@ -252,7 +263,7 @@ public class CombatTests {
             }
             Debug.Log("COMBAT_AUDIO_LIFECYCLE opened="+opened+" prepared="+prepared+" closed="+closed+" matchStops=10");
         }
-        finally {audio.Dispose();}
+        finally {ClientPreferences.Active.SoundEnabled=soundEnabled;audio.Dispose();}
     }
 #endif
     [Test] public void SpriteFramesClampLoopAndUsePlaybackSpeed() {

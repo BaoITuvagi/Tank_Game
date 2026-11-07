@@ -15,7 +15,7 @@ public class Room  {
     volatile String name;
     volatile int capacity,matchTicks,startingHp=World.DEFAULT_HP;
     final RoomAccess access=new RoomAccess();
-    GameMap arenaMap;
+    final GameMap arenaMap;
     final LinkedHashMap<Integer,Member> members=new LinkedHashMap<>();
     final List<Member> participants=new ArrayList<>();
     final ArrayBlockingQueue<Runnable> commands=new ArrayBlockingQueue<>(256);
@@ -68,6 +68,9 @@ public class Room  {
         this(s,id,name,capacity,ticks,RoomMode.NORMAL);
     }
     Room(Server s,int id,String name,int capacity,int ticks,RoomMode mode) {
+        this(s,id,name,capacity,ticks,mode,MapCatalog.DEFAULT_ID);
+    }
+    Room(Server s,int id,String name,int capacity,int ticks,RoomMode mode,int mapId) {
         server=s;
         this.id=id;
         this.name=name;
@@ -75,7 +78,8 @@ public class Room  {
         roomMode=mode;
         roleplay=mode==RoomMode.ROLEPLAY?new RoleplayMatch(this):null;
         matchTicks=ticks;
-        arenaMap=s.largeMap;
+        arenaMap=s.maps.get(mapId);
+        if(arenaMap==null)throw new IllegalArgumentException("room map");
     }
     void start() {
         thread=Thread.ofVirtual().name("room-"+id).start(this::loop);
@@ -284,9 +288,9 @@ public class Room  {
         w.u8(capacity).u16(matchTicks/30).u8(access.locked?1:0);
         byte[] p=w.done();
         for(Member m:members.values()) {
-            Writer state=new Writer().bytes(p).u8(m.slot).u16(startingHp);
+            Writer state=new Writer().bytes(p).u8(m.slot).u16(startingHp).u16(arenaMap.mapId).u8(roomMode.ordinal());
             if(roleplay!=null) {
-                state.u8(roomMode.ordinal()).u8(roleplay.stage.ordinal()).u64(deadline).u64(match).u32(roleplay.revision);
+                state.u8(roleplay.stage.ordinal()).u64(deadline).u64(match).u32(roleplay.revision);
                 for(Member player:members.values())state.u8(player.roleplay.nation<0?255:player.roleplay.nation);
             }
             m.session.event(ROOM_STATE,state.done());
@@ -361,7 +365,6 @@ public class Room  {
         match=server.matchId.getAndIncrement();
         chat.clear();
         seed=Long.parseLong(server.cfg.value("match.seed","20261007"))^id^Long.rotateLeft(match,21);
-        arenaMap=server.largeMap;
         world=new World(arenaMap,seed,startingHp);
         world.items.configure(roleplay!=null,matchTicks);
         world.battlefield.configure(matchTicks);
@@ -404,11 +407,15 @@ public class Room  {
             world.add(m.slot);
             World.Tank tank=world.tanks.get(m.slot);
             if(m.resultTank!=null) {
+                // Rejoining is not a fresh respawn: never refresh its protection window.
+                tank.shield=m.resultTank.shield;
                 tank.kills=m.resultTank.kills;
                 tank.deaths=m.resultTank.deaths;
                 tank.lastKill=m.resultTank.lastKill;
                 // Disconnect is not a death: retain item deadlines without extending them.
                 if(m.resultTank.hp>0) {
+                    tank.cooldown=m.resultTank.cooldown;
+                    tank.lastShotTick=m.resultTank.lastShotTick;
                     tank.armorEndTick=m.resultTank.armorEndTick;
                     tank.heEndTick=m.resultTank.heEndTick;
                     tank.invincibilityEndTick=m.resultTank.invincibilityEndTick;

@@ -9,7 +9,7 @@ import static tank.Protocol.*;
 
 class BattlefieldTest {
     GameMap map()throws Exception {return GameMap.load(Path.of("../../source/client/Assets/StreamingAssets/map-large.json"));}
-    World world()throws Exception {World w=new World(map(),31);w.battlefield.configure(18000);w.battlefield.nextTick=18001;w.add(0);w.add(1);return w;}
+    World world()throws Exception {World w=new World(map(),31);w.battlefield.configure(18000);w.battlefield.nextTick=18001;w.add(0);w.add(1);for(var t:w.tanks.values())t.shield=0;return w;}
     Wave wave(int kind,int start,int anchor)throws Exception {
         int impact=start+(kind==FIRE?BattlefieldFireWarningTicks:BattlefieldWarningTicks);List<Integer> targets=new ArrayList<>();
         if(kind==FIRE)for(int round=0;round<BattlefieldRounds;round++)for(int i=0;i<BattlefieldTargetsPerRound;i++)targets.add(round==1?6+i:i);
@@ -204,8 +204,11 @@ class BattlefieldTest {
         assertEquals(Protocol.Error.OK,w.useSkill(0,0));int ready=t.qReadyTick;var wave=w.battlefield.wave;
         w.step(Map.of());assertEquals(495,t.hp);assertEquals(ready,t.qReadyTick);assertEquals(wave,w.battlefield.wave);assertFalse(w.skills.effects.isEmpty());
         w=world();force(w,FIRE);var brick=w.map.bricks[1];
-        World warned=w;w.tick--;w.skillIntents.add(()->warned.skills.breakCircle(brick.x+brick.w/2,brick.y+brick.h/2,10));w.step(Map.of());w.step(Map.of());
-        assertEquals(3,w.combat.events.values().stream().filter(e->e.kind()==CombatEvents.BRICK_DESTROYED).count());
+        // Isolate this three-brick row from the neighbouring cover in the current layout.
+        World warned=w;w.tick--;w.skillIntents.add(()->warned.skills.breakCircle(brick.x+brick.w/2,brick.y+brick.h/2,4.5f));w.step(Map.of());w.step(Map.of());
+        var debris=w.combat.events.values().stream().filter(e->e.kind()==CombatEvents.BRICK_DESTROYED).toList();
+        assertEquals(3,debris.size());
+        assertEquals(List.of(0,1,2),debris.stream().map(CombatEvents.Event::objectId).sorted().toList());
         for(int id:new int[]{0,1,2})assertEquals(0,w.bricks[id]);
     }
     @Test void malformedReplacementIsRejectedWithoutMutatingBase()throws Exception {

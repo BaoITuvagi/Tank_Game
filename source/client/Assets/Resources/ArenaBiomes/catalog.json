@@ -1,0 +1,73 @@
+{
+  "sheet": "props",
+  "width": 1774,
+  "height": 887,
+  "columns": 4,
+  "rows": 2,
+  "sprites": [
+    {
+      "key": "desert_cactus",
+      "cell": 0,
+      "x": 83,
+      "y": 79,
+      "width": 305,
+      "height": 323
+    },
+    {
+      "key": "desert_scrub",
+      "cell": 1,
+      "x": 522,
+      "y": 99,
+      "width": 296,
+      "height": 291
+    },
+    {
+      "key": "desert_rock",
+      "cell": 2,
+      "x": 949,
+      "y": 85,
+      "width": 302,
+      "height": 320
+    },
+    {
+      "key": "desert_dune",
+      "cell": 3,
+      "x": 1377,
+      "y": 152,
+      "width": 343,
+      "height": 209
+    },
+    {
+      "key": "snow_pine",
+      "cell": 4,
+      "x": 68,
+      "y": 517,
+      "width": 323,
+      "height": 323
+    },
+    {
+      "key": "snow_rock",
+      "cell": 5,
+      "x": 513,
+      "y": 518,
+      "width": 310,
+      "height": 315
+    },
+    {
+      "key": "snow_drift",
+      "cell": 6,
+      "x": 938,
+      "y": 586,
+      "width": 331,
+      "height": 207
+    },
+    {
+      "key": "ice_shards",
+      "cell": 7,
+      "x": 1387,
+      "y": 535,
+      "width": 332,
+      "height": 274
+    }
+  ]
+}

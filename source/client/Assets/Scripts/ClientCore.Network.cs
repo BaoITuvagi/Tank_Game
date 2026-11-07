@@ -135,6 +135,7 @@ namespace Tank  {
             RoomCapacity=8;
             RoomSeconds=180;
             RoomStartingHp=GameRules.DefaultHp;
+            RoomMapId=MapCatalog.DefaultId;
             Ended=false;
             EndReason=0;
             AfkWarning=false;

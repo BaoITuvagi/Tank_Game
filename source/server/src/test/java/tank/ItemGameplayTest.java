@@ -12,7 +12,7 @@ class ItemGameplayTest {
         m.spawns=new GameMap.Point[]{point(5,5),point(55,55)};m.itemSpawns=new GameMap.Point[]{point(10,10),point(30,30),point(50,50)};return m;
     }
     World world() {
-        var w=new World(map(),7);w.add(0);w.add(1);w.tanks.get(0).x=w.tanks.get(0).y=10;w.tanks.get(1).x=w.tanks.get(1).y=40;return w;
+        var w=new World(map(),7);w.add(0);w.add(1);/* Exercise item rules after spawn protection. */for(var t:w.tanks.values())t.shield=0;w.tanks.get(0).x=w.tanks.get(0).y=10;w.tanks.get(1).x=w.tanks.get(1).y=40;return w;
     }
     WorldItems.Item item(World w,int type,float x,float y,int expires) {
         var i=new WorldItems.Item();i.id=w.items.nextId++;i.type=type;i.x=x;i.y=y;i.expires=expires;w.items.items.put(i.id,i);return i;

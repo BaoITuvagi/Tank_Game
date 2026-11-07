@@ -16,12 +16,12 @@ namespace Tank {
         Vector2 scroll;
         string draft="";
         Rect inputRect;
-        GUIStyle text,name,input,button,header,hint;
+        GUIStyle text,name,input,button,header,hint,selectedTab;
         struct Run {public string Text;public Rect Rect;public int Palette;}
         readonly List<Run> runs=new List<Run>();
         public void Sync(ClientCore client,float screenHeight) {
             if(!initialized||match!=client.Chat.Match) {
-                initialized=true;match=client.Chat.Match;Expanded=screenHeight>=720;readId=cachedId=0;
+                initialized=true;match=client.Chat.Match;Expanded=false;readId=cachedId=0;
                 draft="";Typing=focusInput=releaseInput=false;followEnd=true;scroll=Vector2.zero;cachedWidth=-1;inputRect=default(Rect);
             }
             if(client.Phase!=ClientPhase.PLAYING)Cancel();
@@ -51,13 +51,22 @@ namespace Tank {
             button.hover.textColor=button.focused.textColor=CartoonUi.Gold;
             button.active.textColor=CartoonUi.Ready;
             header=new GUIStyle(button){alignment=TextAnchor.UpperLeft,padding=new RectOffset(3,3,3,3)};
+            selectedTab=new GUIStyle(button);
+            foreach(var state in new[]{selectedTab.normal,selectedTab.hover,selectedTab.active,selectedTab.focused}) {
+                state.background=CartoonUi.SurfaceStyle(CartoonUi.PanelColor,5,0,true).normal.background;state.textColor=CartoonUi.Gold;
+            }
         }
-        public void Toggle(ClientCore client) {Expanded=!Expanded;if(!Expanded){Cancel();GUI.FocusControl(null);}}
+        public void SelectChat(bool selected) {
+            if(Expanded==selected)return;
+            Expanded=selected;
+            if(!Expanded){Cancel();inputRect=default(Rect);}
+        }
+        public void Toggle(ClientCore client) {SelectChat(!Expanded);if(!Expanded)GUI.FocusControl(null);}
         public void Tabs(Rect rect,ClientCore client) {
             Styles();
-            if(GUI.Button(new Rect(rect.x,rect.y,rect.width*.5f-3,30),"Xếp hạng",button)&&Expanded)Toggle(client);
+            if(GUI.Button(new Rect(rect.x,rect.y,rect.width*.5f-3,30),"Xếp hạng",Expanded?button:selectedTab)&&Expanded){SelectChat(false);GUI.FocusControl(null);}
             int unread=Unread(client.Chat);
-            if(GUI.Button(new Rect(rect.x+rect.width*.5f+3,rect.y,rect.width*.5f-3,30),"Chat"+(unread>0?" · "+unread:""),header))Toggle(client);
+            if(GUI.Button(new Rect(rect.x+rect.width*.5f+3,rect.y,rect.width*.5f-3,30),"Chat"+(unread>0?" · "+unread:""),Expanded?selectedTab:button))SelectChat(true);
         }
         public void Draw(Rect rect,ClientCore client,bool showHeader=true) {
             Styles();

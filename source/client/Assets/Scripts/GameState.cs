@@ -200,8 +200,21 @@ namespace Tank  {
             int diff=(desired-current+54000)%36000-18000;
             return (current+Math.Max(-limit,Math.Min(limit,diff))+36000)%36000;
         }
-        public static void Step(TankState t,InputRecord input,GameMap map,byte[] bricks,IEnumerable<SkillEffect> effects=null) {
+        static int TerrainSpeedPercent(GameMap map,bool wet) {
+            if(!wet)return 100;
+            if(map.mapId==GameRules.DesertMapId)return GameRules.OasisSpeedPercent;
+            if(map.mapId==GameRules.WinterMapId)return GameRules.IceSpeedPercent;
+            return GameRules.WaterSpeedPercent;
+        }
+        static int EnergyRecovery(GameMap map,bool wet,uint tick) {
+            int percent=wet&&map.mapId==GameRules.DesertMapId?GameRules.OasisEnergyRecoveryPercent:100;
+            // Keep fractional recovery reproducible after prediction replay or a full snapshot.
+            int phase=(int)(tick%100);
+            return (phase+1)*percent/100-phase*percent/100;
+        }
+        public static void Step(TankState t,InputRecord input,GameMap map,byte[] bricks,IEnumerable<SkillEffect> effects=null,BattlefieldWave wave=null) {
             if(t.Hp==0)return;
+            bool wet=map.Water(t.X,t.Y);
             int dx=((input.Buttons&8)!=0?1:0)-((input.Buttons&4)!=0?1:0),dy=((input.Buttons&1)!=0?1:0)-((input.Buttons&2)!=0?1:0);
             if(input.Tick<t.ConfusionEndTick) {dx=-dx;dy=-dy;}
             bool held=(input.Buttons&32)!=0,sprinting=held&&(dx!=0||dy!=0)&&t.Energy>0;
@@ -210,15 +223,15 @@ namespace Tank  {
                 if(sprinting)t.Energy--;
             }
             else if(t.EnergyRecovery>0)t.EnergyRecovery--;
-            else t.Energy=Math.Min(MaxEnergy,t.Energy+1);
+            else t.Energy=Math.Min(MaxEnergy,t.Energy+EnergyRecovery(map,wet,input.Tick));
             float norm=dx!=0&&dy!=0?(float)(1/Math.Sqrt(2)):1;
             float multiplier=sprinting?SprintMultiplier:1;
             multiplier=Math.Min(GameRules.MaxTankSpeedPercent/100f,multiplier);
-            float water=map.Water(t.X,t.Y)?.5f:1;
+            float water=TerrainSpeedPercent(map,wet)/100f;
             float slow=input.Tick<t.SlowEndTick?GameRules.SlowSpeedPercent/100f:1;
             if(SkillGeometry.KatyushaSlowEnd(t,input.Tick,effects)>input.Tick)slow*=GameRules.KatyushaSlowSpeedPercent/100f;
             if(input.Tick<t.RocketSlowEndTick)for(int hit=0;hit<t.RocketSlowStacks;hit++)slow*=GameRules.RocketSlowSpeedPercent/100f;
-            float speed=TankSpeed*water*multiplier*slow/30;
+            float speed=TankSpeed*water*multiplier*slow*WeatherRegion.Speed(map,wave,input.Tick,t.X,t.Y)/30;
             float x=t.X+dx*norm*speed,y=t.Y+dy*norm*speed;
             int desired=dx!=0||dy!=0?((int)Math.Round(Math.Atan2(dy,dx)*180/Math.PI*100)+36000)%36000:t.Body;
             int movingBody=map.Blocked(t.X,t.Y,desired,bricks)?t.Body:desired;

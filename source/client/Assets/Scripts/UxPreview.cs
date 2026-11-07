@@ -10,6 +10,11 @@ namespace Tank  {
         void SetupMenuPreviewQa() {
             if(!IsMenuPreview)return;
             var args=Environment.GetCommandLineArgs();
+            if(settingsDraft!=null&&Array.IndexOf(args,"--preview-arrow-bindings")>=0){
+                var arrows=new[]{KeyCode.UpArrow,KeyCode.DownArrow,KeyCode.LeftArrow,KeyCode.RightArrow};
+                for(int i=0;i<arrows.Length;i++)settingsDraft.Bindings[i].Secondary=arrows[i];
+                settingsScroll=new Vector2(0,230);
+            }
             if(settingsDraft!=null&&Array.IndexOf(args,"--preview-custom-bindings")>=0){
                 string ignored;
                 settingsDraft.TryBind(ControlAction.Up,false,KeyCode.Keypad8,out ignored);
@@ -50,6 +55,8 @@ namespace Tank  {
         void SetupMenuPreview()  {
             if(!IsMenuPreview)return;
             var args=Environment.GetCommandLineArgs();
+            int previewMap=UxTestDriver.PreviewMapId;
+            client.SelectPreviewMap(previewMap);
             int index=Array.IndexOf(args,"--menu-preview");
             string page=index+1<args.Length?args[index+1]:"login";
             bool preparing=page=="roleplay-preparing";
@@ -68,9 +75,21 @@ namespace Tank  {
             client.RoomSeconds=300;
             client.RoomName="Đấu trường bạn bè";
             client.RoomId=24;
+            if(page=="mode-select"||page=="mode-select-resume") {
+                client.Phase=ClientPhase.LOBBY;
+                modeNavigation.ShowSelection();
+                if(page=="mode-select-resume")client.Campaign.Run=new Tank.Campaign.RunState {
+                    Id="preview",Nation=0,X=6,Y=506,Distance=506,Hp=75,Facing=0,Shot=4,Skill=12,Gold=185,Kills=28,Shields=2,DoubleHits=3,Bosses=1,Bottom=499,
+                    TotalGold=1240,ShopAvailable=true,Prices=new[]{30,46,55},Terrain=new byte[247],SaveStatus=""
+                };
+                return;
+            }
+            // Existing lobby previews continue directly to the room browser.
+            modeNavigation.ShowMultiplayer();
             if(page=="create") {
                 client.Phase=ClientPhase.LOBBY;
                 OpenRoomForm(false);
+                roomMapId=previewMap;
                 return;
             }
             if(page=="profile") {
@@ -87,13 +106,13 @@ namespace Tank  {
             if(page=="lobby"||page=="lobby-empty"||page=="history"||page=="history-empty"||page=="history-detail"||page=="afk-lobby") {
                 client.Phase=ClientPhase.LOBBY;
                 client.Rooms.Add(new RoomInfo {
-                    Id=24,Name="Đấu trường bạn bè",Players=3,Capacity=4,Phase=RoomPhase.WAITING
+                    Id=24,Name="Đấu trường bạn bè",Players=3,Capacity=4,Phase=RoomPhase.WAITING,MapId=previewMap
                 });
                 client.Rooms.Add(new RoomInfo {
-                    Id=25,Name="Biên giới 8 người",Players=6,Capacity=8,Phase=RoomPhase.WAITING,Locked=true,Mode=RoomMode.ROLEPLAY
+                    Id=25,Name="Biên giới 8 người",Players=6,Capacity=8,Phase=RoomPhase.WAITING,Locked=true,Mode=RoomMode.ROLEPLAY,MapId=3
                 });
                 client.Rooms.Add(new RoomInfo {
-                    Id=26,Name="Cuộc đấu tối nay",Players=4,Capacity=4,Phase=RoomPhase.RUNNING
+                    Id=26,Name="Cuộc đấu tối nay",Players=4,Capacity=4,Phase=RoomPhase.RUNNING,MapId=4
                 });
                 client.Rooms.Add(new RoomInfo {Id=27,Name="Biệt đội đã đủ",Players=2,Capacity=2,Phase=RoomPhase.WAITING});
                 if(page=="lobby-empty")client.Rooms.Clear();
@@ -116,7 +135,7 @@ namespace Tank  {
                     client.SelectedHistoryMatch=14;
                     ulong end=(ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     client.HistoryDetail=new MatchDetail {
-                        Match=14,MapId=1,Started=end-180000,Ended=end,Reason=0,OwnSlot=2
+                        Match=14,MapId=previewMap,Started=end-180000,Ended=end,Reason=0,OwnSlot=2
                     };
                     for(int slot=0;slot<3;slot++)client.HistoryDetail.Players.Add(new Score {
                         Slot=slot,Name=new[] {
@@ -170,6 +189,9 @@ namespace Tank  {
             int index=Array.IndexOf(args,name);
             return index>=0&&index+1<args.Length?args[index+1]:fallback;
         }
+        public static int PreviewMapId {
+            get {int id;return int.TryParse(Arg("--preview-map",MapCatalog.DefaultId.ToString()),out id)&&MapCatalog.IsSelectable(id)?id:MapCatalog.DefaultId;}
+        }
         void Start() {
             App.Core.Connect("127.0.0.1",int.Parse(Arg("--tcp","23888")),int.Parse(Arg("--udp","23889")));
         }
@@ -190,7 +212,7 @@ namespace Tank  {
             int players=int.Parse(Arg("--players","2"));
             string roomName=Arg("--room","Focus Test");
             if(auto&&!peer&&c.Phase==ClientPhase.LOBBY&&!joined) {
-                c.Create(roomName,Array.IndexOf(Environment.GetCommandLineArgs(),"--players")>=0?players:4,int.Parse(Arg("--seconds","180")),"",int.Parse(Arg("--hp","3")),roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL);
+                c.Create(roomName,Array.IndexOf(Environment.GetCommandLineArgs(),"--players")>=0?players:4,int.Parse(Arg("--seconds","180")),"",int.Parse(Arg("--hp","3")),roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL,int.Parse(Arg("--map",MapCatalog.DefaultId.ToString())));
                 joined=true;
             }
             var room=Array.IndexOf(Environment.GetCommandLineArgs(),"--room")>=0?c.Rooms.Find(r=>r.Name==roomName):c.Rooms.Count>0?c.Rooms[0]:null;
@@ -213,25 +235,38 @@ namespace Tank  {
             if(report!=""&&Time.unscaledTime>=nextReport) {
                 nextReport=Time.unscaledTime+1;
                 var t=c.Predicted;
+                var campaign=c.Campaign.Run;
                 System.IO.File.WriteAllText(report,JsonUtility.ToJson(new UxObservation {
-                    phase=c.Phase.ToString(),width=Screen.width,height=Screen.height,fullscreen=Screen.fullScreen,focused=GameWindowFocus.IsForeground,field=App.FocusedControl,turret=t==null?0:t.Turret,capacity=c.RoomCapacity,seconds=c.RoomSeconds,players=c.Players.Count,map=c.ActiveMap.mapId,tick=c.Latest==null?0:(int)c.Latest.Tick,x=t==null?0:t.X,y=t==null?0:t.Y,decoded=c.Decoded,invalid=c.Invalid,message=c.Message,afk=c.AfkWarning,
-                    chatTyping=App.ChatTyping,autoFire=App.AutoFireEnabled,inputButtons=App.LastInputButtons,chatCount=c.Chat.Messages.Count,chatError=c.ChatError,
+                    phase=c.Phase.ToString(),width=Screen.width,height=Screen.height,fullscreen=Screen.fullScreen,focused=GameWindowFocus.IsForeground,field=App.FocusedControl,turret=t==null?0:t.Turret,capacity=c.RoomCapacity,seconds=c.RoomSeconds,players=c.Players.Count,map=c.ActiveMap.mapId,roomMap=c.RoomMapId,selectedRoomMap=App.SelectedRoomMapId,tick=c.Latest==null?0:(int)c.Latest.Tick,x=t==null?0:t.X,y=t==null?0:t.Y,decoded=c.Decoded,invalid=c.Invalid,message=c.Message,afk=c.AfkWarning,
+                    chatTyping=App.ChatTyping,chatExpanded=App.ChatExpanded,autoFire=App.AutoFireEnabled,inputButtons=App.LastInputButtons,chatCount=c.Chat.Messages.Count,chatError=c.ChatError,
                     chatLastText=c.Chat.Messages.Count==0?"":c.Chat.Messages[c.Chat.Messages.Count-1].Text,
                     chatLastName=c.Chat.Messages.Count==0?"":c.Chat.Messages[c.Chat.Messages.Count-1].Name,
                     chatLastPalette=c.Chat.Messages.Count==0?-1:c.Chat.Messages[c.Chat.Messages.Count-1].Palette,
-                    mode=c.RoomMode.ToString(),stage=c.PrepareStage.ToString(),loadout=c.LoadoutReady,skillPress=c.SkillPressRevision,skillFeedback=c.SkillFeedbackRevision,skillNotice=c.SkillNotice,qReady=c.SkillReadyTick(0),qPending=c.SkillPending(0)
+                    mode=c.RoomMode.ToString(),stage=c.PrepareStage.ToString(),loadout=c.LoadoutReady,skillPress=c.SkillPressRevision,skillFeedback=c.SkillFeedbackRevision,skillNotice=c.SkillNotice,qReady=c.SkillReadyTick(0),qPending=c.SkillPending(0),
+                    selectedMode=App.SelectedMode,campaignPage=App.CampaignPage,campaignRunId=campaign==null?"":campaign.Id,campaignTurn=campaign==null?0:campaign.Turn,
+                    campaignHp=campaign==null?0:campaign.Hp,campaignGold=campaign==null?0:campaign.Gold,campaignPending=c.Campaign.Pending,
+                    campaignFinished=campaign!=null&&campaign.Finished,campaignSaveStatus=campaign==null?"":campaign.SaveStatus,
+                    skillDetailsOpen=SkillDetailsUi.IsOpen,skillDetailsBlocked=SkillDetailsUi.InputBlocked,skillDetailsTitle=SkillDetailsUi.Title,
+                    campaignShields=campaign==null?0:campaign.Shields,campaignDoubleHits=campaign==null?0:campaign.DoubleHits,
+                    campaignShot=campaign==null?0:campaign.Shot,campaignSkill=campaign==null?0:campaign.Skill
                 }));
             }
         }
         [Serializable] class UxObservation {
             public string phase,message,field,mode,stage,skillNotice;
-            public int width,height,capacity,seconds,players,map,tick,turret,skillPress,skillFeedback,qReady;
+            public int width,height,capacity,seconds,players,map,roomMap,selectedRoomMap,tick,turret,skillPress,skillFeedback,qReady;
             public bool fullscreen,afk,focused,loadout,qPending;
             public float x,y;
             public long decoded,invalid;
-            public bool chatTyping,autoFire;
+            public bool chatTyping,chatExpanded,autoFire;
             public int inputButtons,chatCount,chatLastPalette;
             public string chatError,chatLastText,chatLastName;
+            public string selectedMode,campaignRunId,campaignSaveStatus;
+            public int campaignPage,campaignTurn,campaignHp,campaignGold;
+            public bool campaignPending,campaignFinished;
+            public bool skillDetailsOpen,skillDetailsBlocked;
+            public string skillDetailsTitle;
+            public int campaignShields,campaignDoubleHits,campaignShot,campaignSkill;
         }
     }
 }

@@ -9,10 +9,11 @@ namespace Tank  {
             }
         }
         public static void Setup(ClientCore client)  {
+            client.SelectPreviewMap(UxTestDriver.PreviewMapId);
             client.Phase=ClientPhase.PLAYING;
             client.Slot=0;
             var world=new WorldState();
-            for(int i=0;i<6;i++)world.Bricks[i]=(byte)GameRules.BrickMaxHp;
+            foreach(var brick in client.ActiveMap.bricks)world.Bricks[brick.id]=(byte)GameRules.BrickMaxHp;
             world.Tanks[0]=new TankState {
                 Slot=0,X=19,Y=16,Body=9000,Turret=9000,Hp=100,Energy=60,Shield=200
             };
@@ -56,7 +57,6 @@ namespace Tank  {
                 world.Tanks.Clear();
                 world.Bullets.Clear();
                 client.Players.Clear();
-                for(int i=0;i<24;i++)world.Bricks[i]=(byte)GameRules.BrickMaxHp;
                 float[] px= {
                     18,60,104,110,100,60,15,8
                 },py= {
@@ -84,6 +84,8 @@ namespace Tank  {
                 if(index>=0&&index+1<args.Length&&int.TryParse(args[index+1],out slot)&&world.Tanks.ContainsKey(slot))client.Slot=slot;
             }
             foreach(var tank in world.Tanks.Values)tank.Life=tank.Slot+1;
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-world-items")>=0)
+                for(int type=0;type<GameRules.ItemTypeCount;type++)world.Items[(uint)type+1]=new ItemState{Id=(uint)type+1,Type=type,X=25+type*10,Y=24,Expires=6000};
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-wide-names")>=0)foreach(var player in client.Players)player.Name=new string('M',24);
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-large-scores")>=0)foreach(var tank in world.Tanks.Values){tank.Kills=65535-tank.Slot;tank.Deaths=65535;}
             var localPlayer=client.Players.Find(player=>player.Slot==client.Slot);if(localPlayer!=null)client.Nickname=localPlayer.Name;
@@ -97,6 +99,32 @@ namespace Tank  {
                 var local=world.Tanks[client.Slot];local.Hp=0;local.Respawn=client.Latest.Tick+150;
                 client.Predicted=local.Copy();
             }
+            if(MapCatalog.IsSelectable(client.ActiveMap.mapId)) {
+                // Keep offline demo tanks on actual legal spawns for each chosen map.
+                world.Bullets.Clear();
+                foreach(var tank in world.Tanks.Values) {
+                    var spawn=client.ActiveMap.spawns[tank.Slot%client.ActiveMap.spawns.Length];
+                    tank.X=spawn.x;tank.Y=spawn.y;
+                }
+                foreach(var item in world.Items.Values) {
+                    var spawn=client.ActiveMap.itemSpawns[item.Type%client.ActiveMap.itemSpawns.Length];
+                    item.X=spawn.x;item.Y=spawn.y;
+                }
+            }
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-visibility")>=0) {
+                // Spread four tank headings, bullets and items across the full-map storm.
+                // All positions stay within the map; Fog can still hide distant objects.
+                float mx=client.ActiveMap.width/2,my=client.ActiveMap.height/2;
+                int[] slots={0,1,2,3,4,5,6,7};float[] px={.5f,.18f,.82f,.18f,.82f,.66f,.34f,.66f},py={.5f,.65f,.65f,.3f,.3f,.5f,.2f,.8f};
+                for(int i=0;i<slots.Length;i++)if(world.Tanks.ContainsKey(slots[i])) {var t=world.Tanks[slots[i]];t.X=client.ActiveMap.width*px[i];t.Y=client.ActiveMap.height*py[i];t.Body=t.Turret=(i%4)*9000;}
+                world.Bullets[1]=new BulletState{Id=1,Owner=0,X=mx+4,Y=my+3,Heading=9000};
+                world.Bullets[2]=new BulletState{Id=2,Owner=0,X=client.ActiveMap.width*.18f,Y=my-1,Heading=18000};
+                world.Bullets[3]=new BulletState{Id=3,Owner=0,X=client.ActiveMap.width*.82f,Y=my-1,Heading=0};
+                world.Bullets[4]=new BulletState{Id=4,Owner=0,X=client.ActiveMap.width*.9f,Y=my-1,Heading=27000};
+                foreach(var item in world.Items.Values) {item.X=client.ActiveMap.width*(.15f+item.Type*.7f/(GameRules.ItemTypeCount-1));item.Y=client.ActiveMap.height*.85f;}
+            }
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-battlefield")>=0)
+                foreach(var tank in world.Tanks.Values)tank.Shield=(uint)GameRules.SpawnShieldTicks;
         }
         public static void Animate(ClientCore client)  {
             client.LastArrivalUs=ClientCore.NowUs;
@@ -119,18 +147,27 @@ namespace Tank  {
         static void AnimateBattlefield(ClientCore client) {
             var args=Environment.GetCommandLineArgs();int index=Array.IndexOf(args,"--preview-battlefield");
             if(index<0||index+1>=args.Length)return;
-            string type=args[index+1];if(type!="fire"&&type!="airstrike")return;
-            int kind=type=="airstrike"?BattlefieldWave.Airstrike:BattlefieldWave.Fire;
-            int tick=Mathf.FloorToInt(Time.unscaledTime*30),cycle=tick/GameRules.BattlefieldMinIntervalTicks,start=cycle*GameRules.BattlefieldMinIntervalTicks;
-            uint impact=(uint)(start+(kind==BattlefieldWave.Fire?GameRules.BattlefieldFireWarningTicks:GameRules.BattlefieldWarningTicks));
+            string type=args[index+1];if(type!="fire"&&type!="airstrike"&&type!="sandstorm"&&type!="snowstorm")return;
+            int kind=type=="sandstorm"?BattlefieldWave.Sandstorm:type=="snowstorm"?BattlefieldWave.Snowstorm:type=="airstrike"?BattlefieldWave.Airstrike:BattlefieldWave.Fire;
+            if(kind==BattlefieldWave.Airstrike&&client.ActiveMap.mapId==GameRules.DesertMapId)kind=BattlefieldWave.Sandstorm;
+            if(kind==BattlefieldWave.Fire&&client.ActiveMap.mapId==GameRules.WinterMapId)kind=BattlefieldWave.Snowstorm;
+            int tick=Mathf.FloorToInt(Time.unscaledTime*30),fixedTick;
+            int tickIndex=Array.IndexOf(args,"--preview-battlefield-tick");
+            if(tickIndex>=0&&tickIndex+1<args.Length&&int.TryParse(args[tickIndex+1],out fixedTick)&&fixedTick>=0&&fixedTick<=GameRules.MaxMatchTicks)tick=fixedTick;
+            int cycle=tick/GameRules.BattlefieldMinIntervalTicks,start=cycle*GameRules.BattlefieldMinIntervalTicks;
+            bool weather=BattlefieldWave.WeatherKind(kind);
+            uint impact=(uint)(start+(weather?GameRules.WeatherWarningTicks:kind==BattlefieldWave.Fire?GameRules.BattlefieldFireWarningTicks:GameRules.BattlefieldWarningTicks));
             var world=client.Latest.World;
             for(int i=0;i<client.ActiveMap.bricks.Length;i++)world.Bricks[i]=(byte)GameRules.BrickMaxHp;
-            var targets=new int[GameRules.BattlefieldTargetsPerRound*GameRules.BattlefieldRounds];
-            for(int round=0;round<GameRules.BattlefieldRounds;round++)for(int i=0;i<GameRules.BattlefieldTargetsPerRound;i++)targets[round*GameRules.BattlefieldTargetsPerRound+i]=(kind==BattlefieldWave.Airstrike?16:0)+round*GameRules.BattlefieldTargetsPerRound+i;
-            world.Battlefield=new BattlefieldWave((uint)cycle+1,kind,(uint)start,impact,impact+(uint)GameRules.BattlefieldEventTicks,targets);
+            var targets=new int[weather?0:GameRules.BattlefieldTargetsPerRound*GameRules.BattlefieldRounds];
+            for(int round=0;!weather&&round<GameRules.BattlefieldRounds;round++)for(int i=0;i<GameRules.BattlefieldTargetsPerRound;i++)targets[round*GameRules.BattlefieldTargetsPerRound+i]=(kind==BattlefieldWave.Airstrike?16:0)+round*GameRules.BattlefieldTargetsPerRound+i;
+            world.Battlefield=new BattlefieldWave((uint)cycle+1,kind,(uint)start,impact,impact+(uint)(weather?GameRules.WeatherActiveTicks:GameRules.BattlefieldEventTicks),targets);
             if(tick>=world.Battlefield.End)world.Battlefield=null;
             client.Latest.Tick=(uint)tick;client.Latest.Time=(ulong)ClientCore.NowUs;
             if(Array.IndexOf(args,"--preview-fog")>=0)world.Tanks[client.Slot].FogEndTick=tick+300;
+            if(Array.IndexOf(args,"--preview-visibility")>=0&&client.RoomMode==RoomMode.ROLEPLAY&&world.Tanks.ContainsKey(5)) {
+                var beam=world.Tanks[5];beam.QStage=1;beam.QEndTick=tick+150;beam.Turret=0;
+            }
         }
         static void AnimateSkills(ClientCore client) {
             var world=client.Latest.World;int tick=100+Mathf.FloorToInt(Time.unscaledTime*30),start=100+(tick-100)/180*180;

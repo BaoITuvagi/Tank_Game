@@ -7,12 +7,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Rectangular layout/hitboxes and fixed central roleplay item waves. The pre-layout trace remains archived separately. */
 class CombatGameplayTraceTest {
-    List<String> trace(boolean recording)throws Exception {
+    List<String> trace(boolean recording,boolean protectSpawns)throws Exception {
         List<String> rows=new ArrayList<>();
         MessageDigest sha=MessageDigest.getInstance("SHA-256");
         for(int scenario=0;scenario<3;scenario++) {
             GameMap map=GameMap.load(Path.of("../../source/client/Assets/StreamingAssets/"+(scenario==2?"map-large.json":"map.json")));
-            World w=new World(map,731+scenario,300);
+            // Preserve the pre-weather fixture as a control with only the new spawn shield disabled.
+            World w=new World(map,731+scenario,300) {
+                @Override void reset(Tank t,float x,float y) {super.reset(t,x,y);if(!protectSpawns)t.shield=tick;}
+            };
             w.combat.enabled=recording;
             w.items.configure(scenario!=0);
             for(int slot=0;slot<8;slot++) {w.add(slot);if(scenario!=0)w.tanks.get(slot).nation=slot;}
@@ -37,10 +40,13 @@ class CombatGameplayTraceTest {
         }
         return rows;
     }
-    @Test void matchesApprovedLayoutGameplayAtEveryTick()throws Exception {
-        var actual=trace(true);Path fixture=Path.of("src/test/resources/combat-gameplay-trace.sha256");
+    @Test void matchesApprovedLayoutGameplayOutsideNewSpawnProtectionAtEveryTick()throws Exception {
+        var actual=trace(true,false);Path fixture=Path.of("src/test/resources/combat-gameplay-trace.sha256");
         if(Boolean.getBoolean("tank.recordTrace")) {Files.createDirectories(fixture.getParent());Files.write(fixture,actual);}
         assertEquals(Files.readAllLines(fixture),actual);
-        assertEquals(actual,trace(false));
+        assertEquals(actual,trace(false,false));
+    }
+    @Test void currentProtectedSimulationIsIndependentOfCombatRecording()throws Exception {
+        assertEquals(trace(true,true),trace(false,true));
     }
 }

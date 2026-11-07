@@ -24,12 +24,13 @@ namespace Tank {
             Shake=new Vector2(Mathf.Sin(Time.unscaledTime*83),Mathf.Cos(Time.unscaledTime*101))*combatFx.ShakeStrength;
             CombatPresentation.Sound sound;
             while(combatFx.NextSound(out sound))audio.PlayWorld(sound.Clip,sound.Gain,sound.Priority>=4);
+            WeatherAudio(client,audio);
             audio.Poll();
         }
         float qResetUntil;
-        void ResetEffects() {combatFx.Clear();initialized=false;presentationSnapshot=0;visualTick=0;Shake=Vector2.zero;LiveEffectCount=0;qResetUntil=0;noticeSerial=combatFx.NoticeSerial;}
-        static bool Visible(TankState local,float wx,float wy,uint tick) {
-            return local==null||local.Hp==0||tick>=local.FogEndTick||(wx-local.X)*(wx-local.X)+(wy-local.Y)*(wy-local.Y)<=GameRules.FogRadius*GameRules.FogRadius;
+        void ResetEffects() {combatFx.Clear();initialized=false;presentationSnapshot=0;visualTick=0;Shake=Vector2.zero;LiveEffectCount=0;qResetUntil=0;noticeSerial=combatFx.NoticeSerial;weatherSoundWave=0;}
+        bool Visible(TankState local,float wx,float wy,uint tick) {
+            return WeatherVisibility.Visible(local,wx,wy,Mathf.Max(tick,visualTick),visibilityWave);
         }
         static Texture2D Radial(int kind) {
             const int n=256;
@@ -44,7 +45,7 @@ namespace Tank {
         }
         void EffectTextures() {if(glow!=null)return;glow=Radial(0);ring=Radial(1);fog=Radial(2);energyField=Radial(3);}
         void Disc(float wx,float wy,float radius,Texture2D texture,Color color) {
-            GUI.color=color;GUI.DrawTexture(World(wx-radius,wy-radius,2*radius,2*radius),texture);GUI.color=Color.white;
+            GUI.color=color;WorldTexture(World(wx-radius,wy-radius,2*radius,2*radius),texture,new Rect(0,0,1,1));GUI.color=Color.white;
         }
         void Line(Vector2 a,Vector2 b,float width,Color color,bool exactWidth=false) {
             if(!exactWidth)width*=2;
@@ -61,7 +62,7 @@ namespace Tank {
             for(int i=0;i<strips;i++) {
                 Vector2 p=a+delta*(i/(float)strips),q=a+delta*((i+1)/(float)strips),mid=(p+q)*.5f;
                 Rect r=horizontal?new Rect(Mathf.Min(p.x,q.x),mid.y-thickness/2,Mathf.Abs(q.x-p.x)+.1f,thickness):new Rect(mid.x-thickness/2,Mathf.Min(p.y,q.y),thickness,Mathf.Abs(q.y-p.y)+.1f);
-                Fill(r,color);
+                WorldFill(r,color);
             }
         }
         Vector2 Point(float wx,float wy) {return new Vector2(x+wx*scale,y+(mapHeight-wy)*scale);}
@@ -201,13 +202,13 @@ namespace Tank {
         }
         void DrawSkillLabels(TankState t,uint tick,WorldState world) {
             Vector2 p=Point(t.X,t.Y);float now=Mathf.Max(tick,visualTick),top=p.y+scale*TankSize/2+20;
-            if(t.QStage==1&&(t.Nation==5||t.Nation==6)) {GUI.Label(new Rect(p.x-43,top,86,20),(t.Nation==5?"TỤ LỰC ":"TỰ NỔ ")+Mathf.Max(0,(t.QEndTick-now)/30).ToString("0.0")+"s",small);top+=18;}
-            if(tick<t.SlowEndTick) {GUI.Label(new Rect(p.x-56,top,112,18),"CHẬM "+(100-GameRules.SlowSpeedPercent)+"% "+Mathf.Max(0,(t.SlowEndTick-now)/30).ToString("0.0")+"s",small);top+=17;}
+            if(t.QStage==1&&(t.Nation==5||t.Nation==6)) {DrawWorldLabel(new Rect(p.x-43,top,86,20),(t.Nation==5?"TỤ LỰC ":"TỰ NỔ ")+Mathf.Max(0,(t.QEndTick-now)/30).ToString("0.0")+"s");top+=18;}
+            if(tick<t.SlowEndTick) {DrawWorldLabel(new Rect(p.x-56,top,112,18),"CHẬM "+(100-GameRules.SlowSpeedPercent)+"% "+Mathf.Max(0,(t.SlowEndTick-now)/30).ToString("0.0")+"s");top+=17;}
             int areaSlowEnd=SkillGeometry.KatyushaSlowEnd(t,tick,world.Effects);
-            if(areaSlowEnd>tick) {GUI.Label(new Rect(p.x-65,top,130,18),"CHẬM VÙNG "+(100-GameRules.KatyushaSlowSpeedPercent)+"% "+Mathf.Max(0,(areaSlowEnd-now)/30).ToString("0.0")+"s",small);top+=17;}
-            if(tick<t.ConfusionEndTick) {GUI.Label(new Rect(p.x-60,top,120,18),"⇄ KHÓA NÒNG "+Mathf.CeilToInt(Mathf.Max(0,t.ConfusionEndTick-now)/30)+"s",small);top+=17;}
+            if(areaSlowEnd>tick) {DrawWorldLabel(new Rect(p.x-65,top,130,18),"CHẬM VÙNG "+(100-GameRules.KatyushaSlowSpeedPercent)+"% "+Mathf.Max(0,(areaSlowEnd-now)/30).ToString("0.0")+"s");top+=17;}
+            if(tick<t.ConfusionEndTick) {DrawWorldLabel(new Rect(p.x-60,top,120,18),"⇄ KHÓA NÒNG "+Mathf.CeilToInt(Mathf.Max(0,t.ConfusionEndTick-now)/30)+"s");top+=17;}
             if(tick<t.FireLockEndTick) {
-                GUI.Label(new Rect(p.x-56,top,112,18),"KHÓA BẮN "+Mathf.CeilToInt(Mathf.Max(0,t.FireLockEndTick-now)/30)+"s",small);
+                DrawWorldLabel(new Rect(p.x-56,top,112,18),"KHÓA BẮN "+Mathf.CeilToInt(Mathf.Max(0,t.FireLockEndTick-now)/30)+"s");
             }
         }
         void DrawFog(GameMap map,WorldState world,int localSlot,uint tick) {

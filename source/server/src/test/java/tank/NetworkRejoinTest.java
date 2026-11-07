@@ -20,6 +20,7 @@ class NetworkRejoinTest {
     var member=r.members.get(2);var tank=r.world.tanks.get(2);tank.kills=7;tank.deaths=4;tank.lastKill=90;tank.qReadyTick=1200;
     tank.qBaseReadyTick=900;tank.qPenalty=300;tank.qPenaltySources.add(0);
     tank.armorEndTick=1000;tank.invincibilityEndTick=900;tank.mirrorShots=3;
+    tank.cooldown=420;tank.lastShotTick=390;
     long match=r.match;r.world.bricks[0]=0;byte[] bricks=r.world.bricks.clone();
     if(reason==1){member.session.close();for(var m:r.members.values())m.session.lastUdp=System.nanoTime();r.tick();}
     else if(reason==2){for(var m:r.members.values())m.session.lastUdp=System.nanoTime();member.session.lastUdp-=11_000_000_000L;r.tick();}
@@ -37,6 +38,7 @@ class NetworkRejoinTest {
     assertFalse(member.rejoining);tank=r.world.tanks.get(2);assertNotNull(tank);
     assertEquals(7,tank.kills);assertEquals(4,tank.deaths);assertEquals(90,tank.lastKill);assertEquals(match,r.match);assertArrayEquals(bricks,r.world.bricks);
     assertEquals(1000,tank.armorEndTick);assertEquals(900,tank.invincibilityEndTick);assertEquals(3,tank.mirrorShots);
+    assertEquals(420,tank.cooldown);assertEquals(390,tank.lastShotTick,"rejoin must not bypass sandstorm firing cadence");
     if(mode==RoomMode.ROLEPLAY){
      assertEquals(2,tank.nation);assertEquals(1200,tank.qReadyTick);assertEquals(900,tank.qBaseReadyTick);assertEquals(Set.of(0),tank.qPenaltySources);
      r.world.items.apply(tank,WorldItems.PURIFICATION);assertEquals(900,tank.qReadyTick);assertEquals(0,tank.qPenalty);assertEquals(3,tank.mirrorShots);
@@ -67,7 +69,7 @@ class NetworkRejoinTest {
      r.enqueue(()->{
       for(var m:r.members.values()){m.ready=true;m.roleplay.nation=m.slot;m.session.lastUdp=System.nanoTime();}
       r.prepare(host,900);if(r.roleplay!=null){r.roleplay.publishLoadout(Server.nowUs());r.roleplay.stage=PrepStage.COUNTDOWN;}
-      r.phase=RoomState.RUNNING;r.startUs=Server.nowUs()-1;r.startedUtc=System.currentTimeMillis();r.world.tanks.get(2).kills=6;r.world.tanks.get(2).qReadyTick=1200;r.broadcast();armed.complete(r.match);
+      r.phase=RoomState.RUNNING;r.startUs=Server.nowUs()-1;r.startedUtc=System.currentTimeMillis();r.world.tanks.get(2).shield=77;r.world.tanks.get(2).kills=6;r.world.tanks.get(2).qReadyTick=1200;r.broadcast();armed.complete(r.match);
      });
      long match=armed.get(3,TimeUnit.SECONDS);BaselineTest.waitFor(c,PREPARE);
      BaselineTest.send(c,LEAVE_ROOM,new byte[0]);BaselineTest.waitFor(c,REMOVED);ok(c,ACTION_RESULT);assertListedRejoinable(c,id);
@@ -78,7 +80,7 @@ class NetworkRejoinTest {
      r.enqueue(()->{for(var m:r.members.values())m.session.lastUdp=System.nanoTime();r.member(returning).session.lastUdp-=11_000_000_000L;});
      BaselineTest.waitFor(c,REMOVED);assertListedRejoinable(c,id);rejoin(s,c,udp,token,id,match,mode);
      var checked=new CompletableFuture<Void>();r.enqueue(()->{
-      try{assertEquals(RoomState.RUNNING,r.phase);assertEquals(match,r.match);assertEquals(3,r.participants.size());assertEquals(6,r.world.tanks.get(2).kills);if(mode==RoomMode.ROLEPLAY)assertEquals(1200,r.world.tanks.get(2).qReadyTick);assertTrue(r.thread.isAlive());checked.complete(null);}catch(Throwable failure){checked.completeExceptionally(failure);}
+      try{assertEquals(RoomState.RUNNING,r.phase);assertEquals(match,r.match);assertEquals(3,r.participants.size());assertEquals(6,r.world.tanks.get(2).kills);assertEquals(77,r.world.tanks.get(2).shield,"rejoin must not refresh spawn protection");if(mode==RoomMode.ROLEPLAY)assertEquals(1200,r.world.tanks.get(2).qReadyTick);assertTrue(r.thread.isAlive());checked.complete(null);}catch(Throwable failure){checked.completeExceptionally(failure);}
      });checked.get(3,TimeUnit.SECONDS);
     }
    }
@@ -86,7 +88,7 @@ class NetworkRejoinTest {
  }
  static void ok(Socket socket,int op)throws Exception{assertEquals(0,new Reader(BaselineTest.waitFor(socket,op).payload()).u16());}
  static void assertListedRejoinable(Socket socket,int id)throws Exception{
-  BaselineTest.send(socket,ROOM_LIST,new byte[0]);var list=new Reader(BaselineTest.waitFor(socket,ROOM_LIST_RESULT).payload());assertEquals(0,list.u16());assertEquals(1,list.u16());assertEquals(id,list.u32());list.str(48);assertEquals(2,list.u8());assertEquals(3,list.u8());assertEquals(RoomState.RUNNING.ordinal(),list.u8());list.bool();assertTrue(list.bool());list.u8();list.end();
+  BaselineTest.send(socket,ROOM_LIST,new byte[0]);var list=new Reader(BaselineTest.waitFor(socket,ROOM_LIST_RESULT).payload());assertEquals(0,list.u16());assertEquals(1,list.u16());assertEquals(id,list.u32());list.str(48);assertEquals(2,list.u8());assertEquals(3,list.u8());assertEquals(RoomState.RUNNING.ordinal(),list.u8());list.bool();assertTrue(list.bool());list.u8();assertEquals(MapCatalog.DEFAULT_ID,list.u16());list.end();
  }
  static void rejoin(Server server,Socket socket,DatagramSocket udp,byte[] token,int id,long match,RoomMode mode)throws Exception{
   BaselineTest.send(socket,JOIN_ROOM,new Writer().u32(id).done());ok(socket,ACTION_RESULT);assertEquals(match,new Reader(BaselineTest.waitFor(socket,PREPARE).payload()).u64());

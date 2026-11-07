@@ -7,7 +7,7 @@ namespace Tank  {
         readonly ArenaTheme arenaTheme=new ArenaTheme();
         Vector2 menuViewport,dialogScroll,lobbyActionScroll,nationScroll;
         GUIStyle afkText;
-        int capacityChoice=2,durationChoice=1;
+        int capacityChoice=2,durationChoice=1,roomMapId=MapCatalog.DefaultId;
         bool registerTab,roomForm,editingRoom,profileForm,joinForm,useRoomPassword;
         bool fieldSubmitRequested;
         string fieldFocusRequest;
@@ -70,6 +70,7 @@ namespace Tank  {
             return CartoonUi.WrapText(value,style,width);
         }
         void ResetMenusForAccount() {
+            modeNavigation.Observe(client.AccountRevision,client.Phase);
             if(observedAccountRevision==client.AccountRevision)return;
             observedAccountRevision=client.AccountRevision;
             history=roomForm=editingRoom=profileForm=joinForm=false;
@@ -80,7 +81,7 @@ namespace Tank  {
         }
         bool AnyDialog  {
             get {
-                return settingsOpen||profileForm||joinForm||leaveMatchForm||roleplayShopOpen||!string.IsNullOrEmpty(walletNotice);
+                return settingsOpen||profileForm||joinForm||leaveMatchForm||roleplayShopOpen||!string.IsNullOrEmpty(walletNotice)||SkillDetailsUi.IsOpen;
             }
         }
         public ClientCore Core  {
@@ -218,7 +219,8 @@ namespace Tank  {
                 return;
             }
             if(client.Phase==ClientPhase.LOBBY) {
-                DrawLobby(area);
+                if(modeNavigation.MultiplayerSelected)DrawLobby(area);
+                else DrawModeSelection(area);
                 return;
             }
             if(client.Phase==ClientPhase.RESULTS) {
@@ -261,6 +263,7 @@ namespace Tank  {
             scroll=Vector2.zero;
             savedSettingsRevision=client.SettingsRevision;
             if(edit) {
+                roomMapId=client.RoomMapId;
                 roomName=client.RoomName;
                 capacityChoice=Mathf.Clamp(client.RoomCapacity-2,0,6);
                 durationChoice=Mathf.Max(0,Array.IndexOf(durations,client.RoomSeconds));
@@ -268,6 +271,7 @@ namespace Tank  {
                 startingHpText=client.RoomStartingHp.ToString();
             }
             else {
+                roomMapId=MapCatalog.DefaultId;
                 roomName="Đấu xe tăng";
                 capacityChoice=2;
                 durationChoice=1;
@@ -278,7 +282,7 @@ namespace Tank  {
         }
         void DrawLobby(Rect area) {
             InitMenuCards();
-            // A sortie banner and an open room browser replace the administrative side rail.
+            // The mode chooser owns campaign entry; this screen is the multiplayer room browser.
             Rect banner=new Rect(area.x,area.y,area.width,148);
             CartoonUi.Panel(banner,CartoonUi.PanelDark,8,0);
             float entryWidth=Mathf.Clamp(area.width*.34f,270,390),copyWidth=area.width-entryWidth-152;
@@ -287,11 +291,11 @@ namespace Tank  {
             string bannerTitle=history?"NHẬT KÝ\nTÁC CHIẾN":"TẬP HỢP.\nXUẤT KÍCH.";
             GUI.Label(new Rect(banner.x+140,banner.y+44,copyWidth,82),bannerTitle,depotTitle);
             Rect entry=new Rect(banner.xMax-entryWidth-18,banner.y+20,entryWidth,112);
-            GUI.Label(new Rect(entry.x+4,entry.y,entry.width-8,20),"MẶT TRẬN CHIẾN DỊCH",depotKicker);
-            GUI.Label(new Rect(entry.x+4,entry.y+24,entry.width-8,24),"Tiến quân · Thu vàng · Ghi danh",depotSmall);
-            GUILayout.BeginArea(new Rect(entry.x,entry.y+54,entry.width,58));
-            GUILayout.BeginHorizontal();CampaignEntryButtons();GUILayout.EndHorizontal();
-            GUILayout.EndArea();
+            GUI.Label(new Rect(entry.x+4,entry.y,entry.width-8,20),"NHIỀU NGƯỜI CHƠI",depotKicker);
+            GUI.Label(new Rect(entry.x+4,entry.y+24,entry.width-8,24),"Đấu thường / Nhập vai",depotSmall);
+            bool previous=GUI.enabled;GUI.enabled=previous&&ModeNavigation.CanLeaveCampaign(client.Campaign.Pending,client.Campaign.Run);
+            if(GUI.Button(new Rect(entry.x,entry.y+62,entry.width,46),"Chọn chế độ",menu.Secondary))ShowModeSelection();
+            GUI.enabled=previous;
             Rect browser=new Rect(area.x,area.y+164,area.width,area.height-164);
             CartoonUi.Panel(browser,CartoonUi.PanelDark,8,0);
             float createWidth=Mathf.Max(112,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Tạo phòng")).x));
@@ -299,7 +303,9 @@ namespace Tank  {
             float toggleWidth=Mathf.Max(128,Mathf.Ceil(depotAction.CalcSize(new GUIContent("Danh sách phòng")).x),Mathf.Ceil(depotAction.CalcSize(new GUIContent("Lịch sử")).x));
             float actionX=browser.xMax-20-createWidth-refreshWidth-toggleWidth-16;
             GUI.Label(new Rect(browser.x+22,browser.y+18,actionX-browser.x-38,32),history?"LỊCH SỬ TRẬN":"PHÒNG ĐANG MỞ",menu.Section);
+            GUI.enabled=previous&&CanEnterMultiplayer;
             if(GUI.Button(new Rect(actionX,browser.y+14,createWidth,42),"Tạo phòng",depotAction))OpenRoomForm(false);
+            GUI.enabled=previous;
             if(GUI.Button(new Rect(actionX+createWidth+8,browser.y+14,refreshWidth,42),"Làm mới",depotAction)) {
                 if(history) {
                     client.CloseHistoryDetail();
@@ -318,6 +324,7 @@ namespace Tank  {
             scroll=GUILayout.BeginScrollView(scroll);
             float listWidth=MenuScrollContentWidth(browser.width-40);
             GUILayout.BeginVertical(GUILayout.Width(listWidth));
+            if(!string.IsNullOrEmpty(MultiplayerCampaignNotice))GUILayout.Label(MultiplayerCampaignNotice,menu.Hint);
             if(!string.IsNullOrEmpty(client.WalletError))GUILayout.Label(client.WalletError,menu.Hint);
             if(history) {
                 if(client.SelectedHistoryMatch!=0)DrawHistoryDetail(listWidth);
@@ -358,7 +365,7 @@ namespace Tank  {
             bool full=room.Players>=room.Capacity;
             float detailWidth=Mathf.Max(100,width-284);
             string title=WrapMenuText(room.Name,depotName,detailWidth);
-            string mode=WrapMenuText(room.Mode==RoomMode.ROLEPLAY?"NHẬP VAI · Kỹ năng Q riêng":"ĐẤU THƯỜNG · Tự do giao tranh",depotSmall,detailWidth);
+            string mode=WrapMenuText((room.Mode==RoomMode.ROLEPLAY?"NHẬP VAI · Kỹ năng Q riêng":"ĐẤU THƯỜNG · Tự do giao tranh")+"\n"+MapCatalog.Name(room.MapId),depotSmall,detailWidth);
             float titleHeight=MenuTextHeight(title,depotName,detailWidth),modeHeight=MenuTextHeight(mode,depotSmall,detailWidth);
             bool separateLock=room.Locked&&detailWidth<390;
             float contentHeight=12+titleHeight+8+modeHeight+10+24+(separateLock?28:0)+16;
@@ -380,7 +387,7 @@ namespace Tank  {
             }
             string state=returning?"CÓ THỂ VÀO LẠI":full&&room.Phase==RoomPhase.WAITING?"ĐÃ ĐẦY":RoomPhaseLabel(room.Phase).ToUpperInvariant();
             CartoonUi.Badge(new Rect(row.xMax-170,row.y+14,152,28),state,available?CartoonUi.Ready:room.Phase==RoomPhase.RUNNING?CartoonUi.Gold:CartoonUi.Disabled);
-            bool prior=GUI.enabled;GUI.enabled=prior&&available;
+            bool prior=GUI.enabled;GUI.enabled=prior&&available&&CanEnterMultiplayer;
             string action=returning?"Vào lại trận":"Vào phòng";
             float actionHeight=ButtonHeight(action,menu.Primary,152);
             if(GUI.Button(new Rect(row.xMax-170,row.yMax-actionHeight-16,152,actionHeight),action,menu.Primary)) {
@@ -403,7 +410,7 @@ namespace Tank  {
                 return;
             }
             GUILayout.Label("Trận #"+detail.Match,menu.Section);
-            GUILayout.Label(DateTimeOffset.FromUnixTimeMilliseconds((long)detail.Ended).LocalDateTime.ToString("dd/MM/yyyy HH:mm")+" · "+detail.DurationSeconds+" giây · Bản đồ "+detail.MapId,menu.Hint);
+            GUILayout.Label(DateTimeOffset.FromUnixTimeMilliseconds((long)detail.Ended).LocalDateTime.ToString("dd/MM/yyyy HH:mm")+" · "+detail.DurationSeconds+" giây · "+MapCatalog.Name(detail.MapId),menu.Hint);
             GUILayout.Label(EndReasonLabel(detail.Reason),menu.Hint);
             if(!string.IsNullOrEmpty(detail.RoomModeName))GUILayout.Label(detail.RoomModeName=="ROLEPLAY"?"Nhập vai":"Thường",menu.Hint);
             GUILayout.Space(12);
@@ -433,6 +440,8 @@ namespace Tank  {
             scroll=GUILayout.BeginScrollView(scroll);
             float formWidth=MenuScrollContentWidth(card.width-48),columnWidth=(formWidth-24)/2;
             GUILayout.BeginVertical(GUILayout.Width(formWidth));
+            DrawRoomMapChoices(formWidth,editingRoom);
+            GUILayout.Space(16);
             bool split=card.width>=840;
             if(split){GUILayout.BeginHorizontal();GUILayout.BeginVertical(GUILayout.Width(columnWidth));}
             roomName=Field("room-name","Tên phòng",roomName,24,nextField:!editingRoom||useRoomPassword?"room-password":"starting-hp");
@@ -471,7 +480,7 @@ namespace Tank  {
             GUILayout.EndArea();
             GUILayout.BeginArea(new Rect(card.x+24,card.yMax-84,card.width-48,64));
             GUILayout.BeginHorizontal();
-            if(SubmitButton("Xác nhận")) {
+            if(SubmitButton("Xác nhận",editingRoom||CanEnterMultiplayer)) {
                 formError="";
                 int hp;
                 int mode=!useRoomPassword?1:string.IsNullOrEmpty(roomPassword)&&client.RoomLocked?0:2;
@@ -480,7 +489,8 @@ namespace Tank  {
                 else if(editingRoom&&capacities[capacityChoice]<client.Players.Count)formError="Số người tối đa không thể nhỏ hơn số người đang ở phòng.";
                 else if(editingRoom&&mode==2&&roomPassword.Length==0)formError="Nhập mật khẩu hoặc bỏ chọn dùng mật khẩu.";
                 else if(editingRoom)client.ConfigureRoom(roomName.Trim(),capacities[capacityChoice],durations[durationChoice],mode,roomPassword,hp);
-                else client.Create(roomName.Trim(),capacities[capacityChoice],durations[durationChoice],roomPassword,hp,(RoomMode)roomModeChoice);
+                else if(!MapCatalog.IsSelectable(roomMapId))formError="Chọn một bản đồ hợp lệ.";
+                else client.Create(roomName.Trim(),capacities[capacityChoice],durations[durationChoice],roomPassword,hp,(RoomMode)roomModeChoice,roomMapId);
             }
             if(Button("Hủy",true,true)) {
                 roomForm=false;
@@ -554,6 +564,8 @@ namespace Tank  {
             GUILayout.BeginVertical(GUILayout.Width(info.width-70));
             GUILayout.Label(WrapMenuText(client.RoomName,menu.Name,info.width-70),menu.Name);
             GUILayout.Label(client.RoomMode==RoomMode.ROLEPLAY?"NHẬP VAI":"ĐẤU THƯỜNG",menu.ReadyLabel);
+            GUILayout.Space(8);
+            DrawRoomMapSummary(client.RoomMapId,info.width-70);
             GUILayout.Space(8);
             RoomStat(UiIcon.Clock,client.RoomSeconds/60+" phút / trận");
             RoomStat(UiIcon.Players,client.Players.Count+" / "+client.RoomCapacity+" người");
@@ -761,7 +773,7 @@ namespace Tank  {
                 joinForm=false;
                 formError="";
             }
-            if(!AnyDialog)return;
+            if(!profileForm&&!joinForm)return;
             ArenaRenderer.Fill(new Rect(0,0,viewWidth,viewHeight),new Color(0,0,0,.55f));
             float w=Mathf.Min(560,viewWidth-48),h=Mathf.Min(380,viewHeight-112);
             Rect card=new Rect((viewWidth-w)/2,Mathf.Max(88,(viewHeight-h)/2),w,h);
@@ -782,7 +794,7 @@ namespace Tank  {
             GUILayout.EndScrollView();GUILayout.EndArea();
             GUILayout.BeginArea(new Rect(card.x+24,card.yMax-84,card.width-48,64));
             GUILayout.BeginHorizontal();
-            if(SubmitButton(profileForm?"Lưu tên":"Vào phòng")) {
+            if(SubmitButton(profileForm?"Lưu tên":"Vào phòng",profileForm||CanEnterMultiplayer)) {
                 if(profileForm) {
                     formError="";
                     if(string.IsNullOrWhiteSpace(displayName)||Encoding.UTF8.GetByteCount(displayName.Trim())>96)formError="Nhập tên từ 1 đến 24 ký tự.";

@@ -97,12 +97,11 @@ namespace Tank  {
                         for(int i=0;i<n;i++)Rooms.Add(new RoomInfo {
                             Id=r.U32(),Name=r.Str(48),Players=r.U8(),Capacity=r.U8(),Phase=(RoomPhase)r.U8()
                         });
-                        if(r.Remaining>0) {
-                            if(r.Remaining!=Rooms.Count&&r.Remaining!=2*Rooms.Count&&r.Remaining!=3*Rooms.Count)throw new InvalidDataException("room flags");
-                            foreach(var room in Rooms)room.Locked=r.Bool();
-                            if(r.Remaining>0)foreach(var room in Rooms)room.CanRejoin=r.Bool();
-                            if(r.Remaining>0)foreach(var room in Rooms) {room.Mode=(RoomMode)r.U8();if((int)room.Mode>1)throw new InvalidDataException("room mode");}
-                        }
+                        if(r.Remaining!=5*Rooms.Count)throw new InvalidDataException("room metadata");
+                        foreach(var room in Rooms)room.Locked=r.Bool();
+                        foreach(var room in Rooms)room.CanRejoin=r.Bool();
+                        foreach(var room in Rooms) {room.Mode=(RoomMode)r.U8();if((int)room.Mode>1)throw new InvalidDataException("room mode");}
+                        foreach(var room in Rooms) {room.MapId=r.U16();if(!MapCatalog.IsSelectable(room.MapId))throw new InvalidDataException("room map");}
                     }
                     else if(p.Op==Op.HistoryResult) {
                         History.Clear();
@@ -132,22 +131,22 @@ namespace Tank  {
                         Players.Add(player);
                         if(player.Name==Nickname)Slot=player.Slot;
                     }
-                    if(r.Remaining>0) {
-                        RoomCapacity=r.U8();
-                        RoomSeconds=r.U16();
-                        if(RoomCapacity<2||RoomCapacity>8||RoomSeconds<0||RoomSeconds>600)throw new InvalidDataException("room settings");
-                    }
-                    if(r.Remaining>0) {
-                        RoomLocked=r.Bool();
-                        Slot=r.U8();
-                        if(!Players.Exists(member=>member.Slot==Slot))throw new InvalidDataException("own slot");
-                    }
-                    RoomStartingHp=r.Remaining>0?r.U16():GameRules.DefaultHp;
+                    RoomCapacity=r.U8();
+                    RoomSeconds=r.U16();
+                    if(RoomCapacity<2||RoomCapacity>8||RoomSeconds<0||RoomSeconds>600)throw new InvalidDataException("room settings");
+                    RoomLocked=r.Bool();
+                    Slot=r.U8();
+                    if(!Players.Exists(member=>member.Slot==Slot))throw new InvalidDataException("own slot");
+                    RoomStartingHp=r.U16();
                     if(RoomStartingHp<1||RoomStartingHp>GameRules.MaxStartHp)throw new InvalidDataException("starting HP");
-                    RoomMode=RoomMode.NORMAL;
-                    if(r.Remaining>0) {
-                        RoomMode=(RoomMode)r.U8();PrepareStage=(PrepStage)r.U8();PrepareDeadline=r.U64();ulong preparingMatch=r.U64();r.U32();
-                        if(RoomMode!=RoomMode.ROLEPLAY||(int)PrepareStage>3)throw new InvalidDataException("roleplay room");
+                    int roomMapId=r.U16();
+                    if(!MapCatalog.IsSelectable(roomMapId))throw new InvalidDataException("room map");
+                    RoomMapId=roomMapId;
+                    RoomMode=(RoomMode)r.U8();
+                    if((int)RoomMode>1)throw new InvalidDataException("room mode");
+                    if(RoomMode==RoomMode.ROLEPLAY) {
+                        PrepareStage=(PrepStage)r.U8();PrepareDeadline=r.U64();ulong preparingMatch=r.U64();r.U32();
+                        if((int)PrepareStage>3)throw new InvalidDataException("roleplay room");
                         foreach(var player in Players) {int nation=r.U8();if(nation!=255&&nation>7)throw new InvalidDataException("nation");player.Nation=nation==255?-1:nation;}
                         if(Phase==ClientPhase.PREPARING&&Match!=0&&preparingMatch!=Match)throw new InvalidDataException("preparation match");
                     }
@@ -195,6 +194,7 @@ namespace Tank  {
                     }
                     map=selected.Item1;
                     mapHash=selected.Item2;
+                    RoomMapId=mapId;
                     AfkWarning=false;
                     Message=rejoining?"Đang vào lại trận đấu…":"";
                     remote.Port=port;
@@ -283,6 +283,7 @@ namespace Tank  {
                         Phase=token==null?ClientPhase.AUTHENTICATING:ClientPhase.LOBBY;
                         Slot=-1;
                         RoomId=0;
+                        RoomMapId=MapCatalog.DefaultId;
                         leavingMatch=false;
                         Latest=null;
                         Predicted=null;

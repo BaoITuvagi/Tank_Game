@@ -9,6 +9,8 @@ public class World  {
     public static final float TANK_SPEED=GameRules.TankSpeed,BULLET_STEP=GameRules.BulletStep,SPRINT_MULTIPLIER=GameRules.SprintMultiplier;
     public static class Tank  {
         public int slot,body,turret,hp=DEFAULT_HP,maxHp=DEFAULT_HP,energy=MAX_ENERGY,energyRecovery,kills,deaths,status=1,respawn,shield,lastKill=-1,cooldown;
+        // Server-only cadence history; a fresh spawn can shoot immediately even during sandstorm.
+        public int lastShotTick=-1;
         public int qReadyTick,qEndTick,slowEndTick,protectionFlags;
         public int rocketSlowEndTick,rocketSlowStacks;
         public int qStartTick,confusionEndTick,fireLockEndTick,fogEndTick,qStage,life;
@@ -37,6 +39,7 @@ public class World  {
             t.shield=shield;
             t.lastKill=lastKill;
             t.cooldown=cooldown;
+            t.lastShotTick=lastShotTick;
             t.qReadyTick=qReadyTick;
             t.qEndTick=qEndTick;
             t.slowEndTick=slowEndTick;
@@ -170,6 +173,7 @@ public class World  {
         t.status=1;
         t.shield=tick+SPAWN_SHIELD_TICKS;
         t.cooldown=tick;
+        t.lastShotTick=-1;
     }
     void spawn(Tank t) {
         List<GameMap.Point> points=new ArrayList<>(List.of(map.spawns));
@@ -201,8 +205,27 @@ public class World  {
     public static void movement(Tank t,Input in,GameMap m,byte[] hp,int simulationTick) {
         movement(t,in,m,hp,simulationTick,List.of());
     }
+    static int terrainSpeedPercent(GameMap m,boolean wet) {
+        return terrainSpeedPercent(m,wet,GameRules.WaterSpeedPercent);
+    }
+    static int terrainSpeedPercent(GameMap m,boolean wet,int waterPercent) {
+        if(!wet)return 100;
+        if(m.mapId==GameRules.DesertMapId)return GameRules.OasisSpeedPercent;
+        if(m.mapId==GameRules.WinterMapId)return GameRules.IceSpeedPercent;
+        return waterPercent;
+    }
+    static int energyRecovery(GameMap m,boolean wet,int simulationTick) {
+        int percent=wet&&m.mapId==GameRules.DesertMapId?GameRules.OasisEnergyRecoveryPercent:100;
+        // Fractional recovery is distributed by the shared simulation clock, not extra snapshot state.
+        int phase=simulationTick%100;
+        return (phase+1)*percent/100-phase*percent/100;
+    }
     public static void movement(Tank t,Input in,GameMap m,byte[] hp,int simulationTick,Iterable<NationSkills.Effect> effects) {
+        movement(t,in,m,hp,simulationTick,effects,null);
+    }
+    static void movement(Tank t,Input in,GameMap m,byte[] hp,int simulationTick,Iterable<NationSkills.Effect> effects,WorldBattlefield.Wave wave) {
         if(t.hp==0)return;
+        boolean wet=m.water(t.x,t.y);
         int dx=((in.buttons&8)!=0?1:0)-((in.buttons&4)!=0?1:0),dy=((in.buttons&1)!=0?1:0)-((in.buttons&2)!=0?1:0);
         boolean held=(in.buttons&32)!=0,sprinting=held&&(dx!=0||dy!=0)&&t.energy>0;
         if(simulationTick<t.confusionEndTick) {dx=-dx;dy=-dy;}
@@ -211,15 +234,15 @@ public class World  {
             if(sprinting)t.energy--;
         }
         else if(t.energyRecovery>0)t.energyRecovery--;
-        else t.energy=Math.min(MAX_ENERGY,t.energy+1);
+        else t.energy=Math.min(MAX_ENERGY,t.energy+energyRecovery(m,wet,simulationTick));
         float norm=dx!=0&&dy!=0?(float)(1/Math.sqrt(2)):1;
         float multiplier=sprinting?SPRINT_MULTIPLIER:1;
         multiplier=Math.min(GameRules.MaxTankSpeedPercent/100f,multiplier);
-        float water=m.water(t.x,t.y)?.5f:1;
+        float water=terrainSpeedPercent(m,wet)/100f;
         float slow=simulationTick<t.slowEndTick?GameRules.SlowSpeedPercent/100f:1;
         if(NationSkills.katyushaSlowEnd(t,simulationTick,effects)>simulationTick)slow*=GameRules.KatyushaSlowSpeedPercent/100f;
         if(simulationTick<t.rocketSlowEndTick)for(int hit=0;hit<t.rocketSlowStacks;hit++)slow*=GameRules.RocketSlowSpeedPercent/100f;
-        float speed=TANK_SPEED*water*multiplier*slow/30;
+        float speed=TANK_SPEED*water*multiplier*slow*WorldBattlefield.speed(m,t.x,t.y,wave,simulationTick)/30;
         float x=t.x+dx*norm*speed,y=t.y+dy*norm*speed;
         int desired=dx!=0||dy!=0?Math.floorMod((int)Math.round(Math.toDegrees(Math.atan2(dy,dx))*100),36000):t.body;
         int movingBody=m.blocked(t.x,t.y,desired,hp)?t.body:desired;
@@ -249,7 +272,7 @@ public class World  {
                 continue;
             }
             float oldX=t.x,oldY=t.y;
-            movement(t,inputs.getOrDefault(t.slot,new Input(tick,0,t.turret)),map,bricks,tick,skills.effects);
+            movement(t,inputs.getOrDefault(t.slot,new Input(tick,0,t.turret)),map,bricks,tick,skills.effects,battlefield.wave);
             items.path(t,oldX,oldY,t.x,oldY);items.path(t,t.x,oldY,t.x,t.y);
         }
         items.pickup();
@@ -257,8 +280,11 @@ public class World  {
         for(Tank t:tanks.values()) {
             if(t.hp<=0||!previousTanks.containsKey(t.slot))continue;
             Input in=inputs.get(t.slot);
-            if(in!=null&&(in.buttons&16)!=0&&tick>=t.cooldown&&tick>=t.fireLockEndTick) {
+            int interval=WorldBattlefield.shotInterval(map,t.x,t.y,battlefield.wave,tick);
+            int ready=t.lastShotTick<0||interval==GameRules.BaseShotIntervalTicks?t.cooldown:Math.max(t.cooldown,t.lastShotTick+interval);
+            if(in!=null&&(in.buttons&16)!=0&&tick>=ready&&tick>=t.fireLockEndTick) {
                 t.cooldown=tick+GameRules.BaseShotIntervalTicks;
+                t.lastShotTick=tick;
                 boolean barrage=t.nation==4&&tick<t.qEndTick;
                 int count=barrage?3:1;
                 boolean he=tick<t.heEndTick,mirror=t.mirrorShots>0;
@@ -385,7 +411,7 @@ public class World  {
             double angle=Math.toRadians(b.heading/100.0);
             float dx=(float)Math.cos(angle)*remaining,dy=(float)Math.sin(angle)*remaining;
             Hit h=null;
-            float extentX=.08f,extentY=.08f;
+            float extentX=GameRules.BulletWallHalfSize,extentY=GameRules.BulletWallHalfSize;
             if(WorldItems.hasHe(b.kind)||WorldItems.isMirrorChild(b.kind)) {
                 float size=WorldItems.size(b);
                 extentX=(float)(Math.abs(Math.cos(angle))*BULLET_HALF_LENGTH+Math.abs(Math.sin(angle))*BULLET_HALF_WIDTH)*size;
@@ -454,7 +480,7 @@ public class World  {
         damage(t,owner,amount,kind,0,0,0);
     }
     void damage(Tank t,int owner,int amount,int kind,int bulletId,int causeKind,int causeId) {
-        if(t.hp<=0)return;
+        if(t.hp<=0||tick<t.shield)return;
         if(kind!=2&&tick<t.invincibilityEndTick)return;
         if(kind==0&&tick<t.armorEndTick)amount=Math.round(amount*(100-GameRules.ArmorReductionPercent)/100f);
         int previousHp=t.hp;
@@ -518,7 +544,7 @@ public class World  {
         return exit<0||enter>1?1:Math.max(0,enter);
     }
     boolean dash(Tank t) {
-        float distance=GameRules.DashDistance*(map.water(t.x,t.y)?GameRules.DashWaterPercent/100f:1);
+        float distance=GameRules.DashDistance*terrainSpeedPercent(map,map.water(t.x,t.y),GameRules.DashWaterPercent)/100f;
         double angle=Math.toRadians(t.body/100.0),c=Math.cos(angle),s=Math.sin(angle);
         float dx=(float)c*distance,dy=(float)s*distance;
         double fraction=1,extent=TANK_HALF_SIZE*(Math.abs(c)+Math.abs(s));

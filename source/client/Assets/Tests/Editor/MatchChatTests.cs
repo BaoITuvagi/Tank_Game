@@ -53,11 +53,24 @@ public class MatchChatTests {
             c.Chat.Reset(7);c.Chat.Receive(new WireReader(Batch(1)),7,true);c.Dispose();Assert.IsEmpty(c.Chat.Messages);Assert.AreEqual(0,c.Chat.Match);
         }
     }
-    [Test] public void LowWindowsStartCollapsedAndUnreadSurvivesUntilViewed() {
+    [Test] public void AllWindowsStartOnRankingsAndUnreadSurvivesUntilChatIsViewed() {
         using(var c=new ClientCore(null,new byte[32])) {
             c.Phase=ClientPhase.PLAYING;c.Chat.Reset(7);var hud=new MatchChatHud();hud.Sync(c,600);Assert.IsFalse(hud.Expanded);
             c.Chat.Receive(new WireReader(Batch(1)),7,true);Assert.AreEqual(1,hud.Unread(c.Chat));Assert.IsFalse(hud.Typing);
-            c.Chat.Reset(8);hud.Sync(c,800);Assert.IsTrue(hud.Expanded);Assert.IsFalse(hud.InputBlocked);
+            hud.SelectChat(true);Assert.IsTrue(hud.Expanded);Assert.AreEqual(1,hud.Unread(c.Chat),"Selecting a tab must not mark unseen messages read before rendering.");
+            hud.SelectChat(true);Assert.IsTrue(hud.Expanded,"Clicking the selected Chat tab keeps the same tab.");
+            hud.Sync(c,1080);Assert.IsTrue(hud.Expanded,"Resizing preserves the tab selection.");
+            hud.SelectChat(false);Assert.IsFalse(hud.Expanded);Assert.AreEqual(1,hud.Unread(c.Chat));
+            c.Chat.Reset(8);hud.Sync(c,800);Assert.IsFalse(hud.Expanded);Assert.IsFalse(hud.InputBlocked);
+        }
+    }
+    [Test] public void LeavingChatClearsTypingAndRequiresInputRelease() {
+        using(var c=new ClientCore(null,new byte[32])) {
+            c.Phase=ClientPhase.PLAYING;c.Chat.Reset(7);var hud=new MatchChatHud();hud.Sync(c,600);hud.SelectChat(true);
+            typeof(MatchChatHud).GetField("<Typing>k__BackingField",Private).SetValue(hud,true);
+            hud.SelectChat(false);Assert.IsFalse(hud.Typing);Assert.IsTrue(hud.InputBlocked,"A held send/click cannot resume combat during the tab transition.");
+            hud.Sync(c,1080);Assert.IsTrue(hud.InputBlocked);
+            c.Chat.Reset(8);hud.Sync(c,800);Assert.IsFalse(hud.InputBlocked);
         }
     }
 }

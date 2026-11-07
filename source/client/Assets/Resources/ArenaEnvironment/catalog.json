@@ -1,0 +1,64 @@
+{
+  "sheet": "materials",
+  "width": 1536,
+  "height": 1024,
+  "columns": 3,
+  "rows": 2,
+  "materials": [
+    {
+      "key": "wall_sandstone",
+      "cell": 0,
+      "x": 63,
+      "y": 52,
+      "width": 418,
+      "height": 420,
+      "sampleX": 72,
+      "sampleY": 72,
+      "sampleSize": 368
+    },
+    {
+      "key": "wall_snow",
+      "cell": 1,
+      "x": 560,
+      "y": 52,
+      "width": 418,
+      "height": 420,
+      "sampleX": 584,
+      "sampleY": 72,
+      "sampleSize": 368
+    },
+    {
+      "key": "water_green",
+      "cell": 2,
+      "x": 1056,
+      "y": 52,
+      "width": 418,
+      "height": 420,
+      "sampleX": 1096,
+      "sampleY": 72,
+      "sampleSize": 368
+    },
+    {
+      "key": "water_desert",
+      "cell": 3,
+      "x": 63,
+      "y": 552,
+      "width": 418,
+      "height": 420,
+      "sampleX": 72,
+      "sampleY": 584,
+      "sampleSize": 368
+    },
+    {
+      "key": "water_snow",
+      "cell": 4,
+      "x": 560,
+      "y": 552,
+      "width": 418,
+      "height": 420,
+      "sampleX": 584,
+      "sampleY": 584,
+      "sampleSize": 368
+    }
+  ]
+}

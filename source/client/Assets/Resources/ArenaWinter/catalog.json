@@ -1,0 +1,12 @@
+{
+  "images": [
+    {
+      "key": "igloo",
+      "file": "igloo",
+      "sourceHash": "baa56efa921ac0c0d5108330f7ee8f39aa9bf056a199f40c1c8f3a418785cc16",
+      "alpha": "cutout",
+      "width": 1254,
+      "height": 1254
+    }
+  ]
+}

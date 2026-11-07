@@ -53,7 +53,7 @@ public class RejoinProtocolTests {
    var accept=listener.AcceptTcpClientAsync();c.Connect("127.0.0.1",((IPEndPoint)listener.LocalEndpoint).Port,udpPort);yield return WaitFor(c,()=>c.Phase==ClientPhase.AUTHENTICATING);
    using(var peer=accept.Result){var stream=peer.GetStream();
     Write(stream,Op.LoginResult,new WireWriter().U16(0).U64(3).Str("Test3").Bytes(new byte[16]).Done());yield return WaitFor(c,()=>c.Phase==ClientPhase.LOBBY);
-    Write(stream,Op.RoomListResult,new WireWriter().U16(0).U16(1).U32(8).Str("AFK room").U8(2).U8(3).U8(2).U8(1).U8(1).Done());yield return WaitFor(c,()=>c.Rooms.Count==1);Assert.IsTrue(c.Rooms[0].Locked);Assert.IsTrue(c.Rooms[0].CanRejoin);
+    Write(stream,Op.RoomListResult,new WireWriter().U16(0).U16(1).U32(8).Str("AFK room").U8(2).U8(3).U8(2).U8(1).U8(1).U8(0).U16(2).Done());yield return WaitFor(c,()=>c.Rooms.Count==1);Assert.IsTrue(c.Rooms[0].Locked);Assert.IsTrue(c.Rooms[0].CanRejoin);
     Write(stream,Op.Prepare,new WireWriter().U64(123).U32(8).U8(2).U16(1).Bytes(hash).U8(3).U8(30).U16(udpPort).U8(1).Done());yield return WaitFor(c,()=>c.Phase==ClientPhase.PREPARING);Assert.AreEqual(123,c.Match);Assert.AreEqual(2,c.Slot);Assert.IsFalse(c.AfkWarning);
     // The server's original start time is intentionally far in the past.
     Write(stream,Op.Start,new WireWriter().U64(123).U64(1).Done());yield return WaitFor(c,()=>c.Phase==ClientPhase.PLAYING);Assert.AreEqual(123,c.Match);Assert.AreEqual(0,c.Invalid);

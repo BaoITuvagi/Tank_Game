@@ -63,8 +63,22 @@ namespace Tank {
         bool Take(int stream,uint id,int phase,uint tick,uint expiry,bool visible) {
             return Mark(Key(stream,id,phase),expiry)&&tick>watermark&&visible;
         }
-        public static bool Visible(TankState observer,float x,float y,uint tick) {
-            return observer==null||observer.Hp==0||tick>=observer.FogEndTick||(x-observer.X)*(x-observer.X)+(y-observer.Y)*(y-observer.Y)<=GameRules.FogRadius*GameRules.FogRadius;
+        BattlefieldWave visibilityWave;
+        GameMap visibilityMap;
+        public static bool Visible(TankState observer,float x,float y,uint tick,BattlefieldWave wave=null) {
+            return WeatherVisibility.Visible(observer,x,y,tick,wave);
+        }
+        bool CanSee(TankState observer,float x,float y,uint tick) {
+            return WeatherVisibility.Visible(observer,x,y,Math.Max(tick,Clock*30),visibilityWave);
+        }
+        bool BeamVisible(TankState observer,float x,float y,int angle) {
+            double a=angle*Math.PI/18000;float length=visibilityMap==null?400:visibilityMap.width+visibilityMap.height;
+            return WeatherVisibility.SegmentVisible(observer,x,y,(float)Math.Cos(a)*length,(float)Math.Sin(a)*length,Math.Max(latestTick,Clock*30),visibilityWave);
+        }
+        public bool EffectVisible(Fx f,TankState observer,float x,float y) {
+            if(f.Clip=="@beam")return BeamVisible(observer,x,y,(int)Math.Round(f.Angle*100));
+            float extent=f.Clip==null?f.Width*(.2f+Clock-f.Start):ArenaRenderer.EffectWidth(f.Width,f.OriginalSize)*.71f;
+            return WeatherVisibility.AreaVisible(observer,x,y,extent,Math.Max(latestTick,Clock*30),visibilityWave);
         }
         static int Free(Fx[] pool,int end,bool critical) {
             int oldest=-1;
@@ -84,7 +98,7 @@ namespace Tank {
         void Cue(int clip,int priority,float x,float y,uint tick,TankState observer,bool bounce=false,bool damage=false,bool explosion=false) {
             if(latestTick<tick||latestTick-tick>6)return;
             float distance=observer==null?0:(float)Math.Sqrt((observer.X-x)*(observer.X-x)+(observer.Y-y)*(observer.Y-y));
-            if(distance>=30||!Visible(observer,x,y,latestTick))return;
+            if(distance>=30||!CanSee(observer,x,y,latestTick))return;
             if(bounce) {if(Clock<nextBounceSound)return;nextBounceSound=Clock+.25f;}
             if(damage) {if(Clock<nextDamageSound)return;nextDamageSound=Clock+.125f;}
             float gain=1-distance/30;
@@ -126,13 +140,13 @@ namespace Tank {
             if(incomingMatch!=match) {Clear();match=incomingMatch;}
             latestTick=snapshot.Tick;Clock=Math.Max(Clock,latestTick/30f);Prune();
             bool first=!initialized;if(first) {watermark=latestTick;initialized=true;}
-            var world=snapshot.World;TankState observer;world.Tanks.TryGetValue(localSlot,out observer);
+            var world=snapshot.World;visibilityWave=world.Battlefield;visibilityMap=map;TankState observer;world.Tanks.TryGetValue(localSlot,out observer);
             AcceptBattlefield(world,observer,map);
             TrailBulletCount=0;
             foreach(var bullet in world.Bullets.Values)if(ItemCodec.HasMirror(bullet.Kind)&&TrailBulletCount<TrailBullets.Length)TrailBullets[TrailBulletCount++]=bullet.Id;
             Age(Transients,world,observer);Age(Smoke,world,observer);Age(Dust,world,observer);
             foreach(var e in world.Combat.Values) {
-                if(!Take(0,e.Id,0,e.Tick,e.Tick+(uint)GameRules.CombatEventRetentionTicks,Visible(observer,e.X,e.Y,latestTick)))continue;
+                if(!Take(0,e.Id,0,e.Tick,e.Tick+(uint)GameRules.CombatEventRetentionTicks,CanSee(observer,e.X,e.Y,latestTick)))continue;
                 float start=At(e.Tick);
                 if(e.Kind==CombatEvent.Shot) {
                     TankState t;
@@ -168,7 +182,7 @@ namespace Tank {
                 }
             }
             foreach(var e in world.Effects) {
-                bool visible=Visible(observer,e.X,e.Y,latestTick);
+                bool visible=e.Kind==SkillEffect.Beam?BeamVisible(observer,e.X,e.Y,e.Angle):WeatherVisibility.AreaVisible(observer,e.X,e.Y,e.Radius,Math.Max(latestTick,Clock*30),visibilityWave);
                 if(e.Kind==SkillEffect.Activate&&latestTick>=e.Start&&Take(1,e.Id,0,(uint)e.Start,(uint)e.End+90,visible)) {
                     Spawn(Transients,"magic/magic_burst",e.X,e.Y,2,At((uint)e.Start),.5f,Color.white);
                     Cue(3+Math.Max(0,Math.Min(7,e.Angle)),4,e.X,e.Y,(uint)e.Start,observer);
@@ -191,7 +205,7 @@ namespace Tank {
                 if(observer!=null&&latestTick-e.End<=6) {float distance=(float)Math.Sqrt((observer.X-e.X)*(observer.X-e.X)+(observer.Y-e.Y)*(observer.Y-e.Y));ShakeStrength=Math.Min(3,Math.Max(ShakeStrength,(1-distance/35)*2.2f));shakeStart=Clock;}
             }
             foreach(var e in world.ItemEffects) {
-                if(latestTick<e.Start||!Take(2,e.Id,0,(uint)e.Start,(uint)e.End+90,Visible(observer,e.X,e.Y,latestTick)))continue;
+                if(latestTick<e.Start||!Take(2,e.Id,0,(uint)e.Start,(uint)e.End+90,CanSee(observer,e.X,e.Y,latestTick)))continue;
                 float start=At((uint)e.Start);
                 if(e.Kind==10) {Explosion(e.X,e.Y,e.Radius,start);Cue(11,3,e.X,e.Y,(uint)e.Start,observer,explosion:true);}
                 else if(e.Kind==11) {Spawn(Transients,"movement/dash",e.X,e.Y,2,start,.5f,new Color(.8f,.4f,1),e.Angle/100f);Cue(30,1,e.X,e.Y,(uint)e.Start,observer);}
@@ -223,22 +237,24 @@ namespace Tank {
             for(int i=0;i<pool.Length;i++)if(pool[i].Active) {
                 var f=pool[i];TankState owner;
                 f.Start=Math.Min(f.Start,Clock-f.ConfirmedAge-(float)Math.Max(0,(latestTick-(double)f.ConfirmedTick)/30));pool[i]=f;
-                if(Clock-f.Start>=f.Duration||!Visible(observer,f.X,f.Y,latestTick)||f.Slot>=0&&(!world.Tanks.TryGetValue(f.Slot,out owner)||owner.Life!=f.Life||owner.Hp<=0))pool[i].Active=false;
+                float x=f.X,y=f.Y;
+                if(f.Slot>=0&&world.Tanks.TryGetValue(f.Slot,out owner)) {x=owner.X+f.OffsetX;y=owner.Y+f.OffsetY;}
+                if(Clock-f.Start>=f.Duration||!EffectVisible(f,observer,x,y)||f.Slot>=0&&(!world.Tanks.TryGetValue(f.Slot,out owner)||owner.Life!=f.Life||owner.Hp<=0))pool[i].Active=false;
             }
         }
         public void Update(float dt,WorldState world,GameMap map,int localSlot) {
             if(!initialized||world==null)return;
-            Clock+=Math.Max(0,dt);TankState observer;world.Tanks.TryGetValue(localSlot,out observer);
+            Clock+=Math.Max(0,dt);visibilityWave=world.Battlefield;visibilityMap=map;TankState observer;world.Tanks.TryGetValue(localSlot,out observer);
             Age(Transients,world,observer);Age(Smoke,world,observer);Age(Dust,world,observer);
             if(Clock-shakeStart>=.18f)ShakeStrength=0;
             for(int i=0;i<Wrecks.Length;i++)if(Wrecks[i].Active) {
                 TankState t;var wreck=Wrecks[i];
                 wreck.Start=Math.Min(wreck.Start,At(wreck.Tick));Wrecks[i]=wreck;
-                if(Clock-wreck.Start>=2||!Visible(observer,wreck.X,wreck.Y,latestTick)||world.Tanks.TryGetValue(wreck.Slot,out t)&&t.Life!=wreck.Life)Wrecks[i].Active=false;
+                if(Clock-wreck.Start>=2||!CanSee(observer,wreck.X,wreck.Y,latestTick)||world.Tanks.TryGetValue(wreck.Slot,out t)&&t.Life!=wreck.Life)Wrecks[i].Active=false;
             }
             for(int slot=0;slot<8;slot++) {
                 TankState t;if(!world.Tanks.TryGetValue(slot,out t))continue;
-                if(t.Hp<=0||!Visible(observer,t.X,t.Y,latestTick))continue;
+                if(t.Hp<=0||!CanSee(observer,t.X,t.Y,latestTick))continue;
                 if(t.Hp/(float)Math.Max(1,t.MaxHp)<=.3f&&Clock>=nextSmoke[t.Slot]) {
                     nextSmoke[t.Slot]=Clock+.5f;int index=t.Slot*2+(Smoke[t.Slot*2].Active?1:0);
                     Smoke[index]=new Fx{Active=true,Clip="nature/smoke_top",X=t.X,Y=t.Y,Width=1.2f,Start=Clock,Duration=.75f,Speed=1,Slot=t.Slot,Life=t.Life,Tint=new Color(.45f,.45f,.45f,.8f),ConfirmedTick=latestTick};
@@ -258,7 +274,7 @@ namespace Tank {
                 for(int i=0;i<wave.TargetsPerRound;i++) {
                     var z=map.battlefield.Zone(wave.Kind,wave.Target(round,i));
                     int phase=round*GameRules.BattlefieldTargetsPerRound+i;
-                    if(!Take(3,wave.Id,phase,impact,wave.End,Visible(observer,z.x,z.y,latestTick)))continue;
+                    if(!Take(3,wave.Id,phase,impact,wave.End,CanSee(observer,z.x,z.y,latestTick)))continue;
                     Explosion(z.x,z.y,GameRules.BattlefieldRadius*2,At(impact),originalSize:true,fitSmoke:true,duration:GameRules.BattlefieldAirstrikeTicks/30f);
                     Cue(25,3,z.x,z.y,impact,observer,explosion:true);
                 }

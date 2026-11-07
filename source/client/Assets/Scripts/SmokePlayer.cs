@@ -10,7 +10,8 @@ namespace Tank  {
         string username,output,roomName;
         bool auth,login,join,ready,start,roleplay,configuredRoom;
         double began,lastHistory,lastSkill,nextNation;
-        int expectedTicks,players,seconds,startingHp,nationOffset,qRequests,matchPlayers;
+        int expectedTicks,players,seconds,startingHp,nationOffset,qRequests,matchPlayers,expectedMap;
+        bool mapMatched=true;
         uint change;
         int battlefieldTypes,battlefieldWarnings,battlefieldImpacts;
         uint lastBattlefield;
@@ -37,6 +38,7 @@ namespace Tank  {
             GameMap initial;
             core=MapLoader.CreateClient(out initial);
             core.SnapshotAccepted+=snapshot=> {
+                if(core.ActiveMap.mapId!=expectedMap||core.RoomMapId!=expectedMap)mapMatched=false;
                 var wave=snapshot.World.Battlefield;if(wave==null)return;
                 int bit=1<<wave.Kind;battlefieldTypes|=bit;
                 if(wave.Id!=lastBattlefield) {lastBattlefield=wave.Id;battlefieldWaves++;}
@@ -48,8 +50,10 @@ namespace Tank  {
             expectedTicks=int.Parse(Arg("--expected-ticks","5400"));
             roomName=Arg("--room","Unity smoke");
             roleplay=Environment.GetCommandLineArgs().Contains("--roleplay");
+            expectedMap=int.Parse(Arg("--map",MapCatalog.DefaultId.ToString()));
             players=int.Parse(Arg("--players","2"));seconds=int.Parse(Arg("--seconds","180"));startingHp=int.Parse(Arg("--hp","100"));nationOffset=int.Parse(Arg("--nation-offset","0"));
-            configuredRoom=roleplay||Environment.GetCommandLineArgs().Contains("--players")||Environment.GetCommandLineArgs().Contains("--seconds")||Environment.GetCommandLineArgs().Contains("--hp");
+            configuredRoom=roleplay||Environment.GetCommandLineArgs().Contains("--players")||Environment.GetCommandLineArgs().Contains("--seconds")||Environment.GetCommandLineArgs().Contains("--hp")||Environment.GetCommandLineArgs().Contains("--map");
+            if(!MapCatalog.IsSelectable(expectedMap))throw new ArgumentOutOfRangeException("smoke map");
             if(players<2||players>8||seconds<60||seconds>600||seconds%60!=0||startingHp<1||startingHp>GameRules.MaxStartHp||nationOffset<0||nationOffset>7)throw new ArgumentOutOfRangeException("smoke settings");
             if(configuredRoom&&!Environment.GetCommandLineArgs().Contains("--expected-ticks"))expectedTicks=seconds*30;
             began=ClientCore.NowUs;
@@ -66,12 +70,12 @@ namespace Tank  {
             }
             if(core.Phase==ClientPhase.LOBBY&&!join) {
                 if(Environment.GetCommandLineArgs().Contains("--create")) {
-                    if(configuredRoom)core.Create(roomName,players,seconds,"",startingHp,roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL);
+                    if(configuredRoom)core.Create(roomName,players,seconds,"",startingHp,roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL,expectedMap);
                     else core.Create(roomName);
                     join=true;
                 }
                 else {
-                    var room=core.Rooms.FirstOrDefault(r=>r.Name==roomName&&(!configuredRoom||r.Mode==(roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL)));
+                    var room=core.Rooms.FirstOrDefault(r=>r.Name==roomName&&r.MapId==expectedMap&&(!configuredRoom||r.Mode==(roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL)));
                     if(room!=null) {
                         core.Join(room.Id);
                         join=true;
@@ -79,6 +83,7 @@ namespace Tank  {
                 }
             }
             if(core.Phase==ClientPhase.ROOM&&!ready) {
+                if(core.RoomMapId!=expectedMap){Save(false);return;}
                 var local=core.Players.FirstOrDefault(p=>p.Slot==core.Slot);
                 if(core.RoomMode==RoomMode.ROLEPLAY&&local!=null&&local.Nation<0) {
                     if(ClientCore.NowUs>=nextNation) {core.SelectNation((core.Slot+nationOffset)%8);nextNation=ClientCore.NowUs+1e6;}
@@ -118,9 +123,9 @@ namespace Tank  {
             if(core.Ended&&core.History.Any(h=>h.Match==core.Match)) {
                 // Reliable END can overtake the last impaired UDP snapshots.
                 if(core.Latest!=null&&core.Latest.Tick<expectedTicks-1&&ClientCore.NowUs-lastHistory<500000)return;
-                bool scenario=!configuredRoom||core.RoomMode==(roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL)&&core.RoomCapacity==players&&core.RoomSeconds==seconds&&core.RoomStartingHp==startingHp&&matchPlayers==players&&core.Scores.Count==players;
+                bool scenario=mapMatched&&core.RoomMapId==expectedMap&&core.ActiveMap.mapId==expectedMap&&(!configuredRoom||core.RoomMode==(roleplay?RoomMode.ROLEPLAY:RoomMode.NORMAL)&&core.RoomCapacity==players&&core.RoomSeconds==seconds&&core.RoomStartingHp==startingHp&&matchPlayers==players&&core.Scores.Count==players);
                 bool skills=!roleplay||core.LoadoutReady&&core.Loadouts.Count==players&&qRequests>0&&core.SkillFeedbackRevision>=1;
-                int battlefieldMask=(1<<BattlefieldWave.Fire)|(1<<BattlefieldWave.Airstrike);
+                int battlefieldMask=BattlefieldWave.AllowedKinds(expectedMap);
                 bool battlefield=!Environment.GetCommandLineArgs().Contains("--battlefield")||(battlefieldTypes==battlefieldMask&&battlefieldWarnings==battlefieldMask&&battlefieldImpacts==battlefieldMask);
                 bool chat=!Environment.GetCommandLineArgs().Contains("--chat")||chatSent&&chatColorsValid&&chatSlots==(1<<players)-1;
                 Save(SmokeAcceptance.Passed(core,expectedTicks)&&scenario&&skills&&battlefield&&chat);
@@ -131,7 +136,8 @@ namespace Tank  {
         [Serializable] class SmokeResult  {
             public bool success;
             public long decoded,invalid;
-            public int historyRows,endReason,expectedTicks,qRequests,skillFeedback,nation,map,players,capacity,seconds,startingHp,expectedPlayers,expectedHp,matchPlayers,resultPlayers;
+            public int historyRows,endReason,expectedTicks,qRequests,skillFeedback,nation,map,roomMap,expectedMap,players,capacity,seconds,startingHp,expectedPlayers,expectedHp,matchPlayers,resultPlayers;
+            public bool mapMatched;
             public int battlefieldTypes,battlefieldWarnings,battlefieldImpacts,battlefieldWaves;
             public uint observedTick;
             public ulong match;
@@ -144,7 +150,7 @@ namespace Tank  {
                 success=success,decoded=core.Decoded,invalid=core.Invalid,historyRows=core.History.Count, endReason=core.EndReason,expectedTicks=expectedTicks,observedTick=core.Latest==null?0:core.Latest.Tick,match=core.Match,
                 battlefieldTypes=battlefieldTypes,battlefieldWarnings=battlefieldWarnings,battlefieldImpacts=battlefieldImpacts,battlefieldWaves=battlefieldWaves,
                 chatSent=chatSent,chatColorsValid=chatColorsValid,chatSlots=chatSlots,
-                qRequests=qRequests,skillFeedback=core.SkillFeedbackRevision,mode=core.RoomMode.ToString(),message=core.Message,skillNotice=core.SkillNotice,map=core.ActiveMap.mapId,
+                qRequests=qRequests,skillFeedback=core.SkillFeedbackRevision,mode=core.RoomMode.ToString(),message=core.Message,skillNotice=core.SkillNotice,map=core.ActiveMap.mapId,roomMap=core.RoomMapId,expectedMap=expectedMap,mapMatched=mapMatched,
                 nation=core.Loadouts.ContainsKey(core.Slot)?core.Loadouts[core.Slot].Nation:-1,
                 players=core.Players.Count,capacity=core.RoomCapacity,seconds=core.RoomSeconds,startingHp=core.RoomStartingHp,expectedPlayers=players,expectedHp=startingHp,matchPlayers=matchPlayers,resultPlayers=core.Scores.Count
             };

@@ -68,15 +68,15 @@ class GameplayUpgradeTest {
    World w=new World(map,1);w.add(0);w.add(1);String layout=w.arrangeInitialSpawns(previous);assertNotEquals(previous,layout);previous=layout;
   }
  }
- @Test void configuredHpResetsOnRespawnAndEveryHitDamagesImmediately()throws Exception{
+ @Test void configuredHpResetsOnRespawnAndDamageWaitsForProtectionToExpire()throws Exception{
   var map=GameMap.load(Path.of("../client/Assets/StreamingAssets/map.json"));
   for(int hp:new int[]{1,100,500}){
    var w=new World(map,1,hp);w.add(0);var t=w.tanks.get(0);assertEquals(hp,t.hp);assertEquals(hp,t.maxHp);
    w.tick=149;w.damage(t,0);assertEquals(Math.max(0,hp-20),t.hp);
    for(int i=1;i<hp;i++)w.damage(t,0);assertEquals(0,t.hp);t.energy=0;
    for(int i=0;i<89;i++)w.step(Map.of());assertEquals(0,t.hp);
-   w.step(Map.of());assertEquals(hp,t.hp);assertEquals(150,t.energy);assertEquals(w.tick,t.shield);
-   w.damage(t,0);assertEquals(Math.max(0,hp-20),t.hp);
+   w.step(Map.of());assertEquals(hp,t.hp);assertEquals(150,t.energy);assertEquals(w.tick+90,t.shield);
+   w.damage(t,0);assertEquals(hp,t.hp);w.tick=t.shield;w.damage(t,0);assertEquals(Math.max(0,hp-20),t.hp);
   }
  }
  @Test void extendedStateRoundTripsThroughFullAndDeltaIncludingNewTank()throws Exception{

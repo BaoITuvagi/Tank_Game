@@ -39,9 +39,9 @@ namespace Tank {
         public void SelectNation(int nation) {
             if(RoomMode==RoomMode.ROLEPLAY&&Phase==ClientPhase.ROOM&&nation>=0&&nation<8)Request(Op.SelectNation,new WireWriter().U8(nation).Done());
         }
-        public void Create(string name,int capacity,int seconds,string password,int startingHp,RoomMode roomMode) {
-            if(capacity<2||capacity>8||seconds<60||seconds>600||seconds%60!=0||startingHp<1||startingHp>GameRules.MaxStartHp||(int)roomMode<0||(int)roomMode>1)throw new ArgumentOutOfRangeException("room settings");
-            Request(Op.Create,new WireWriter().Str(name).U8(capacity).U16(seconds).Str(password??"").U16(startingHp).U8((int)roomMode).Done());
+        public void Create(string name,int capacity,int seconds,string password,int startingHp,RoomMode roomMode,int mapId=MapCatalog.DefaultId) {
+            if(capacity<2||capacity>8||seconds<60||seconds>600||seconds%60!=0||startingHp<1||startingHp>GameRules.MaxStartHp||(int)roomMode<0||(int)roomMode>1||!MapCatalog.IsSelectable(mapId))throw new ArgumentOutOfRangeException("room settings");
+            Request(Op.Create,new WireWriter().Str(name).U8(capacity).U16(seconds).Str(password??"").U16(startingHp).U8((int)roomMode).U16(mapId).Done());
         }
         public bool SkillPending(int slot) {return slot==0&&pendingSkills[slot]!=null;}
         public int SkillReadyTick(int slot) {

@@ -5,7 +5,7 @@ namespace Tank {
         public static bool Warning(BattlefieldWave wave,float tick,int round=0) {return Active(wave,tick)&&tick>=wave.RoundStart(round)&&tick<wave.RoundImpact(round);}
         public static bool Burning(BattlefieldWave wave,float tick,int round) {return Active(wave,tick)&&wave.Kind==BattlefieldWave.Fire&&tick>=wave.RoundImpact(round)&&tick<wave.RoundImpact(round)+GameRules.BattlefieldFireTicks;}
         public static bool Burning(BattlefieldWave wave,float tick) {if(wave!=null)for(int i=0;i<wave.Rounds;i++)if(Burning(wave,tick,i))return true;return false;}
-        public static string Name(int kind) {return kind==BattlefieldWave.Fire?"Red Zone":"Bombstorm";}
+        public static string Name(int kind) {return kind==BattlefieldWave.Fire?"Red Zone":kind==BattlefieldWave.Airstrike?"Bombstorm":kind==BattlefieldWave.Sandstorm?"Bão cát":"Bão tuyết";}
     }
     public sealed partial class ArenaRenderer {
         // This layer uses the latest authoritative state, like obstacle collision.
@@ -37,7 +37,7 @@ namespace Tank {
         void DrawBattlefield(GameMap map,WorldState world,uint tick) {
             var wave=world==null?null:world.Battlefield;
             float now=Mathf.Max(tick,visualTick);
-            if(!BattlefieldPresentation.Active(wave,now)||map.battlefield==null)return;
+            if(!BattlefieldPresentation.Active(wave,now)||map.battlefield==null||wave.IsWeather)return;
             for(int round=0;round<wave.Rounds;round++) {
                 bool warning=BattlefieldPresentation.Warning(wave,now,round);
                 uint impact=wave.RoundImpact(round);
@@ -64,6 +64,7 @@ namespace Tank {
             var wave=world==null?null:world.Battlefield;
             float now=Mathf.Max(tick,visualTick);
             if(!BattlefieldPresentation.Active(wave,now))return;
+            if(wave.IsWeather) {DrawWeatherNotice(wave,now,width);return;}
             CartoonUi.Panel(new Rect(width/2-125,4,250,28),CartoonUi.PanelDark,9,2);
             Fill(new Rect(width/2-115,11,4,13),CartoonUi.Danger);
             float remaining=(wave.End-now)/30;

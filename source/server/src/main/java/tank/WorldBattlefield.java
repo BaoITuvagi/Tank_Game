@@ -6,28 +6,41 @@ import static tank.Protocol.*;
 /** Server-owned schedule and hazards. Its RNG never consumes gameplay randomness. */
 final class WorldBattlefield {
     // Kind 1 is reserved for the removed collapse event.
-    static final int FIRE=2,AIRSTRIKE=3,FIRE_CAUSE=11,AIRSTRIKE_CAUSE=12;
+    static final int FIRE=2,AIRSTRIKE=3,SANDSTORM=4,SNOWSTORM=5,FIRE_CAUSE=11,AIRSTRIKE_CAUSE=12,SANDSTORM_CAUSE=13,SNOWSTORM_CAUSE=14;
+    static boolean weather(int kind) {return kind==SANDSTORM||kind==SNOWSTORM;}
+    static int warning(int kind) {return weather(kind)?WeatherWarningTicks:kind==FIRE?BattlefieldFireWarningTicks:BattlefieldWarningTicks;}
+    static boolean active(Wave wave,int tick) {return wave!=null&&tick>=wave.impact&&tick<wave.end;}
+    static float bandWidth(GameMap map) {return map.width;}
+    static float bandLeft(GameMap map,Wave wave,int tick) {return 0;}
+    static float bandRight(GameMap map,Wave wave,int tick) {return map.width;}
+    static boolean affecting(GameMap map,float x,float y,Wave wave,int tick) {
+        return map!=null&&active(wave,tick)&&weather(wave.kind)&&x>=0&&x<map.width&&y>=0&&y<map.height;
+    }
+    static float speed(GameMap map,float x,float y,Wave wave,int tick) {return affecting(map,x,y,wave,tick)&&wave.kind==SNOWSTORM?SnowstormSpeedPercent/100f:1;}
+    static int shotInterval(GameMap map,float x,float y,Wave wave,int tick) {
+        return affecting(map,x,y,wave,tick)&&wave.kind==SANDSTORM?(BaseShotIntervalTicks*100+SandstormFireRatePercent-1)/SandstormFireRatePercent:BaseShotIntervalTicks;
+    }
     record Wave(int id,int kind,int start,int impact,int end,List<Integer> targets) {
         Wave {
             targets=List.copyOf(targets);
-            int warning=kind==FIRE?BattlefieldFireWarningTicks:BattlefieldWarningTicks;
-            if(id<=0||(kind!=FIRE&&kind!=AIRSTRIKE)||start<0||start>MaxMatchTicks||impact!=start+warning||end!=impact+BattlefieldEventTicks
-                ||targets.size()!=BattlefieldTargetsPerRound*BattlefieldRounds
+            int warning=warning(kind);
+            if(id<=0||(kind!=FIRE&&kind!=AIRSTRIKE&&!weather(kind))||start<0||start>MaxMatchTicks||impact!=start+warning||end!=impact+(weather(kind)?WeatherActiveTicks:BattlefieldEventTicks)
+                ||targets.size()!=(weather(kind)?0:BattlefieldTargetsPerRound*BattlefieldRounds)
                 ||targets.stream().anyMatch(t->t<0||t>63))throw new IllegalArgumentException("battlefield wave");
             int count=BattlefieldTargetsPerRound;
-            for(int round=0;round<BattlefieldRounds;round++) {
+            for(int round=0;!weather(kind)&&round<BattlefieldRounds;round++) {
                 var current=targets.subList(round*count,(round+1)*count);
                 if(new HashSet<>(current).size()!=count||kind==AIRSTRIKE&&round>0&&!Collections.disjoint(current,targets.subList((round-1)*count,round*count)))throw new IllegalArgumentException("battlefield targets");
             }
         }
-        int rounds() {return BattlefieldRounds;}
+        int rounds() {return weather(kind)?1:BattlefieldRounds;}
         int targetsPerRound() {return targets.size()/rounds();}
         int target(int round,int index) {return targets.get(round*targetsPerRound()+index);}
         int impact(int round) {return impact+round*(kind==AIRSTRIKE?(BattlefieldEventTicks-BattlefieldAirstrikeTicks)/(BattlefieldRounds-1):BattlefieldRoundIntervalTicks);}
         void write(Writer out) {out.u32(id).u8(kind).u32(start).u32(impact).u32(end).u8(targets.size());targets.forEach(out::u8);}
         static Wave read(Reader r) {
             int id=r.u32(),kind=r.u8(),start=r.u32(),impact=r.u32(),end=r.u32(),n=r.u8();
-            if(n!=BattlefieldTargetsPerRound*BattlefieldRounds)throw new IllegalArgumentException("battlefield count");
+            if(n!=(weather(kind)?0:BattlefieldTargetsPerRound*BattlefieldRounds))throw new IllegalArgumentException("battlefield count");
             List<Integer> targets=new ArrayList<>();for(int i=0;i<n;i++)targets.add(r.u8());
             return new Wave(id,kind,start,impact,end,targets);
         }
@@ -51,12 +64,12 @@ final class WorldBattlefield {
     void schedule() {
         var map=w.map.battlefield;
         if(bag.isEmpty()) {
-            var types=new ArrayList<>(List.of(FIRE,AIRSTRIKE));Collections.shuffle(types,random);
+            var types=new ArrayList<>(List.of(w.map.mapId==WinterMapId?SNOWSTORM:FIRE,w.map.mapId==DesertMapId?SANDSTORM:AIRSTRIKE));Collections.shuffle(types,random);
             if(types.getFirst()==lastKind)Collections.swap(types,0,1);bag.addAll(types);
         }
         int kind=bag.removeFirst();
-        int warning=kind==FIRE?BattlefieldFireWarningTicks:BattlefieldWarningTicks;
-        if(w.tick+warning+BattlefieldEventTicks>=matchTicks)return;
+        int warning=warning(kind),duration=weather(kind)?WeatherActiveTicks:BattlefieldEventTicks;
+        if(w.tick+warning+duration>=matchTicks)return;
         List<Integer> targets=new ArrayList<>();
         if(kind==FIRE) {
             for(int i=0;i<BattlefieldRounds;i++) {
@@ -64,9 +77,9 @@ final class WorldBattlefield {
                 if(current.isEmpty())return;targets.addAll(current);
             }
         }
-        else targets=airstrikeTargets(map);
-        if(targets.isEmpty())return;
-        wave=new Wave(nextId++,kind,w.tick,w.tick+warning,w.tick+warning+BattlefieldEventTicks,targets);
+        else if(!weather(kind))targets=airstrikeTargets(map);
+        if(targets.isEmpty()&&!weather(kind))return;
+        wave=new Wave(nextId++,kind,w.tick,w.tick+warning,w.tick+warning+duration,targets);
         lastKind=kind;
         w.telemetry.accept("kind=battlefield id="+wave.id+" type="+kind+" tick="+w.tick+" targets="+targets);
     }
@@ -107,6 +120,12 @@ final class WorldBattlefield {
     }
     void damage() {
         if(!enabled||wave==null||w.tick<wave.impact||w.tick>=wave.end)return;
+        if(weather(wave.kind)) {
+            int age=w.tick-wave.impact-WeatherFirstDamageTicks;
+            if(age>=0&&age%WeatherDamageIntervalTicks==0)for(World.Tank t:w.tanks.values())if(t.hp>0&&affecting(w.map,t.x,t.y,wave,w.tick))
+                w.damage(t,-1,WeatherDamage,0,0,wave.kind==SANDSTORM?SANDSTORM_CAUSE:SNOWSTORM_CAUSE,wave.id);
+            return;
+        }
         for(int round=0;round<wave.rounds();round++) {
             int impact=wave.impact(round);
             if(wave.kind==AIRSTRIKE?w.tick!=impact:w.tick<impact||w.tick>=impact+BattlefieldFireTicks||(w.tick-impact)%BattlefieldFireDamageTicks!=0)continue;

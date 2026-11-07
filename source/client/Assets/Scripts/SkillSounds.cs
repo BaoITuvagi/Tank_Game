@@ -22,7 +22,10 @@ namespace Tank {
             public GCHandle Buffer;
             public bool Prepared;
         }
-        readonly Voice[] voices=new Voice[6];
+        // Six combat/UI voices plus one dedicated weather voice; wind cannot steal a gunshot.
+        readonly Voice[] voices=new Voice[7];
+        int weatherKind;
+        int weatherLevel=-1;
         readonly Dictionary<int,byte[]> clips=new Dictionary<int,byte[]>();
         readonly uint headerSize=(uint)Marshal.SizeOf(typeof(WaveHeader));
         bool disposed;
@@ -33,7 +36,7 @@ namespace Tank {
                 if(waveOutOpen(out handle,uint.MaxValue,ref format,IntPtr.Zero,IntPtr.Zero,0)!=0)continue;
                 voices[i]=new Voice{Handle=handle,Header=Marshal.AllocHGlobal((int)headerSize)};
             }
-            for(int kind=0;kind<32;kind++) {
+            for(int kind=0;kind<35;kind++) {
                 byte[] original=Synthesize(kind);
                 for(int level=0;level<8;level++) {
                     var data=new byte[original.Length];float gain=(level+1)/8f;
@@ -43,6 +46,18 @@ namespace Tank {
             }
         }
         static byte[] Synthesize(int kind) {
+            if(kind>=32) {
+                double windDuration=kind==34?.5:2;int windCount=(int)(22050*windDuration);var pcm=new byte[windCount*2];
+                var rng=new Random(1901+kind);double filtered=0;
+                for(int i=0;i<windCount;i++) {
+                    double t=i/22050.0;
+                    filtered+=(rng.NextDouble()*2-1-filtered)*(kind==32?.09:.045);
+                    double tone=kind==34?Math.Sin(2*Math.PI*(520*t+220*t*t))*.25:filtered*(.8+.2*Math.Sin(t*3));
+                    double envelope=Math.Min(1,t*8)*Math.Min(1,(windDuration-t)*8);
+                    short sample=(short)(short.MaxValue*tone*envelope*.22);pcm[i*2]=(byte)sample;pcm[i*2+1]=(byte)(sample>>8);
+                }
+                return pcm;
+            }
             double duration=kind==0?.035:kind<3?.08:kind==3||kind==4||kind==8?.65:kind==13||kind==25?.55:kind<15?.35:.18;
             int count=(int)(22050*duration);var data=new byte[count*2];var noise=new Random(901+kind);
             for(int i=0;i<count;i++) {
@@ -85,9 +100,12 @@ namespace Tank {
         }
         void Play(int kind,bool priority=false,float gain=1) {
             if(disposed||!ClientPreferences.Active.SoundEnabled)return;Poll();Voice voice=null;
-            for(int i=priority?0:2;i<(priority?2:voices.Length);i++)if(voices[i]!=null&&!voices[i].Prepared) {voice=voices[i];break;}
+            for(int i=priority?0:2;i<(priority?2:6);i++)if(voices[i]!=null&&!voices[i].Prepared) {voice=voices[i];break;}
             if(voice==null&&priority) {voice=voices[0]??voices[1];if(voice!=null&&!Release(voice,true))voice=null;}
             if(voice==null)return;
+            Queue(voice,kind,gain);
+        }
+        void Queue(Voice voice,int kind,float gain) {
             int key=(kind<<3)|Math.Max(0,Math.Min(7,(int)Math.Ceiling(gain*8)-1));
             voice.Buffer=GCHandle.Alloc(clips[key],GCHandleType.Pinned);
             var header=new WaveHeader{Data=voice.Buffer.AddrOfPinnedObject(),Length=(uint)clips[key].Length};
@@ -104,7 +122,22 @@ namespace Tank {
         public void Fog(bool start) {Play(start?19:20,true);}
         public void Barrage() {Play(21);}
         public void PlayWorld(int clip,float gain,bool priority) {if(clip>=0&&clip<32&&gain>0)Play(clip,priority,gain);}
-        public void Stop() {foreach(var voice in voices)if(voice!=null)Release(voice,true);}
+        public void WeatherWarning(int kind) {
+            if(disposed||!ClientPreferences.Active.SoundEnabled)return;
+            var v=voices[6];if(v==null||!Release(v,true))return;Queue(v,34,.5f);
+        }
+        public void Weather(int kind) {WeatherGain(kind,.5f);}
+        public void WeatherGain(int kind,float gain) {
+            if(disposed)return;Poll();var v=voices[6];if(v==null)return;
+            if(!ClientPreferences.Active.SoundEnabled||gain<=0)kind=0;
+            int level=Math.Max(0,Math.Min(7,(int)Math.Ceiling(gain*8)-1));
+            // Only replace the dedicated voice at a gain tier change. Never
+            // change the Windows device/session volume shared by gunshots.
+            if(weatherKind!=kind||weatherLevel!=level) {if(weatherKind!=0)Release(v,true);weatherKind=kind;weatherLevel=level;}
+            if(kind!=0&&!v.Prepared)Queue(v,kind==BattlefieldWave.Sandstorm?32:33,gain);
+            if(!ClientPreferences.Active.SoundEnabled&&v.Prepared)Release(v,true);
+        }
+        public void Stop() {weatherKind=0;foreach(var voice in voices)if(voice!=null)Release(voice,true);}
         public void Dispose() {
             if(disposed)return;disposed=true;
             foreach(var voice in voices)if(voice!=null) {
@@ -122,6 +155,9 @@ namespace Tank {
         public void Fog(bool start) {}
         public void Barrage() {}
         public void PlayWorld(int clip,float gain,bool priority) {}
+        public void Weather(int kind) {}
+        public void WeatherGain(int kind,float gain) {}
+        public void WeatherWarning(int kind) {}
         public void Stop() {}
         public void Poll() {}
         public void Dispose() {}

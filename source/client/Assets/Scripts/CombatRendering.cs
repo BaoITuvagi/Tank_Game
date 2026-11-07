@@ -7,6 +7,7 @@ namespace Tank {
         internal void AcceptEffects(ClientCore client,Snapshot snapshot) {
             if(presentationMatch!=client.Match) {ResetEffects();presentationMatch=client.Match;}
             combatFx.Accept(client.Match,snapshot,client.Slot,client.ActiveMap);
+            if(!initialized)weatherSoundWave=snapshot.World.Battlefield==null?0:snapshot.World.Battlefield.Id;
             presentationSnapshot=snapshot.Id;
             initialized=true;
         }
@@ -19,7 +20,7 @@ namespace Tank {
             Rect r=World(wx-width/2,wy-width/2,width,width);var saved=GUI.matrix;Color old=GUI.color;
             try {
                 if(clip.Info.faces=="right")GuiTransforms.Rotate(-angle,r.center);
-                GUI.color=tint;GUI.DrawTextureWithTexCoords(r,clip.Texture,clip.Uv(age,speed));
+                GUI.color=tint;WorldTexture(r,clip.Texture,clip.Uv(age,speed));
             }
             finally {GUI.matrix=saved;GUI.color=old;}
         }
@@ -27,7 +28,7 @@ namespace Tank {
             foreach(var f in pool) {
                 if(!f.Active)continue;float wx=f.X,wy=f.Y;
                 if(f.Slot>=0) {TankState t;if(!world.Tanks.TryGetValue(f.Slot,out t)||t.Life!=f.Life||t.Hp<=0)continue;wx=t.X+f.OffsetX;wy=t.Y+f.OffsetY;}
-                if(!Visible(observer,wx,wy,tick))continue;
+                if(!combatFx.EffectVisible(f,observer,wx,wy))continue;
                 float age=combatFx.Clock-f.Start;
                 if(f.Clip=="@beam")BeamLine(map,wx,wy,Mathf.RoundToInt(f.Angle*100),false,Mathf.Clamp01(1-age/f.Duration));
                 else if(f.Clip==null) {EffectTextures();Disc(wx,wy,f.Width*(.2f+age),ring,Fade(f.Tint,Mathf.Clamp01(1-age/f.Duration)));}

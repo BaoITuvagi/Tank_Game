@@ -101,8 +101,8 @@ class AfkRejoinAndHitTest {
  GameMap open(){GameMap m=new GameMap();m.width=m.height=100;m.walls=new GameMap.Rect[0];m.bricks=new GameMap.Rect[0];m.water=new GameMap.Rect[0];return m;}
  World.Tank target(World w,int slot,float x,float y,int body){var t=new World.Tank();t.slot=slot;t.x=x;t.y=y;t.body=body;w.tanks.put(slot,t);return t;}
  World.Bullet shot(World w,float x,float y,int angle){var b=new World.Bullet();b.id=1;b.owner=0;b.x=x;b.y=y;b.heading=angle;b.born=-20;w.bullets.put(1,b);return b;}
- @Test void grazingVisibleBodyDamagesEvenDuringOldShieldWindow(){
-  var w=new World(open(),1);var t=target(w,1,10,10,0);t.shield=999;var b=shot(w,8.5f,11,0);w.advance(b);assertEquals(80,t.hp);assertFalse(w.bullets.containsKey(1));
+ @Test void grazingVisibleBodyConsumesBulletWithoutDamageDuringShieldWindow(){
+  var w=new World(open(),1);var t=target(w,1,10,10,0);t.shield=999;var b=shot(w,8.5f,11,0);w.advance(b);assertEquals(100,t.hp);assertFalse(w.bullets.containsKey(1));
  }
  @Test void rotatedCornerHitsAndNearMissDoesNotDamage(){
   var w=new World(open(),1);var t=target(w,1,10,10,4500);var b=shot(w,9.5f,11.3f,0);w.advance(b);assertEquals(80,t.hp);
@@ -117,11 +117,11 @@ class AfkRejoinAndHitTest {
   var w=new World(m,1);var behind=target(w,1,10+GameRules.TankHalfSize+.4f,10,0);var b=shot(w,8.3f,10,0);w.advance(b);assertEquals(100,behind.hp);assertEquals(1,b.bounces);
   w=new World(open(),1);var near=target(w,1,10,10,0);var far=target(w,2,11,10,0);b=shot(w,8.5f,10,0);w.advance(b);assertEquals(80,near.hp);assertEquals(100,far.hp);assertFalse(w.bullets.containsKey(1));
  }
- @Test void hitKillsOnceAndRespawnHasNoInvulnerability()throws Exception{
+ @Test void hitKillsOnceAndRespawnProtectsForThreeSeconds()throws Exception{
   var h=helper();try(Server s=h.server()){
-   var w=new World(s.map,1);w.add(0);w.add(1);var shooter=w.tanks.get(0);var t=w.tanks.get(1);t.x=t.y=10;t.hp=1;var b=shot(w,8.5f,10,0);w.advance(b);
+   var w=new World(s.map,1);w.add(0);w.add(1);var shooter=w.tanks.get(0);var t=w.tanks.get(1);t.x=t.y=10;t.hp=1;t.shield=0;var b=shot(w,8.5f,10,0);w.advance(b);
    assertEquals(0,t.hp);assertEquals(1,t.deaths);assertEquals(1,shooter.kills);w.damage(t,0);assertEquals(1,t.deaths);assertEquals(1,shooter.kills);
-   w.spawn(t);assertEquals(w.tick,t.shield);w.damage(t,0);assertEquals(80,t.hp);
+   w.spawn(t);assertEquals(w.tick+90,t.shield);w.damage(t,0);assertEquals(100,t.hp);w.tick=t.shield;w.damage(t,0);assertEquals(80,t.hp);
   }
  }
 }

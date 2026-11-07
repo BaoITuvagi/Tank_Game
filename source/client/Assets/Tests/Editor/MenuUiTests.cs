@@ -1,4 +1,5 @@
 using System.IO;
+using System.Security.Cryptography;
 using NUnit.Framework;
 using Tank;
 using UnityEditor;
@@ -31,13 +32,15 @@ public class MenuUiTests {
     }
     [Test] public void MenuArtworkKeepsOriginalDimensionsAndIndependentImportSettings() {
         var artRoot=Path.Combine(Application.dataPath,"Resources/MenuArt");
-        var repoRoot=Path.GetFullPath(Path.Combine(Application.dataPath,"../../.."));
         foreach(var name in new[]{"logo","anh_nen"}) {
             string path="Assets/Resources/MenuArt/"+name+".png";
             var texture=AssetDatabase.LoadAssetAtPath<Texture2D>(path);
             Assert.IsNotNull(texture,path);
             Assert.AreEqual(name=="logo"?1254:1672,texture.width);Assert.AreEqual(name=="logo"?1254:941,texture.height);
-            CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(repoRoot,name+".png")),File.ReadAllBytes(Path.Combine(artRoot,name+".png")));
+            // The canonical originals are tracked in MenuArt. Do not depend on
+            // the author's untracked copies at the repository root.
+            string expected=name=="logo"?"8B365F621BA324E1282A54DCC4350E9377BD7A4C1DE09B402118A4238D22E947":"CF7298A7319AFEFF74008EBB8810D416ED0D361CB354F50865ACC09025615B3E";
+            using(var sha=SHA256.Create())Assert.AreEqual(expected,System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(Path.Combine(artRoot,name+".png")))).Replace("-",""),name+" original bytes");
         }
         foreach(var path in Directory.GetFiles(artRoot,"*.png",SearchOption.AllDirectories)) {
             string assetPath="Assets"+path.Substring(Application.dataPath.Length).Replace('\\','/');

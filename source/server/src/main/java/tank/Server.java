@@ -13,6 +13,7 @@ import tank.Protocol.Writer;
 public class Server implements AutoCloseable  {
     final Config cfg;
     final GameMap map,largeMap;
+    final MapCatalog maps;
     final Database db;
     final ConcurrentHashMap<Integer,Room> rooms=new ConcurrentHashMap<>();
     final Set<Session> connections=ConcurrentHashMap.newKeySet();
@@ -35,6 +36,7 @@ public class Server implements AutoCloseable  {
         map=GameMap.load(Path.of(cfg.value("map.path","source/client/Assets/StreamingAssets/map.json")));
         Path largePath=Path.of(cfg.value("map.large.path",Path.of(cfg.value("map.path","source/client/Assets/StreamingAssets/map.json")).resolveSibling("map-large.json").toString()));
         largeMap=GameMap.load(largePath);
+        maps=MapCatalog.load(largePath.toAbsolutePath().getParent(),largeMap);
         ServerSocket listener=new ServerSocket();
         DatagramSocket datagram=null;
         Database database=null;
@@ -256,6 +258,7 @@ public class Server implements AutoCloseable  {
                         for(Room listedRoom:listed)w.u8(listedRoom.access.locked?1:0);
                         for(Room listedRoom:listed)w.u8(listedRoom.canRejoin(this)?1:0);
                         for(Room listedRoom:listed)w.u8(listedRoom.roomMode.ordinal());
+                        for(Room listedRoom:listed)w.u16(listedRoom.arenaMap.mapId);
                         send(ROOM_LIST_RESULT,p.sequence(),w.done());
                     }
                     case CREATE_ROOM-> {
@@ -274,12 +277,14 @@ public class Server implements AutoCloseable  {
                         if(hp<1||hp>World.MAX_START_HP)throw new IllegalArgumentException("starting HP");
                         int roomMode=r.b.hasRemaining()?r.u8():0;
                         if(roomMode>1)throw new IllegalArgumentException("room mode");
+                        int mapId=r.b.hasRemaining()?r.u16():MapCatalog.DEFAULT_ID;
+                        if(!maps.contains(mapId))throw new IllegalArgumentException("room map");
                         r.end();
                         if(name.isBlank())throw new IllegalArgumentException("name");
                         synchronized(rooms) {
                             if(room!=null)throw new Database.Failure(Error.INVALID_STATE);
                             if(rooms.size()>=cfg.integer("max.rooms",40))throw new Database.Failure(Error.ROOM_FULL);
-                            Room created=new Room(Server.this,roomId.incrementAndGet(),name,capacity,custom?seconds*30:cfg.integer("match.ticks",5400),RoomMode.values()[roomMode]);
+                            Room created=new Room(Server.this,roomId.incrementAndGet(),name,capacity,custom?seconds*30:cfg.integer("match.ticks",5400),RoomMode.values()[roomMode],mapId);
                             created.startingHp=hp;
                             created.access.set(roomPassword);
                             rooms.put(created.id,created);

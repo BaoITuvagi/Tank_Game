@@ -1,0 +1,20 @@
+{
+  "images": [
+    {
+      "key": "ice",
+      "file": "ice",
+      "width": 1254,
+      "height": 1254,
+      "sourceHash": "78437317b2ef8e99c6662402dbf08e23148814e596814d9ff00e54bf366e7efd",
+      "alpha": "opaque"
+    },
+    {
+      "key": "oasis_palm",
+      "file": "oasis_palm",
+      "width": 1254,
+      "height": 1254,
+      "sourceHash": "e57eaaaf0fc860ce39cba028bcfe2a0ad550514b82055d32ab5f6723ad9177e3",
+      "alpha": "cutout"
+    }
+  ]
+}

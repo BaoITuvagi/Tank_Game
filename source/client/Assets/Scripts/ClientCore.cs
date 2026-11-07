@@ -54,6 +54,7 @@ namespace Tank  {
         }
         public const int AfkGraceSeconds=15;
         public int RoomCapacity=8,RoomSeconds=180,RoomStartingHp=GameRules.DefaultHp;
+        public int RoomMapId=MapCatalog.DefaultId;
         public string RoomName="",AccountName="";
         public bool RoomLocked;
         public int NameRevision,SettingsRevision;
@@ -130,6 +131,12 @@ namespace Tank  {
         }
         public void AddMap(GameMap m,byte[] hash) {
             maps[m.mapId]=Tuple.Create(m,hash);
+        }
+        public bool SelectPreviewMap(int id) {
+            Tuple<GameMap,byte[]> selected;
+            if(open||!maps.TryGetValue(id,out selected))return false;
+            map=selected.Item1;mapHash=selected.Item2;RoomMapId=id;
+            return true;
         }
         public void Login(string u,string p) {
             Authenticate(Op.Login,u,p);
@@ -405,7 +412,7 @@ namespace Tank  {
             foreach(var h in history) {
                 if(h.Key<=s.Resolved)remove.Add(h.Key);
                 else {
-                    Movement.Step(Predicted,h.Value,map,s.World.Bricks,s.World.Effects);
+                    Movement.Step(Predicted,h.Value,map,s.World.Bricks,s.World.Effects,s.World.Battlefield);
                     predictedHistory[h.Key]=Predicted.Copy();
                 }
             }
@@ -472,7 +479,7 @@ namespace Tank  {
             for(int i=list.Length-1;i>=0;i--)list[i].Write(w);
             SendUdp(Op.Input,w.F32(SkillAimX).F32(SkillAimY).Done());
             if(Predicted!=null&&Latest!=null) {
-                Movement.Step(Predicted,input,map,Latest.World.Bricks,Latest.World.Effects);
+                Movement.Step(Predicted,input,map,Latest.World.Bricks,Latest.World.Effects,Latest.World.Battlefield);
                 predictedHistory[input.Tick]=Predicted.Copy();
             }
             return true;
@@ -505,6 +512,7 @@ namespace Tank  {
             StartUs=0;
             leavingMatch=false;
             RoomId=0;
+            RoomMapId=MapCatalog.DefaultId;
             Slot=-1;
             Latest=null;
             Predicted=null;

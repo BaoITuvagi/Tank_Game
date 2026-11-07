@@ -20,3 +20,4 @@ Use case: stylized-concept. Asset type: production sprite atlas for an overhead 
 ### Targeted padding correction to actors
 
 Use case: precise-object-edit. Edit this transparent game sprite atlas only to fix the padding for production. Keep the same exact 4 columns × 2 rows square-cell layout, same 3 enemies in row1 columns1-3 and empty row1 column4, and same four bosses in row2. Keep exact designs, colors, north/up orientation, overhead camera, outline and shading. Scale down EVERY sprite including its shadow to 65% of its current size around its own cell center, and precisely center it in its original equal cell. Bosses currently nearly touch bottom and cell edges; all must have generous fully transparent padding on all sides so no sprite or shadow is cropped. All silhouettes including long cannon must fit entirely within central 72% of their cell. Preserve 2:1 canvas ratio and genuine transparent alpha. No new objects, text, grid, background or added borders.
+

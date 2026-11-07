@@ -16,21 +16,27 @@ namespace Tank {
         }
         int queuedCampaignAction=-1;
         double nextCampaignRepeat;
+        bool campaignInputRelease=true;
+        void GateCampaignInputUntilReleased(){queuedCampaignAction=-1;campaignInputRelease=true;nextCampaignRepeat=Time.unscaledTimeAsDouble+.18;}
+        bool CampaignControlHeld(){
+            return ClientPreferences.Active.Held(ControlAction.Up)||ClientPreferences.Active.Held(ControlAction.Right)||ClientPreferences.Active.Held(ControlAction.Down)||ClientPreferences.Active.Held(ControlAction.Left)||ClientPreferences.Active.Held(ControlAction.CampaignFire)||ClientPreferences.Active.Held(ControlAction.CampaignSkill)||ClientPreferences.Active.Held(ControlAction.CampaignShop)||Input.GetMouseButton(0)||Input.GetMouseButton(1)||Input.GetKey(KeyCode.Escape)||Input.GetKey(KeyCode.Return)||Input.GetKey(KeyCode.KeypadEnter);
+        }
         readonly int[] campaignNations={0,1,5};
         bool CampaignOpen {get{return campaignPage!=0;}}
         void SetupCampaignPreview() {
             if(!IsMenuPreview)return;
             string page=UxTestDriver.Arg("--menu-preview","");
             if(!page.StartsWith("campaign"))return;
+            campaignInputRelease=false;
             client.Phase=ClientPhase.LOBBY;client.Nickname="Chỉ huy";
-            campaignPage=page.StartsWith("campaign-ranking")?2:page=="campaign-shop"||page=="campaign-shop-unavailable"||page=="campaign-play"||page.StartsWith("campaign-results")||page=="campaign-victory"||page=="campaign-end"||page=="campaign-motion"||page=="campaign-layout"?3:1;campaignChoice=0;
+            campaignPage=page.StartsWith("campaign-ranking")?2:page=="campaign-shop"||page=="campaign-shop-unavailable"||page.StartsWith("campaign-play")||page.StartsWith("campaign-results")||page=="campaign-victory"||page=="campaign-end"||page=="campaign-motion"||page=="campaign-layout"?3:1;campaignChoice=0;
             client.Campaign.Rankings.Add(new Ranking{Name="Chỉ huy",Score=10000,Gold=1850,DurationMillis=325450,Rank=1,DetailsAvailable=true});
             client.Campaign.Rankings.Add(new Ranking{Name="Đội giải cứu",Score=10000,Gold=1850,DurationMillis=325450,Rank=1,DetailsAvailable=true});
             client.Campaign.Rankings.Add(new Ranking{Name="Thiết giáp",Score=10000,Gold=1850,DurationMillis=410120,Rank=2,DetailsAvailable=true});
             client.Campaign.Rankings.Add(new Ranking{Name="Trinh sát",Score=10000,Gold=1500,DurationMillis=310000,Rank=3,DetailsAvailable=true});
             client.Campaign.Rankings.Add(new Ranking{Name="Hậu cần",Score=2500,Gold=600,Rank=4,DetailsAvailable=true});client.Campaign.TotalGold=1240;
             if(campaignPage==3){
-                var run=new RunState{Id="preview",Nation=0,X=6,Y=506,Distance=506,Hp=75,Facing=0,Shot=4,Skill=12,Gold=185,Kills=28,Shields=2,DoubleHits=3,Bosses=1,Bottom=499,TotalGold=1240,ShopAvailable=true,Prices=new[]{30,46,55},NationStatsAvailable=true,SkillCooldown=24,Terrain=new byte[247],Message="Tiến về phía bắc. Trùm tiếp theo tại 1.000 m.",SaveStatus=""};
+                var run=new RunState{Id="preview",Nation=0,X=6,Y=506,Distance=506,Hp=75,Facing=0,Shot=4,Skill=12,Gold=185,Kills=28,Shields=2,DoubleHits=3,Bosses=1,Bottom=499,TotalGold=1240,ShopAvailable=true,Prices=new[]{30,46,55},NationStatsAvailable=true,SkillCooldown=24,Template=6,Biome=2,RegionName="Ngã tư tiền đồn",Terrain=new byte[247],Message="Tiến về phía bắc. Trùm tiếp theo tại 1.000 m.",SaveStatus=""};
                 for(int y=0;y<19;y++)for(int x=0;x<13;x++)if(x<4||x>8)run.Terrain[y*13+x]=(byte)((x+y)%9==0?1:0);
                 run.Enemies.Add(new Actor{Id=1,X=6,Y=510,Hp=46,MaxHp=46});run.Enemies.Add(new Actor{Id=2,X=8,Y=512,Hp=180,MaxHp=180,Boss=2});run.Loot.Add(new Pickup{X=6,Y=508,Kind=3});run.Loot.Add(new Pickup{X=5,Y=507,Kind=0});
                 if(page.StartsWith("campaign-results")||page=="campaign-victory"){
@@ -39,6 +45,10 @@ namespace Tank {
                     if(run.Victory){run.Distance=10000;run.Bosses=CampaignClient.BossCount;}
                 }
                 client.Campaign.Run=run;
+                int previewBuffs;
+                if(int.TryParse(UxTestDriver.Arg("--preview-buff-count",""),out previewBuffs))run.Shields=run.DoubleHits=Mathf.Clamp(previewBuffs,0,run.MaxBuff);
+                if(page=="campaign-play-ready"){run.Shot=0;run.Skill=0;}
+                if(page=="campaign-play-pending")client.Campaign.Pending=true;
                 string fixture=UxTestDriver.Arg("--campaign-map-fixture","");
                 if(!string.IsNullOrEmpty(fixture)){var packet=Protocol.Decode(System.IO.File.ReadAllBytes(fixture),false);client.Campaign.Read(new WireReader(packet.Payload));}
                 if(page=="campaign-shop"||page=="campaign-shop-unavailable")campaignShopOpen=true;
@@ -51,30 +61,40 @@ namespace Tank {
             int previewNation;
             if(int.TryParse(UxTestDriver.Arg("--preview-nation",""),out previewNation)){
                 for(int i=0;i<campaignNations.Length;i++)if(campaignNations[i]==previewNation)campaignChoice=i;
-                if(client.Campaign.Run!=null)client.Campaign.Run.Nation=campaignNations[campaignChoice];
+                if(client.Campaign.Run!=null){
+                    var sample=client.Campaign.Run;var selected=CampaignNation.For(campaignNations[campaignChoice]);sample.Nation=selected.Id;
+                    sample.MaxHp=selected.MaxHp;sample.Armor=selected.Armor;sample.ShotDamage=selected.ShotDamage;sample.MeleeDamage=selected.MeleeDamage;sample.SkillCooldown=selected.SkillCooldown;sample.SkillRange=selected.SkillRange;
+                }
             }
             if(page=="campaign-ranking-empty")client.Campaign.Rankings.Clear();
             if(page=="campaign-loading")client.Campaign.Pending=true;
             if(page=="campaign-error"||System.Array.IndexOf(args,"--preview-error")>=0)client.Campaign.Error="Không xử lý được yêu cầu chiến dịch. Vui lòng kiểm tra kết nối và thử lại.";
             if(System.Array.IndexOf(args,"--preview-long-text")>=0){client.Nickname="Chỉ huy xe tăng Việt Nam";if(client.Campaign.Rankings.Count>0)client.Campaign.Rankings[0].Name=client.Nickname;}
             if(System.Array.IndexOf(args,"--preview-wide-names")>=0){client.Nickname=new string('M',24);foreach(var rank in client.Campaign.Rankings)rank.Name=client.Nickname;}
-            if(System.Array.IndexOf(args,"--preview-scroll-bottom")>=0)campaignScroll=campaignResultScroll=campaignShopScroll=new Vector2(0,10000);
+            if(System.Array.IndexOf(args,"--preview-scroll-bottom")>=0){campaignBriefingOpen=true;campaignSkillDetailsOpen=true;campaignHudScroll=campaignScroll=campaignResultScroll=campaignShopScroll=new Vector2(0,10000);}
         }
         void CampaignEntryButtons() {
             if(Button("Chiến dịch",true,true)){campaignPage=1;campaignScroll=Vector2.zero;}
             if(Button("BXH chiến dịch",true,true)){campaignPage=2;campaignScroll=Vector2.zero;if(client.Phase==ClientPhase.LOBBY)client.CampaignCommand(3);}
         }
         void UpdateCampaign() {
-            if(CampaignOpen)EnsureCampaignAudio();
             double now=Time.unscaledTimeAsDouble;
-            if(campaignAccountRevision!=client.AccountRevision){campaignAccountRevision=client.AccountRevision;campaignPage=0;campaignPresentation.Reset();queuedCampaignAction=-1;campaignShopOpen=false;campaignEndConfirm=false;}
+            if(campaignAccountRevision!=client.AccountRevision){campaignAccountRevision=client.AccountRevision;campaignPage=0;campaignPresentation.Reset();GateCampaignInputUntilReleased();campaignShopOpen=false;campaignEndConfirm=false;campaignHudScroll=Vector2.zero;}
+            // Room responses can arrive after changing the local mode screen.
+            // Close presentation only; the server-owned run remains resumable.
+            if(client.Phase!=ClientPhase.LOBBY){
+                campaignPage=0;campaignShopOpen=false;campaignEndConfirm=false;campaignHudScroll=Vector2.zero;
+                campaignPresentation.Reset();GateCampaignInputUntilReleased();return;
+            }
+            if(CampaignOpen)EnsureCampaignAudio();
             var run=client.Campaign.Run;
             campaignPresentation.Observe(run,now);
-            if(!CampaignOpen||client.Phase!=ClientPhase.LOBBY||!GameWindowFocus.IsForeground||AnyDialog){queuedCampaignAction=-1;return;}
-            if(campaignPage!=3||run==null||run.Finished){campaignShopOpen=false;return;}
-            if(campaignEndConfirm){queuedCampaignAction=-1;if(Input.GetKeyDown(KeyCode.Escape))campaignEndConfirm=false;return;}
-            if(ClientPreferences.Active.Pressed(ControlAction.CampaignShop,!campaignShopOpen&&CampaignMouseInMap())){ToggleCampaignShop();return;}
-            if(campaignShopOpen){queuedCampaignAction=-1;if(Input.GetKeyDown(KeyCode.Escape))ToggleCampaignShop();return;}
+            if(!CampaignOpen||client.Phase!=ClientPhase.LOBBY||!GameWindowFocus.IsForeground||AnyDialog||SkillDetailsUi.InputBlocked){GateCampaignInputUntilReleased();return;}
+            if(campaignPage!=3||run==null||run.Finished){campaignShopOpen=false;GateCampaignInputUntilReleased();return;}
+            if(campaignEndConfirm){GateCampaignInputUntilReleased();if(Input.GetKeyDown(KeyCode.Escape))campaignEndConfirm=false;return;}
+            if(campaignShopOpen){GateCampaignInputUntilReleased();if(Input.GetKeyDown(KeyCode.Escape)||ClientPreferences.Active.Pressed(ControlAction.CampaignShop,false))ToggleCampaignShop();return;}
+            if(campaignInputRelease){if(CampaignControlHeld())return;campaignInputRelease=false;nextCampaignRepeat=now+.18;return;}
+            if(ClientPreferences.Active.Pressed(ControlAction.CampaignShop,CampaignMouseInMap())){ToggleCampaignShop();return;}
             int action=-1;
             if(ClientPreferences.Active.Pressed(ControlAction.Up,CampaignMouseInMap()))action=0;
             else if(ClientPreferences.Active.Pressed(ControlAction.Right,CampaignMouseInMap()))action=1;
@@ -96,17 +116,14 @@ namespace Tank {
         void DrawCampaignRun(RunState run) {
             EnsureCampaignAudio();
             const int rows=13;
-            const float mapTop=100,mapFooter=96;
-            float playHeight=viewHeight-mapTop-mapFooter;
-            float cell=Mathf.Max(1,Mathf.Min((viewWidth-32)/13,playHeight/rows));
-            float bw=13*cell,bh=rows*cell,bx=(viewWidth-bw)/2,by=mapTop+(playHeight-bh)/2;
-            campaignPointerArea=new Rect(bx,by,bw,bh);
             double now=Time.unscaledTimeAsDouble;
+            var layout=CampaignLayout(run,now);float cell=layout.Map.width/rows,bw=layout.Map.width,bh=layout.Map.height,bx=layout.Map.x,by=layout.Map.y;
+            campaignPointerArea=layout.Map;
             campaignPresentation.Observe(run,now);
             float bottom=campaignPresentation.CameraBottom(rows,now);
-            for(float py=mapTop;py<viewHeight-mapFooter;py+=cell)for(float px=0;px<viewWidth;px+=cell) {
+            for(float py=ArenaLayout.Top;py<viewHeight-24;py+=cell)for(float px=0;px<layout.Sidebar.x;px+=cell) {
                 GUI.color=new Color(.48f,.57f,.46f);
-                CampaignArt.Surroundings(new Rect(px,py,cell,Mathf.Min(cell,viewHeight-mapFooter-py)),Mathf.FloorToInt(px/cell),Mathf.FloorToInt(py/cell),run.Biome);
+                CampaignArt.Surroundings(new Rect(px,py,Mathf.Min(cell,layout.Sidebar.x-px),Mathf.Min(cell,viewHeight-24-py)),Mathf.FloorToInt(px/cell),Mathf.FloorToInt(py/cell),run.Biome);
             }
             GUI.color=Color.white;
             Vector2 shake=campaignPresentation.Shake(now);
@@ -148,28 +165,32 @@ namespace Tank {
             Rect player=tileAt(campaignPresentation.Player(now));
             GUI.color=campaignPresentation.Tint(0,now);
             CampaignTank(player,run.Nation,run.Facing);GUI.color=Color.white;
-            CampaignHealthBar(new Rect(player.x+3,player.y,cell-6,5),run.Hp,run.MaxHp);
             campaignPresentation.DrawEffects(tileAt,cell,now,CampaignUI.SmallLight);
+            Rect mapViewport=new Rect(0,0,bw,bh);
+            DrawCampaignRegionBanner(mapViewport,now);
+            // Draw health after world objects and combat FX so it remains legible.
+            CampaignHealthBar(CampaignHudGeometry.PlayerHealthBounds(player,mapViewport),run.Hp,run.MaxHp);
             GUI.EndGroup();
 
+            bool hudEnabled=GUI.enabled;
+            bool hudBlocked=!hudEnabled||campaignShopOpen||campaignEndConfirm||run.Finished&&campaignPresentation.ResultsReady(now);
+            GUI.enabled=!hudBlocked;
             DrawCampaignHud(run,now);
-            string feedback=client.Campaign.Error;
-            if(string.IsNullOrEmpty(feedback)&&run.Turn>0&&!run.Finished&&now-campaignPresentation.Started<3.5)feedback=run.Message;
-            if(!string.IsNullOrEmpty(feedback)) {
-                float sideWidth=bx-28;
-                bool beside=sideWidth>=240;
-                float noticeWidth=beside?Mathf.Min(320,sideWidth):bw-16;
-                float noticeHeight=CampaignLabelHeight(CampaignUI.DialogueText,feedback,noticeWidth-32)+20;
-                Rect notice=new Rect(beside?14:bx+8,beside?by+12:by+8,noticeWidth,noticeHeight);
-                CampaignUI.Notice(notice,feedback,!string.IsNullOrEmpty(client.Campaign.Error));
-            }
-            if(run.Finished&&campaignPresentation.ResultsReady(now))DrawCampaignResults(run);
+            GUI.enabled=hudEnabled;
+        }
+        // The common header must be drawn before these full-window overlays.
+        void DrawCampaignOverlays(){
+            if(!CampaignOpen||campaignPage!=3||client.Phase!=ClientPhase.LOBBY)return;
+            var run=client.Campaign.Run;if(run==null)return;
+            if(run.Finished&&campaignPresentation.ResultsReady(Time.unscaledTimeAsDouble))DrawCampaignResults(run);
             else if(campaignShopOpen)DrawCampaignShop(run);
             else if(campaignEndConfirm)DrawCampaignEndConfirmation();
         }
         void CampaignHealthBar(Rect rect,int hp,int maximum){
-            float fraction=hp/(float)Mathf.Max(1,maximum);
-            CampaignUI.Meter(rect,fraction,fraction<=.25f?new Color(1,.4f,.3f):new Color(.55f,1,.55f));
+            float fraction=Mathf.Clamp01(hp/(float)Mathf.Max(1,maximum));
+            ArenaRenderer.Fill(rect,CartoonUi.Ink);
+            ArenaRenderer.Fill(new Rect(rect.x+1,rect.y+1,rect.width-2,rect.height-2),CartoonUi.Muted);
+            ArenaRenderer.Fill(new Rect(rect.x+1,rect.y+1,(rect.width-2)*fraction,rect.height-2),fraction<=.25f?CartoonUi.Danger:CartoonUi.Ready);
         }
         void CampaignTank(Rect rect,int nation,int facing) {
             CampaignArt.Tank(rect,nation,facing);

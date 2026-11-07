@@ -1,16 +1,14 @@
 using System;
 using System.IO;
-using System.Security.Cryptography;
 using UnityEngine;
 namespace Tank  {
     public static class MapLoader  {
         public static ClientCore CreateClient(out GameMap initial)  {
-            byte[] raw=File.ReadAllBytes(Path.Combine(Application.streamingAssetsPath,"map-large.json"));
-            initial=JsonUtility.FromJson<GameMap>(System.Text.Encoding.UTF8.GetString(raw));
-            initial.ValidateItemSpawns();
-            byte[] hash;
-            using(var sha=SHA256.Create())hash=sha.ComputeHash(raw);
-            var client=new ClientCore(initial,hash);
+            MapCatalog.Load(Application.streamingAssetsPath);
+            var defaultMap=MapCatalog.Find(MapCatalog.DefaultId);
+            initial=defaultMap.Map;
+            var client=new ClientCore(initial,defaultMap.Hash);
+            foreach(var entry in MapCatalog.Entries)client.AddMap(entry.Map,entry.Hash);
             string assetError=null;
             foreach(string name in RoleplayContent.RequiredSprites) {
                 var sprite=Resources.Load<Texture2D>("ArenaArt/"+name);

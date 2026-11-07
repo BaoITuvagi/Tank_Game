@@ -18,7 +18,7 @@ namespace Tank {
         }
         void UpdateRoleplayShop() {
             UpdateShopOpeningNotice();
-            if(settingsOpen||arenaRenderer.Chat.InputBlocked)return;
+            if(settingsOpen||arenaRenderer.Chat.InputBlocked||SkillDetailsUi.InputBlocked)return;
             if(client.Phase!=ClientPhase.PLAYING||client.RoomMode!=RoomMode.ROLEPLAY||client.ItemWave==0){roleplayShopOpen=false;return;}
             if(!string.IsNullOrEmpty(walletNotice))return;
             if(!GameWindowFocus.IsForeground)return;

@@ -21,7 +21,7 @@ class RoomFeaturesTest {
    BaselineTest.auth(a,"hostcfg");BaselineTest.auth(b,"joincfg");BaselineTest.auth(c,"fullcfg");
    for(int[] invalid:new int[][]{{1,60},{9,60},{4,30},{4,61},{4,660}}){BaselineTest.send(a,CREATE_ROOM,new Writer().str("Invalid").u8(invalid[0]).u16(invalid[1]).done());assertEquals(Error.INVALID_REQUEST.ordinal(),new Reader(BaselineTest.waitFor(a,ACTION_RESULT).payload()).u16());assertTrue(s.rooms.isEmpty());}
    BaselineTest.send(a,CREATE_ROOM,new Writer().str("Duel").u8(2).u16(60).done());assertEquals(0,new Reader(BaselineTest.waitFor(a,ACTION_RESULT).payload()).u16());
-   Reader state=new Reader(BaselineTest.waitFor(a,ROOM_STATE).payload());int roomId=state.u32();assertEquals("Duel",state.str(48));state.u8();state.u8();assertEquals(1,state.u8());state.u8();state.str(24);state.bool();assertEquals(2,state.u8());assertEquals(60,state.u16());assertFalse(state.bool());assertEquals(0,state.u8());assertEquals(100,state.u16());state.end();
+   Reader state=new Reader(BaselineTest.waitFor(a,ROOM_STATE).payload());int roomId=state.u32();assertEquals("Duel",state.str(48));state.u8();state.u8();assertEquals(1,state.u8());state.u8();state.str(24);state.bool();assertEquals(2,state.u8());assertEquals(60,state.u16());assertFalse(state.bool());assertEquals(0,state.u8());assertEquals(100,state.u16());assertEquals(MapCatalog.DEFAULT_ID,state.u16());assertEquals(0,state.u8());state.end();
    BaselineTest.send(b,JOIN_ROOM,new Writer().u32(roomId).done());assertEquals(0,new Reader(BaselineTest.waitFor(b,ACTION_RESULT).payload()).u16());
    BaselineTest.send(c,JOIN_ROOM,new Writer().u32(roomId).done());assertEquals(Error.ROOM_FULL.ordinal(),new Reader(BaselineTest.waitFor(c,ACTION_RESULT).payload()).u16());assertEquals(2,s.rooms.get(roomId).members.size());
    BaselineTest.send(c,ROOM_LIST,new byte[0]);Reader list=new Reader(BaselineTest.waitFor(c,ROOM_LIST_RESULT).payload());list.u16();assertEquals(1,list.u16());list.u32();list.str(48);assertEquals(2,list.u8());assertEquals(2,list.u8());
@@ -50,11 +50,20 @@ class RoomFeaturesTest {
  @Test void singleRectangularArenaFitsReducedVehiclesAndHasMoreTerrain()throws Exception {
   try(Server s=server()) {
    var map=s.largeMap;assertEquals(120,map.width);assertEquals(80,map.height);assertEquals(1.02f,GameRules.TankHalfSize);
-   assertEquals(16,map.walls.length);assertEquals(36,map.bricks.length);assertEquals(6,map.water.length);assertEquals(21,map.itemSpawns.length);
-   assertEquals(3,map.walls[4].w);assertEquals(15,map.walls[4].h);
+   int originalWalls=16,sceneryRoots=16;assertEquals(originalWalls+sceneryRoots,map.walls.length);
+   for(int i=0;i<map.walls.length;i++){assertEquals(i,map.walls[i].id);if(i>=originalWalls)assertTrue(map.walls[i].w<=2&&map.walls[i].h<=2,"scenery root exceeds its small footprint");}
+   assertEquals(36,map.bricks.length);assertEquals(4,map.water.length);assertEquals(21,map.itemSpawns.length);
+   assertEquals(648,Arrays.stream(map.water).mapToDouble(r->r.w*r.h).sum());
+   assertEquals(2,Arrays.stream(map.water).filter(r->r.x==55.5f&&r.w==9&&r.h==24).count(),"two aligned river reaches surround the central crossing");
+   assertEquals(3,map.walls[4].w);assertEquals(14,map.walls[4].h);
    byte[] hp=new byte[64];Arrays.fill(hp,(byte)GameRules.BrickMaxHp);
    for(var brick:map.bricks){assertEquals(3,brick.w);assertEquals(3,brick.h);}
    for(var spawn:map.spawns){assertFalse(map.water(spawn.x,spawn.y));for(int body:new int[]{0,4500,9000,13500})assertFalse(map.blocked(spawn.x,spawn.y,body,hp));}
+   for(var item:map.itemSpawns){assertFalse(map.water(item.x,item.y));assertFalse(map.blocked(item.x,item.y,4500,hp));}
+   for(float x=48;x<=72;x+=.5f)for(float y=37.5f;y<=42.5f;y+=.5f){
+    assertFalse(map.blocked(x,y,4500,hp),"central crossing must fit a rotated tank");
+    for(var water:map.water)assertFalse(GameMap.overlap(x,y,water,GameRules.TankHalfSize*(float)Math.sqrt(2)),"crossing deck must represent dry terrain");
+   }
    assertTrue(map.blocked(2.9f,10,4500,hp));assertFalse(map.blocked(3,10,4500,hp));
    for(RoomMode mode:RoomMode.values())for(int count:new int[]{2,4,8}) {
     var room=new Room(s,100+count,"Single arena",count,1800,mode);assertSame(map,room.arenaMap);

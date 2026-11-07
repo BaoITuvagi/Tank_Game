@@ -37,9 +37,11 @@ namespace Tank  {
         }
         readonly AutoFireControl autoFire=new AutoFireControl();
         internal bool ChatTyping {get {return arenaRenderer.Chat.Typing;}}
+        internal bool ChatExpanded {get {return arenaRenderer.Chat.Expanded;}}
         internal bool AutoFireEnabled {get {return autoFire.Enabled;}}
         internal int LastInputButtons {get;private set;}
         bool inputWasActive;
+        bool previewChatSelected;
         int frozenAim,lastAim;
         SkillSounds skillAudio;
         int heardSkillPress,heardSkillFeedback;
@@ -51,7 +53,9 @@ namespace Tank  {
         }
         void Update() {
             if(client.Phase!=ClientPhase.PLAYING)leaveMatchForm=false;
+            UpdateSkillDetails();
             arenaRenderer.Chat.Sync(client,Screen.height);
+            if(ArenaPreview.Enabled&&!previewChatSelected&&Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-chat-open")>=0){arenaRenderer.Chat.SelectChat(true);previewChatSelected=true;}
             arenaRenderer.Chat.BeforeInput(GameWindowFocus.IsForeground,AnyDialog);
             if(!settingsOpen&&GameWindowFocus.IsForeground&&(Input.GetKeyDown(KeyCode.F11)||(Input.GetKey(KeyCode.LeftAlt)&&Input.GetKeyDown(KeyCode.Return))))ToggleFullscreen();
             if(IsMenuPreview)return;
@@ -70,7 +74,7 @@ namespace Tank  {
             UpdateRoleplayShop();
             UpdateCampaign();
             client.Smooth(Time.unscaledDeltaTime);
-            autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog&&!arenaRenderer.Chat.InputBlocked,client.Phase==ClientPhase.PLAYING&&ClientPreferences.Active.Pressed(ControlAction.AutoFire,PointerInArena()));
+            autoFire.Update(client.Phase==ClientPhase.PLAYING,GameWindowFocus.IsForeground&&!AnyDialog&&!SkillDetailsUi.InputBlocked&&!arenaRenderer.Chat.InputBlocked,client.Phase==ClientPhase.PLAYING&&ClientPreferences.Active.Pressed(ControlAction.AutoFire,PointerInArena()));
             if(client.Phase!=ClientPhase.PLAYING) {
                 LastInputButtons=0;
                 nextStep=ClientCore.NowUs;
@@ -78,7 +82,7 @@ namespace Tank  {
                 return;
             }
             map=client.ActiveMap;
-            bool active=GameWindowFocus.IsForeground&&!AnyDialog&&!arenaRenderer.Chat.InputBlocked;
+            bool active=GameWindowFocus.IsForeground&&!AnyDialog&&!SkillDetailsUi.InputBlocked&&!arenaRenderer.Chat.InputBlocked;
             if(!active&&inputWasActive) {
                 TankState authoritative;
                 frozenAim=client.Latest!=null&&client.Latest.World.Tanks.TryGetValue(client.Slot,out authoritative)?authoritative.Turret:client.Predicted==null?lastAim:client.Predicted.Turret;
@@ -106,6 +110,15 @@ namespace Tank  {
             }
             if(now>=nextStep)nextStep=now+1e6/30;
         }
+        void UpdateSkillDetails(){
+            string context="";
+            if(CampaignOpen&&campaignPage==3&&client.Phase==ClientPhase.LOBBY&&client.Campaign.Run!=null)
+                context="campaign:"+client.AccountRevision+":"+client.Campaign.Run.Id+":"+client.Campaign.Run.Finished;
+            else if(client.Phase==ClientPhase.PLAYING)context="multi:"+client.AccountRevision+":"+client.Chat.Match;
+            SkillDetailsUi.Sync(context);
+            SkillDetailsUi.BeforeInput(GameWindowFocus.IsForeground);
+            if((settingsOpen||profileForm||joinForm||leaveMatchForm||roleplayShopOpen||!string.IsNullOrEmpty(walletNotice))&&SkillDetailsUi.IsOpen)SkillDetailsUi.Close();
+        }
         bool PointerInArena() {
             float px=Input.mousePosition.x/Mathf.Max(.01f,uiScale),py=(Screen.height-Input.mousePosition.y)/Mathf.Max(.01f,uiScale);
             return px>=arenaX&&px<=arenaX+map.width*scale&&py>=arenaY&&py<=arenaY+map.height*scale;
@@ -127,21 +140,35 @@ namespace Tank  {
                 if(playing)arenaTheme.Background(viewWidth,viewHeight);
                 else {
                     menu.Background(viewWidth,viewHeight,!CampaignOpen&&(roomForm||client.Phase<=ClientPhase.AUTHENTICATING||client.Phase==ClientPhase.LOBBY));
-                    if(CampaignOpen){GUI.enabled=!settingsOpen;DrawCampaign();GUI.enabled=true;DrawPreferencesDialog();return;}
-                    var layout=MenuLayout.Fit(Screen.width,Screen.height);
-                    viewport=layout.Width>Screen.width||layout.Height>Screen.height;
-                    viewWidth=layout.Width;viewHeight=layout.Height;
-                    if(viewport)menuViewport=GUI.BeginScrollView(new Rect(0,0,Screen.width,Screen.height),menuViewport,new Rect(0,0,viewWidth,viewHeight));
+                    if(!CampaignOpen) {
+                        var layout=MenuLayout.Fit(Screen.width,Screen.height);
+                        viewport=layout.Width>Screen.width||layout.Height>Screen.height;
+                        viewWidth=layout.Width;viewHeight=layout.Height;
+                        if(viewport)menuViewport=GUI.BeginScrollView(new Rect(0,0,Screen.width,Screen.height),menuViewport,new Rect(0,0,viewWidth,viewHeight));
+                    }
                 }
                 GUI.enabled=!AnyDialog;
-                DrawHeader(playing);
-                if(client.Phase==ClientPhase.PLAYING)Arena();
-                else DrawMenus();
+                if(CampaignOpen) {
+                    DrawCampaign();
+                    bool campaignModal=campaignPage==3&&client.Phase==ClientPhase.LOBBY&&(campaignShopOpen||campaignEndConfirm||(client.Campaign.Run!=null&&client.Campaign.Run.Finished&&campaignPresentation.ResultsReady(Time.unscaledTimeAsDouble)));
+                    bool enabled=GUI.enabled;Color headerColor=GUI.color;
+                    GUI.enabled=enabled&&!campaignModal;
+                    if(campaignModal)GUI.color=new Color(.5f,.5f,.5f,1);
+                    DrawHeader(campaignPage==3&&client.Phase==ClientPhase.LOBBY&&client.Campaign.Run!=null);
+                    GUI.enabled=enabled;GUI.color=headerColor;
+                    DrawCampaignOverlays();
+                }
+                else {
+                    DrawHeader(playing);
+                    if(client.Phase==ClientPhase.PLAYING)Arena();
+                    else DrawMenus();
+                }
                 GUI.enabled=true;
                 if(playing&&AnyDialog){menu.Init();GUI.skin=menu.Skin;}
                 DrawDialogs();
                 if(viewport)GUI.EndScrollView();
                 DrawPreferencesDialog();
+                SkillDetailsUi.Draw(viewWidth,viewHeight);
             }
             finally {
                 arenaRenderer.Chat.EndGUI(AnyDialog);
@@ -282,10 +309,13 @@ namespace Tank  {
             if(Event.current.type==EventType.KeyDown&&Event.current.keyCode==KeyCode.Escape){leaveMatchForm=false;Event.current.Use();}
         }
         void OnDestroy() {
+            SkillDetailsUi.Reset();
             menu.Dispose();
             arenaTheme.Dispose();
             CartoonUi.Dispose();
+            ItemIconArt.Reset();
             arenaRenderer.Dispose();
+            roomMapRenderer.Dispose();
             client?.Dispose();
             skillAudio?.Dispose();
         }

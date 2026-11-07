@@ -1,6 +1,6 @@
 # Giao thức và hợp đồng dùng chung
 
-Đối chiếu working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Phiên bản hiện tại là **17**, được khai báo thống nhất trong JSON và Java/C# sinh ra. Các bố cục bên dưới được đối chiếu bằng cách đọc mã và test, không phải tuyên bố test đã chạy. Luật chơi chi tiết nằm ở [gameplay](gameplay.md); lưu kết quả nằm ở [data](data.md).
+Đối chiếu working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Phiên bản hiện tại là **21**, được khai báo thống nhất trong JSON và Java/C# sinh ra. Các bố cục bên dưới được đối chiếu bằng cách đọc mã và test, không phải tuyên bố test đã chạy. Luật chơi chi tiết nằm ở [gameplay](gameplay.md); lưu kết quả nằm ở [data](data.md).
 
 Mục lục: [JSON, sinh mã và hash](#shared-contracts) · [Transport](#transport) · [Snapshot](#snapshot) · [Delta](#delta) · [Sự kiện combat](#combat-events) · [Wave battlefield](#battlefield-wire) · [TCP](#tcp) · [Vào lại](#rejoin) · [Prediction](#prediction) · [Điểm đọc test](#tests).
 
@@ -20,6 +20,8 @@ Content hash là SHA-256 của UTF-8 JSON canonical `{"rules": rules, "content":
 
 Map hash độc lập: SHA-256 của **byte gốc** trong JSON map; thay khoảng trắng cũng đổi hash. Server [GameMap.load](../source/server/src/main/java/tank/GameMap.java) và client [MapLoader](../source/client/Assets/Scripts/MapLoader.cs) phải nhận cùng bytes. Đây không phải hash của object sau parse.
 
+Điều chỉnh địa hình ngày 2026-11-06 giữ protocol **18** và content version **7**, nhưng thay cả content hash lẫn hash ba map được chọn: map 2/3 thêm collider cảnh vật đứng riêng, map 4 đổi sông thành sáu hồ đóng băng. Tường/gạch cũ, spawn/item và mục tiêu battlefield giữ nguyên về dữ liệu. Vì hash map và luật đều là điều kiện tương thích, cần build/phân phối server và client cùng contract/JSON map; chỉ thay asset hoặc giữ executable cũ sẽ không đủ. Map ID 1 giữ nguyên byte.
+
 Trong RP, loadout hash lại là SHA-256 **payload nhị phân MATCH_LOADOUT trước 32 byte hash cuối**: match, revision, content hash, count và cặp slot/nation đã sắp. Nó giữ mapping participant kể cả người đã rời trận. Client xác minh rồi gắn nation vào cả FULL và delta; nation không chiếm byte trong record xe.
 
 Nguồn: [RoleplayContent.java](../source/server/src/main/java/tank/RoleplayContent.java), [RoleplayContent.cs](../source/client/Assets/Scripts/RoleplayContent.cs), [RoleplayMatch.publishLoadout](../source/server/src/main/java/tank/RoleplayMatch.java), [ClientCore.ReceiveLoadout/AttachLoadout](../source/client/Assets/Scripts/ClientCore.Roleplay.cs).
@@ -32,11 +34,11 @@ TCP điều khiển tài khoản/phòng/vòng đời/kỹ năng; UDP vận chuy�
 Frame TCP và từng datagram UDP có header **12 byte**:
 
 ```text
-magic:u16=0x5442, version:u8=17, opcode:u8,
+magic:u16=0x5442, version:u8=21, opcode:u8,
 sequence:u32, payloadLength:u16, flags:u16=0, payload:bytes
 ```
 
-Payload frame tối đa 16384 byte; UDP cả header tối đa **1200 byte**. Snapshot lớn không đóng thành một frame khổng lồ mà phân mảnh ở tầng ứng dụng. Phiên bản khác 17 bị từ chối ngay tại header TCP/UDP; test nêu rõ các peer 5–16 bị từ chối. Java và Unity phải triển khai cùng đợt, với map và content hash khớp.
+Payload frame tối đa 16384 byte; UDP cả header tối đa **1200 byte**. Snapshot lớn không đóng thành một frame khổng lồ mà phân mảnh ở tầng ứng dụng. Phiên bản khác 21 bị từ chối ngay tại header TCP/UDP; các peer cũ, gồm v19/v20, không tương thích. Java và Unity phải triển khai cùng đợt, với map khớp và cùng contract; Nhập vai còn kiểm content hash khi chuẩn bị trận.
 
 `Protocol.Mode` / `NetworkMode` theo thứ tự wire: `BASELINE=0`, `INPUT_REDUNDANCY=1`, `DELTA=2`, `COMBINED=3`. Hai mode có redundancy gửi tối đa ba input gần nhất; hai mode có delta cho phép snapshot chênh lệch. Đây là tùy chọn truyền mạng của server, không phải `RoomMode.NORMAL/ROLEPLAY`.
 
@@ -66,7 +68,7 @@ Server→client UDP:
 Nguồn: [Protocol.frame/decode/read, Writer/Reader](../source/server/src/main/java/tank/Protocol.java), [Protocol.Frame/Decode/ReadAsync](../source/client/Assets/Scripts/Protocol.cs), [Server.route](../source/server/src/main/java/tank/Server.java), [InputBuffer](../source/server/src/main/java/tank/InputBuffer.java), [ClientCore.GenerateInput/Poll](../source/client/Assets/Scripts/ClientCore.cs).
 
 <a id="snapshot"></a>
-## FULL và các extension của snapshot v17
+## FULL và các extension của snapshot (v21 giữ field xe từ v17 và kind bão từ v19)
 
 Metadata chung **30 byte** trước world:
 
@@ -178,7 +180,7 @@ x:f32, y:f32, angle:u16, value:u16, causeKind:u8, causeId:u32
 
 ID và Life hợp lệ dương trong phạm vi int khi có xe; slot không áp dụng=255 đi với Life=0. Object không áp dụng=65535, còn lại ID gạch 0–63. Surface=0 xe/không áp dụng, 1 thép, 2 gạch. Kind: **1 SHOT, 2 IMPACT, 3 BOUNCE, 4 DAMAGE, 5 DEATH, 6 BRICK_DESTROYED**. Value là HP thực mất cho DAMAGE, MaxHP cho DEATH, còn lại 0.
 
-Cause chỉ dành cho DAMAGE/DEATH: `0/0` là không có effect nguyên nhân; kind **1–4** trỏ ROCKET/BOMB/KAMIKAZE/BEAM của skill; **10** trỏ EXPLOSION của item; **11/12** trỏ wave FIRE/AIRSTRIKE. Cause có thể không còn trong snapshot vì retention khác nhau. Hit trực tiếp giữ bulletId; damage vùng/Q/môi trường dùng 0. Môi trường có source slot/life=255/0. Hit trực tiếp và splash HE cùng contact tham chiếu cùng EXPLOSION, giữ thứ tự damage trực tiếp rồi splash.
+Cause chỉ dành cho DAMAGE/DEATH: `0/0` là không có effect nguyên nhân; kind **1–4** trỏ ROCKET/BOMB/KAMIKAZE/BEAM của skill; **10** trỏ EXPLOSION của item; **11/12** trỏ wave FIRE/AIRSTRIKE, **13/14** trỏ SANDSTORM/SNOWSTORM. Cause có thể không còn trong snapshot vì retention khác nhau. Hit trực tiếp giữ bulletId; damage vùng/Q/môi trường dùng 0. Môi trường có source slot/life=255/0. Hit trực tiếp và splash HE cùng contact tham chiếu cùng EXPLOSION, giữ thứ tự damage trực tiếp rồi splash.
 
 Q/item không bị sao chép thành một combat event hình ảnh tương đương: contact HE có EXPLOSION, Mirror có SPLIT, kết hợp HE+Mirror phát EXPLOSION rồi SPLIT. Contact thường có IMPACT hoặc BOUNCE. DEATH là kết quả chết thống nhất cho mọi nation. ROCKET/BOMB/KAMIKAZE/HE và AIRSTRIKE sở hữu explosion/audio; DEATH liên kết chỉ thêm phản hồi hạ gục/wreck theo Life. Beam và nổ xe là hai lớp riêng; FIRE không triệt nổ xe thông thường.
 
@@ -187,7 +189,7 @@ Client chống trùng theo match/stream/ID/phase, phân quyền hiệu ứng the
 Nguồn: [CombatEvents.Event/add/prune/delta/apply](../source/server/src/main/java/tank/CombatEvents.java), [CombatEvent/CombatCodec](../source/client/Assets/Scripts/CombatState.cs), [CombatPresentation](../source/client/Assets/Scripts/CombatPresentation.cs), [CombatRendering](../source/client/Assets/Scripts/CombatRendering.cs). Test: [CombatEventsTest](../source/server/src/test/java/tank/CombatEventsTest.java), [CombatTests](../source/client/Assets/Tests/Editor/CombatTests.cs).
 
 <a id="battlefield-wire"></a>
-## Wave battlefield v15
+## Wave battlefield v21
 
 FULL và DELTA đều nối **sau COMBAT** một extension thay thế toàn bộ:
 
@@ -198,9 +200,11 @@ nếu present=1:
   targetCount:u8, targetIds:u8[]
 ```
 
-Không có wave: 1 byte. Có wave: **34 byte**, gồm đúng **15** target ID theo thứ tự ba round × năm. Kind **2 FIRE**, **3 AIRSTRIKE**; kind1 đã dành cho biến cố cũ bị loại bỏ và luôn bị từ chối. Wave ID dương theo match, record cùng ID bất biến; `impact=start+60`, `end=impact+240`. ID target 0–63 phải tồn tại trong đúng danh sách map. Mỗi round không trùng ID, khoảng cách giữa vùng được client kiểm bằng geometry map; Bombstorm còn không lặp vùng round liền trước. Tọa độ không gửi trong wave.
+Không có wave: 1 byte. FIRE/AIRSTRIKE có wave **34 byte**, gồm đúng **15** target ID theo thứ tự ba round × năm; kind **2 FIRE**, **3 AIRSTRIKE**, `impact=start+60`, `end=impact+240`. Bão có wave **19 byte**, `targetCount=0`: kind **4 SANDSTORM** chỉ map 3, kind **5 SNOWSTORM** chỉ map 4, `impact=start+90`, **`end=impact+360`**. AIRSTRIKE map 3/FIRE map 4 được thay thế và bị client từ chối. Kind1 đã dành cho biến cố cũ bị loại bỏ và luôn bị từ chối. Wave ID dương theo match, record cùng ID bất biến. ID target 0–63 phải tồn tại trong đúng danh sách map. Mỗi round không trùng ID, khoảng cách giữa vùng được client kiểm bằng geometry map; Bombstorm còn không lặp vùng round liền trước. Tọa độ không gửi trong wave.
 
-Codec Java/C# và test v15 yêu cầu năm vùng; v14 với sáu vùng/round không tương thích dù tên field không đổi. Thời điểm round, damage, lịch và trình bày hiện tại nằm ở [gameplay/battlefield](gameplay.md#battlefield).
+Bão **phủ toàn map trong `[impact,end)`**, không có tọa độ dải hoặc ranh giới di chuyển để truyền. Server áp dụng pulse sát thương cho mọi xe sống; client prediction áp dụng tuyết ×0,5 trong cùng thời gian, không xét vị trí để quyết định hiệu lực. JSON luật bỏ `WeatherBandWidthPercent`, thêm `SandstormFireRatePercent=50` cho khoảng cách hai phát đạn thường tăng gấp đôi trong bão cát. Server kiểm nhịp bắn từ tick phát gần nhất và giai đoạn bão; `cooldown`/`lastShotTick` là trạng thái nội bộ được giữ khi xe sống rejoin, không đưa vào snapshot và không đổi layout wire.
+
+Protocol **21** thay dải quét v20 bằng bão phủ toàn map 12 giây và thêm giảm 50% tốc độ bắn do bão cát; giữ kind 4/5, zero targets và cause 13–14. Client v20 sẽ prediction sai tốc độ tuyết ngoài dải cũ, còn NORMAL chưa có bước kiểm content hash như Nhập vai. Tăng version chặn peer khác luật ngay ở framing, dù layout không thêm byte; cả server và client phải được cập nhật cùng đợt. Protocol 20 trước đó đổi thời lượng bão v19 từ 8 lên 12 giây. Khiên hồi sinh 90 tick vẫn dùng deadline Shield u32 sẵn có; riêng khiên không đòi hỏi thêm field hoặc tăng protocol. Đợt này không đổi schema map/database hoặc IP/port. Codec giữ nguyên năm vùng cho biến cố cũ; v14 với sáu vùng/round không tương thích dù tên field không đổi. Thời điểm round, damage, lịch và trình bày hiện tại nằm ở [gameplay/battlefield](gameplay.md#battlefield).
 
 Nguồn: [WorldBattlefield.Wave/encode/read](../source/server/src/main/java/tank/WorldBattlefield.java), [BattlefieldWave/Codec](../source/client/Assets/Scripts/BattlefieldState.cs). Test: [BattlefieldTest](../source/server/src/test/java/tank/BattlefieldTest.java), [BattlefieldTests](../source/client/Assets/Tests/Editor/BattlefieldTests.cs).
 
@@ -215,7 +219,7 @@ Ví vàng/shop dùng cặp TCP bổ sung **86 SHOP / 87 SHOP_RESULT**, payload s
 
 | Opcode | Payload hiện tại |
 |---|---|
-| 9 CREATE_ROOM | `name:string, capacity:u8, seconds:u16, password:string, startingHp:u16, roomMode:u8`; server giữ một số hậu tố tùy chọn để dùng mặc định |
+| 9 CREATE_ROOM | `name:string, capacity:u8, seconds:u16, password:string, startingHp:u16, roomMode:u8, mapId:u16`; server giữ hậu tố tùy chọn cho các overload cũ, map bị bỏ qua mặc định ID 2 |
 | 10 JOIN_ROOM | `roomId:u32, [password:string]`; cũng dùng cho participant vào lại |
 | 11 LEAVE_ROOM | rỗng |
 | 12 SET_READY | `ready:bool` |
@@ -224,9 +228,9 @@ Ví vàng/shop dùng cặp TCP bổ sung **86 SHOP / 87 SHOP_RESULT**, payload s
 | 77 ROOM_SETTINGS | `name:string, capacity:u8, seconds:u16, passwordMode:u8, [password:string nếu mode=2], [startingHp:u16]` |
 | 80 SELECT_NATION | `nation:u8`; chỉ lobby RP, chưa ready, nation chưa ai chọn |
 
-ROOM_LIST_RESULT (8) bắt đầu `status:u16, count:u16`, sau đó từng `roomId:u32, name:string, players:u8, capacity:u8, state:u8`; nối ba mảng theo cùng thứ tự phòng: `locked:bool[]`, `canRejoin:bool[]`, `roomMode:u8[]`.
+ROOM_LIST_RESULT (8) bắt đầu `status:u16, count:u16`, sau đó từng `roomId:u32, name:string, players:u8, capacity:u8, state:u8`; nối bốn mảng theo cùng thứ tự phòng: `locked:bool[]`, `canRejoin:bool[]`, `roomMode:u8[]`, `mapId:u16[]`.
 
-ROOM_STATE (64): `roomId:u32, name:string, state:u8, host:u8, count:u8`, rồi từng `slot:u8, nickname:string, ready:bool`; tiếp `capacity:u8, seconds:u16, locked:bool, selfSlot:u8, startingHp:u16`. RP nối `roomMode:u8, stage:u8, deadlineUs:u64, match:u64, revision:u32`, rồi `nation:u8` cho từng member theo cùng thứ tự; nation=255 nghĩa chưa chọn. Host=255 khi chưa có host. `RoomState`: WAITING=0, PREPARING=1, RUNNING=2, RESULTS=3.
+ROOM_STATE (64): `roomId:u32, name:string, state:u8, host:u8, count:u8`, rồi từng `slot:u8, nickname:string, ready:bool`; tiếp phần chung bắt buộc `capacity:u8, seconds:u16, locked:bool, selfSlot:u8, startingHp:u16, mapId:u16, roomMode:u8`. RP nối `stage:u8, deadlineUs:u64, match:u64, revision:u32`, rồi `nation:u8` cho từng member theo cùng thứ tự; nation=255 nghĩa chưa chọn. Host=255 khi chưa có host. `RoomState`: WAITING=0, PREPARING=1, RUNNING=2, RESULTS=3.
 
 PREPARE (65) nền:
 
@@ -251,7 +255,7 @@ Client kiểm count1–8, slot tăng 0–7, nation duy nhất 0–7, có self sl
 Nguồn: [Server.Session.request](../source/server/src/main/java/tank/Server.java), [Room.broadcast/sendPrepare/prepare/prepared/tick](../source/server/src/main/java/tank/Room.java), [RoleplayMatch.selectNation/publishLoadout/prepared](../source/server/src/main/java/tank/RoleplayMatch.java), [ClientCore.Handle](../source/client/Assets/Scripts/ClientCore.Messages.cs), [ClientCore.Poll](../source/client/Assets/Scripts/ClientCore.cs).
 
 <a id="match-chat"></a>
-### Chat trong trận (v17)
+### Chat trong trận (bổ sung từ v17, giữ payload ở v21)
 
 CHAT_SEND (88), client → server: `match:u64, text:string`. Chỉ nhận trong RUNNING, từ member hiện tại đã hoàn tất rejoin; xe chết vẫn được chat. Tên/slot/màu do server lấy từ member, không nhận từ client. ACTION_RESULT (15) dùng cùng request sequence: `status:u16, [reason:string nếu lỗi]`. Lỗi chat hiển thị riêng, không ghi đè thông báo gameplay.
 
@@ -315,6 +319,8 @@ Nguồn: [Room.Member.canRejoin/rejoin/prepared/leave/tick](../source/server/src
 PONG cho bốn mốc tính RTT `now−clientSent−(serverSent−serverReceived)` và offset `((serverReceived−clientSent)+(serverSent−now))/2`. Tám mẫu đầu dùng offset của RTT thấp nhất; sau đó offset làm mượt 0,9/0,1. Client tính input lead theo RTT/jitter, giới hạn 2–12 tick; `DesiredInputTick` neo vào tick snapshot và tuổi mạng, không vượt cửa sổ tương lai 30 tick của server. Input tick thiếu hoặc quá trễ không được diễn giải thành thời gian mô phỏng mới.
 
 Client prediction chỉ tiến trạng thái xe cục bộ bằng `Movement.Step` với gạch và AREA đã nhận. Snapshot có `resolvedInputTick` cho biết các input đã xử lý; `Reconcile` copy xe authoritative, bỏ input≤resolved, replay phần còn lại. Sai lệch ≤1 đơn vị với xe còn sống được làm mượt render trong 0,1 giây; thay đổi lớn/chết không dùng offset đó. Lịch input ≥256 hoặc tick lệch ngoài cửa sổ gây reset prediction. Client không tự quyết damage/nhặt/kill.
+
+Hệ số địa hình lấy cùng ID map và vị trí tâm xe đầu bước ở Java/C#: nước mặc định ×0,5 tốc độ, hồ ốc đảo ID 3 ×1, băng ID 4 ×1,5. Hồi năng lượng vẫn dùng số nguyên/deadline đã có; sau khi thả Shift và chờ 15 tick, hồ ốc đảo cộng luân phiên **1/2 theo tick mô phỏng**, trung bình ×1,5, còn ngoài hồ cộng 1. Nhịp phân số tính từ tick tuyệt đối thay vì thêm bộ tích lũy hoặc field vào snapshot. FULL/DELTA và rejoin tiếp tục mang năng lượng/thời gian chờ hiện có; replay prediction dùng tick tương ứng nên không cần thay wire. Băng không thêm vận tốc hoặc quán tính cần đồng bộ. Chi tiết luật ở [gameplay/movement](gameplay.md#movement).
 
 Xe khác dùng `Rendering.Interpolate`: vị trí và góc ngắn nhất giữa snapshot; chỉ nội suy xe sống có cùng respawn/Life, không nội suy xuyên chỗ bị map chặn. Đạn chỉ nội suy khi ID tồn tại và bounce không đổi. Thiếu snapshot sau điểm render thì copy state gần nhất, không tự kéo dài đạn xuyên tường. `TankApp` render trễ 100 ms so với đồng hồ server, phối hợp state đó với xe predicted; khi snapshot cũ quá 500 ms, ẩn xe từ xa. Trình bày combat/wave dùng tick server và dedup riêng.
 

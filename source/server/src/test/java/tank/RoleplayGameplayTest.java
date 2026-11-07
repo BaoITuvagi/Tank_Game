@@ -306,7 +306,7 @@ class RoleplayGameplayTest {
         World cancel=world(500);cancel.tanks.get(0).nation=6;cancel.useSkill(0,0);cancel.damage(cancel.tanks.get(0),1,500);until(cancel,250);assertEquals(500,cancel.tanks.get(1).hp);
     }
     @Test void italianBeamUsesFiringAngleAndFullWidthWithMultipleTargets() {
-        World w=world(500);w.add(2);var t=w.tanks.get(0);t.nation=5;t.turret=0;w.useSkill(0,0);
+        World w=world(500);w.add(2);w.tanks.get(2).shield=0;var t=w.tanks.get(0);t.nation=5;t.turret=0;w.useSkill(0,0);
         var a=w.tanks.get(1);a.x=10;a.y=20;var b=w.tanks.get(2);b.x=10;b.y=30;
         w.map.bricks=new GameMap.Rect[]{rect(0,15,60,1,1)};w.bricks[0]=3;t.turret=9000;
         assertEquals(160,t.qEndTick);until(w,159);assertEquals(500,a.hp);assertEquals(3,w.bricks[0]);until(w,160);

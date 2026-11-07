@@ -31,12 +31,12 @@ public final class Golden  {
         for(int op:new int[] {
             LOGOUT,ROOM_LIST,LEAVE_ROOM,START_MATCH
         })v.put(op,new byte[0]);
-        v.put(ROOM_LIST_RESULT,new Writer().u16(0).u16(1).u32(1).str("Phòng").u8(2).u8(8).u8(2).u8(1).u8(1).done());
-        v.put(CREATE_ROOM,new Writer().str("Phòng").u8(8).u16(600).str("friends").u16(500).done());
+        v.put(ROOM_LIST_RESULT,new Writer().u16(0).u16(1).u32(1).str("Phòng").u8(2).u8(8).u8(2).u8(1).u8(1).u8(0).u16(3).done());
+        v.put(CREATE_ROOM,new Writer().str("Phòng").u8(8).u16(600).str("friends").u16(500).u8(0).u16(3).done());
         v.put(JOIN_ROOM,new Writer().u32(1).str("friends").done());
         v.put(SET_READY,new Writer().u8(1).done());
         v.put(KICK_PLAYER,new Writer().u8(1).done());
-        v.put(ROOM_STATE,new Writer().u32(1).str("Phòng").u8(0).u8(0).u8(1).u8(0).str(nickname).u8(1).u8(8).u16(600).u8(1).u8(0).u16(500).done());
+        v.put(ROOM_STATE,new Writer().u32(1).str("Phòng").u8(0).u8(0).u8(1).u8(0).str(nickname).u8(1).u8(8).u16(600).u8(1).u8(0).u16(500).u16(3).u8(0).done());
         v.put(PREPARE,prepare(hash,true));
         v.put(PREPARED,new Writer().u64(1).done());
         v.put(START,new Writer().u64(1).u64(1000000).done());
@@ -84,7 +84,7 @@ public final class Golden  {
         add(vectors,JOIN_ROOM,"_legacy",new Writer().u32(1).done());
         add(vectors,LOGIN_RESULT,"_legacy",new Writer().u16(0).u64(1).str("tank").bytes(token).done());
         add(vectors,ROOM_LIST_RESULT,"_legacy",new Writer().u16(0).u16(0).done());
-        add(vectors,ROOM_STATE,"_legacy",new Writer().u32(1).str("Phòng").u8(0).u8(0).u8(1).u8(0).str("tank").u8(1).done());
+        add(vectors,ROOM_STATE,"_roleplay_map",new Writer().u32(1).str("Phòng").u8(0).u8(0).u8(1).u8(0).str("tank").u8(1).u8(8).u16(600).u8(0).u8(0).u16(100).u16(4).u8(1).u8(0).u64(0).u64(0).u32(0).u8(5).done());
         add(vectors,PREPARE,"_new_match",prepare(hash,false));
         add(vectors,ROOM_SETTINGS,"_keep_password",new Writer().str("Phòng").u8(4).u16(180).u8(0).u16(100).done());
         add(vectors,ROOM_SETTINGS,"_remove_password",new Writer().str("Phòng").u8(4).u16(180).u8(1).done());
