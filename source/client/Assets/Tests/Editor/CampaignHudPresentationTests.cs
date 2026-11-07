@@ -51,4 +51,18 @@ public class CampaignHudPresentationTests {
         }
         state.Message=success;state.Visuals.Clear();Assert.AreEqual(success,CampaignPresentation.ActionFeedback(state));
     }
+    [TestCase(960,600)] [TestCase(1280,800)] [TestCase(1600,900)] [TestCase(1920,1080)]
+    public void PlayerHealthIsAboveTheTankAndClampedInsideTheMapAtEveryEdge(int width,int height){
+        var layout=new CampaignHudLayout(width,height);float cell=layout.Map.width/13;var viewport=new Rect(0,0,layout.Map.width,layout.Map.height);
+        foreach(int x in new[]{0,6,12})foreach(int y in new[]{0,6,12}){
+            var player=new Rect(x*cell,y*cell,cell,cell);Rect health=CampaignHudGeometry.PlayerHealthBounds(player,viewport);
+            Assert.GreaterOrEqual(health.xMin,viewport.xMin);Assert.LessOrEqual(health.xMax,viewport.xMax);
+            Assert.GreaterOrEqual(health.yMin,viewport.yMin);Assert.LessOrEqual(health.yMax,viewport.yMax);
+            Assert.GreaterOrEqual(health.width,30);Assert.AreEqual(8,health.height);
+            if(y>0)Assert.Less(health.yMax,player.yMin,"The bar sits above the vehicle and its facing does not move it.");
+        }
+        Rect first=CampaignHudGeometry.EffectBounds(layout.Effects,0),second=CampaignHudGeometry.EffectBounds(layout.Effects,1);
+        Assert.GreaterOrEqual(first.x,layout.Effects.x);Assert.LessOrEqual(second.xMax,layout.Effects.xMax);
+        Assert.Less(first.xMax,second.x);Assert.LessOrEqual(first.yMax,layout.Fire.y);Assert.LessOrEqual(second.yMax,layout.Fire.y);
+    }
 }

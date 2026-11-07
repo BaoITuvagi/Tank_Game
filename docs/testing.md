@@ -16,7 +16,9 @@ Mục lục:
 
 Chọn kiểm tra theo hành vi bị ảnh hưởng và các caller/đối tác client/server. Không sửa test fixture, generated contract hay môi trường chỉ để làm test xanh; giữ code ổn định trong lúc chạy kiểm tra.
 
-Trạng thái presentation Chiến dịch: `CampaignHudPresentationTests` kiểm tên vùng chỉ hiện khi đổi vùng rồi hết hạn và phản hồi kỹ năng gọn.
+Trạng thái presentation Chiến dịch: `CampaignHudPresentationTests` kiểm tên vùng chỉ hiện khi đổi vùng rồi hết hạn, HP trong biên bản đồ, vị trí buff và phản hồi kỹ năng gọn.
+
+Thành phần HUD dùng chung: `CampaignHudLayoutTests` kiểm map 13×13, sidebar 294 px, hành động ghim, phím dài và đơn vị lượt/giây; `SkillDetailsUiTests` kiểm khóa input đến khi nhả phím, đóng khi đổi context/mất focus, geometry popup và độ dài viền hồi chiêu.
 
 | Loại thay đổi | Kiểm tra cần thực hiện |
 |---|---|
