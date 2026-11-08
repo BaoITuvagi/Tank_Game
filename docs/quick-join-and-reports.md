@@ -4,9 +4,11 @@ Cập nhật ngày 08/11/2026. Các tính năng này cần server và client đ�
 
 Quy trình xử lý mới (cảnh cáo/khóa có thời hạn, gộp đơn, phản hồi và chống lưu trùng) nằm tại [moderation-workflow.md](moderation-workflow.md). Phần kiểm chứng cuối tài liệu này ghi lại đợt tính năng ban đầu.
 
+Bổ sung v22: tìm nhanh/phòng đầy ưu tiên người thật thay bot slot lớn nhất; tố cáo từ cả kết quả và lịch sử. Bot gốc bị chặn tố cáo; người từng được AI thay vẫn được tố cáo. Bằng chứng 30 ngày, xem [business-workflow.md](business-workflow.md).
+
 ## Người chơi
 
-- **Vào trận nhanh** nằm cạnh **Tạo phòng** ở sảnh multiplayer. Bấm nút mở bảng chọn chế độ và bản đồ; mặc định cả hai là **Bất kỳ**. Có thể chỉ chọn chế độ, chỉ chọn map hoặc chọn cả hai. Bấm **Tìm phòng** để server xáo trộn danh sách, chọn một phòng thỏa mọi điều kiện, đang chờ, còn chỗ và không có mật khẩu. Server kiểm tra lại trên room thread trước khi thêm thành viên. Không tự tạo phòng, không vào trận đã bắt đầu và không tự bật sẵn sàng.
+- **Vào trận nhanh** nằm cạnh **Tạo phòng** ở sảnh multiplayer. Bấm nút mở bảng chọn chế độ và bản đồ; mặc định cả hai là **Bất kỳ**. Có thể chỉ chọn chế độ, chỉ chọn map hoặc chọn cả hai. Bấm **Tìm phòng** để server xáo trộn danh sách, chọn một phòng thỏa mọi điều kiện, đang chờ, còn chỗ hoặc có bot thay được và không có mật khẩu. Server kiểm tra lại trên room thread trước khi thêm thành viên. Không tự tạo phòng, không vào trận đã bắt đầu và không tự bật sẵn sàng.
 - Nếu không có phòng phù hợp, bảng chọn giữ mở và thông báo để người chơi đổi điều kiện hoặc tạo phòng; không tự nới điều kiện. Khi phòng đổi trạng thái/đầy trong lúc tìm, server thử phòng khác cùng điều kiện; yêu cầu có giới hạn thời gian để không treo khi room đã dừng.
 - Chọn map dùng cùng thẻ ảnh, tên và mô tả từ map thật như **Tạo phòng**, thêm lựa chọn **Bất kỳ bản đồ**. Vùng nội dung cuộn; nút Hủy/Tìm phòng luôn nằm riêng ở cuối bảng.
 - Mỗi phòng hiển thị **ID #...** trong danh sách và trong phòng. ID do server cấp bằng bộ đếm SQLite nguyên tử, không trùng trong cùng database và không cấp lại sau restart. Restart vẫn đóng các phòng hiện tại; bộ đếm không có nghĩa lưu lại phòng. Local và server chính dùng database riêng.
@@ -36,7 +38,7 @@ Thiết kế form tham khảo [Riot: Player Reporting Guide](https://support.rio
 
 ## Giao thức và dữ liệu
 
-Không đổi định dạng END hay map hash. Protocol vẫn là 21 với các opcode TCP bổ sung:
+Không đổi định dạng END hay map hash. Protocol hiện là 22 với các opcode TCP bổ sung:
 
 | Opcode | Payload sau header |
 | --- | --- |

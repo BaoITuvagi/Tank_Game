@@ -23,15 +23,15 @@ namespace Tank {
         double shopRequestedAt,nextWalletRefresh;
         public int ItemMatchTicks {get{return Latest==null?RoomSeconds*30:(int)(Latest.Tick+Latest.Remaining);}}
         public int ItemWave {get{return RoomMode==RoomMode.ROLEPLAY&&Phase==ClientPhase.PLAYING?RoleplayItemSchedule.Wave(ItemMatchTicks,EstimatedSkillTick):0;}}
-        public bool ItemBought(int type) {return shopStateMatch==Match&&shopStateWave==ItemWave&&(shopMask&(1<<type))!=0;}
+        public bool ItemBought(int type) {return shopStateMatch==Match&&(shopMask&(1<<type))!=0;}
         public int ItemCount(int type) {return shopStateMatch==Match&&type>=0&&type<itemInventory.Length?itemInventory[type]:0;}
         public bool CanUseItem(int type) {
             TankState tank;
-            return Phase==ClientPhase.PLAYING&&RoomMode==RoomMode.ROLEPLAY&&ItemCount(type)>0&&shopRequest==0&&Latest!=null&&Latest.World.Tanks.TryGetValue(Slot,out tank)&&tank.Hp>0;
+            return Phase==ClientPhase.PLAYING&&!NeedsTakeover&&RoomMode==RoomMode.ROLEPLAY&&ItemCount(type)>0&&shopRequest==0&&Latest!=null&&Latest.World.Tanks.TryGetValue(Slot,out tank)&&tank.Hp>0;
         }
         public bool CanBuyItem(int type) {
             TankState tank;
-            return type>=0&&type<GameRules.ItemTypeCount&&ItemWave>0&&WalletLoaded&&WalletGold>=GameRules.RoleplayItemPrice&&shopRequest==0&&!ItemBought(type)&&Latest!=null&&Latest.World.Tanks.TryGetValue(Slot,out tank)&&tank.Hp>0;
+            return !NeedsTakeover&&type>=0&&type<GameRules.ItemTypeCount&&ItemWave>0&&WalletLoaded&&WalletGold>=GameRules.RoleplayItemPrice&&shopRequest==0&&!ItemBought(type)&&Latest!=null&&Latest.World.Tanks.TryGetValue(Slot,out tank)&&tank.Hp>0;
         }
         public void RefreshWallet() {
             if(Account==0||shopRequest!=0)return;
@@ -68,7 +68,7 @@ namespace Tank {
                 if(r.U8()!=2)throw new InvalidDataException("wallet version");
                 ulong gold=r.U64(),match=r.U64();int wave=r.U8(),mask=r.U8();uint revision=r.U32();
                 int[] counts=new int[GameRules.ItemTypeCount];for(int i=0;i<counts.Length;i++){counts[i]=r.U8();if(counts[i]>GameRules.MaxMatchTicks/GameRules.RoleplayItemIntervalTicks)throw new InvalidDataException("inventory count");}r.End();
-                if(gold>long.MaxValue||wave>GameRules.MaxMatchTicks/GameRules.RoleplayItemIntervalTicks||(mask&~((1<<GameRules.ItemTypeCount)-1))!=0||wave==0&&mask!=0)throw new InvalidDataException("wallet state");
+                if(gold>long.MaxValue||wave>GameRules.MaxMatchTicks/GameRules.RoleplayItemIntervalTicks||(mask&~((1<<GameRules.ItemTypeCount)-1))!=0)throw new InvalidDataException("wallet state");
                 if(sequence!=shopRequest)return;
                 WalletGold=gold;WalletLoaded=true;WalletError="";
                 shopStateMatch=match;shopStateWave=wave;shopMask=mask;

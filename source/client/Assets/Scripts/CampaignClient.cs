@@ -36,7 +36,8 @@ namespace Tank.Campaign {
         public ulong TotalGold;
         public string Error="";
         public bool Pending;
-        public int Revision;
+        public int Revision,ProgressRevision;
+        public bool Paused=true;
         public void Read(WireReader r) {
             Pending=false;
             if(r.U16()!=0){Error=r.Str();r.End();return;}
@@ -120,6 +121,7 @@ namespace Tank.Campaign {
                     Run=s;TotalGold=s.TotalGold;
                 }
             }else throw new InvalidDataException("campaign response");
+            if(kind==0){if(r.U8()!=1)throw new InvalidDataException("campaign progress metadata");ProgressRevision=(int)r.U32();Paused=r.Bool();}
             r.End();Revision++;
         }
     }
@@ -127,12 +129,15 @@ namespace Tank.Campaign {
 namespace Tank {
     public partial class ClientCore {
         public Campaign.CampaignClient Campaign=new Campaign.CampaignClient();
+        string campaignOperation="";
+        int campaignLastCommand=-1,campaignLastValue,campaignLastRevision;
         public void CampaignCommand(int command,int value=0) {
             if(Phase!=ClientPhase.LOBBY||Campaign.Pending)return;
-            var w=new WireWriter().U8(8).U8(command);
-            if(command==0)w.U8(value);
-            if(command==1){if(Campaign.Run==null)return;w.U32((uint)Campaign.Run.Turn).U8(value);}
-            if(command==5){if(Campaign.Run==null||!Campaign.Run.CanBuy(value))return;w.Str(Campaign.Run.Id).U32((uint)Campaign.Run.Turn).U32((uint)Campaign.Run.ShopRevision).U8(value);}
+            if((command==1||command==5)&&Campaign.Paused)return;
+            if(command==5&&(Campaign.Run==null||!Campaign.Run.CanBuy(value)))return;
+            if(command!=campaignLastCommand||value!=campaignLastValue||campaignLastRevision!=Campaign.ProgressRevision||string.IsNullOrEmpty(Campaign.Error))campaignOperation=Guid.NewGuid().ToString();
+            campaignLastCommand=command;campaignLastValue=value;campaignLastRevision=Campaign.ProgressRevision;
+            var w=new WireWriter().U8(9).U8(command).Str(campaignOperation).Str(Campaign.Run==null?"":Campaign.Run.Id).U32((uint)Campaign.ProgressRevision).U8(value);
             Campaign.Error="";Campaign.Pending=Request(Tank.Campaign.CampaignClient.Request,w.Done())!=0;
         }
     }

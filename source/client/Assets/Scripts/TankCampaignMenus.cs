@@ -92,7 +92,7 @@ namespace Tank {
             var run=client.Campaign.Run;
             campaignPresentation.Observe(run,now);
             if(!CampaignOpen||client.Phase!=ClientPhase.LOBBY||!GameWindowFocus.IsForeground||AnyDialog||SkillDetailsUi.InputBlocked){GateCampaignInputUntilReleased();return;}
-            if(campaignPage!=3||run==null||run.Finished){campaignShopOpen=false;GateCampaignInputUntilReleased();return;}
+            if(campaignPage!=3||run==null||run.Finished||client.Campaign.Paused){campaignShopOpen=false;GateCampaignInputUntilReleased();return;}
             if(campaignEndConfirm){GateCampaignInputUntilReleased();if(Input.GetKeyDown(KeyCode.Escape))campaignEndConfirm=false;return;}
             if(campaignShopOpen){GateCampaignInputUntilReleased();if(Input.GetKeyDown(KeyCode.Escape)||ClientPreferences.Active.Pressed(ControlAction.CampaignShop,false))ToggleCampaignShop();return;}
             if(campaignInputRelease){if(CampaignControlHeld())return;campaignInputRelease=false;nextCampaignRepeat=now+.18;return;}

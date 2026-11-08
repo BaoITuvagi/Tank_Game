@@ -2,6 +2,8 @@
 
 Cập nhật 07/11/2026. Hướng dẫn này thay phần xử lý đơn ban đầu trong `quick-join-and-reports.md`.
 
+Bổ sung v22: UI có tố cáo từ lịch sử; server chặn bot gốc. Chi tiết đơn có timeline tick/slot/driver/chat/kill/death, giữ 30 ngày hoặc theo đơn. Không quy hành vi AI cho người chơi; đơn cũ về bot không tạo hình phạt mới. Xem [nghiệp vụ hiện tại](business-workflow.md).
+
 ## Người chơi gửi đơn
 
 Form tự đóng khi nhận xác nhận **đã lưu** từ server, kể cả khi server xác nhận đơn đã tồn tại. Bảng kết quả hiện nút **Đã gửi** và thông báo ngắn trong 6 giây. Lỗi hoặc quá hạn vẫn giữ form để người chơi sửa/gửi lại.

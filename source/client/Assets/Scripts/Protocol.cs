@@ -19,7 +19,7 @@ namespace Tank  {
     }
     public static class Op  {
         public const byte ChatSend=88,ChatMessages=89;
-        public const byte QuickJoin=81,ReportPlayer=92,ReportResult=93;
+        public const byte QuickJoin=81,ReportPlayer=92,ReportResult=93,AddBot=94,TakeControl=95;
         public const byte SelectNation=80,UseSkill=84,MatchLoadout=85,Shop=86,ShopResult=87,SnapshotPart=50;
         public const byte Register=1,RegisterResult=2,Login=3,LoginResult=4,Logout=5,LogoutResult=6,RoomList=7,RoomListResult=8,Create=9,Join=10,Leave=11,Ready=12,StartMatch=13,Kick=14,ActionResult=15,Handshake=16,HandshakeAck=17,Ping=18,Pong=19,Input=32,Ack=33,Resync=34,Full=48,Delta=49,RoomState=64,Prepare=65,Prepared=66,Start=67,End=68,Removed=69,Notice=70,History=71,HistoryResult=72,Heartbeat=73,HeartbeatAck=74,SetDisplayName=75,DisplayNameResult=76,RoomSettings=77,HistoryDetail=78,HistoryDetailResult=79;
     }

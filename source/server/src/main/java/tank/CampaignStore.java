@@ -58,6 +58,12 @@ final class CampaignStore {
     static long save(Connection db,Result run)throws SQLException {
         db.setAutoCommit(false);
         try {
+            record(db,run);
+            db.commit();
+        }catch(SQLException e){db.rollback();throw e;}finally{db.setAutoCommit(true);}
+        return gold(db,run.account());
+    }
+    static void record(Connection db,Result run)throws SQLException {
             int inserted;
             try(var s=db.prepareStatement("INSERT OR IGNORE INTO campaign_runs(id,account_id,nickname,nation,distance,gold,victory,ended,duration_ms) VALUES(?,?,?,?,?,?,?,?,?)")) {
                 s.setString(1,run.id());s.setLong(2,run.account());s.setString(3,run.name());s.setInt(4,run.nation());s.setInt(5,run.distance());s.setInt(6,run.gold());s.setInt(7,run.victory()?1:0);s.setLong(8,System.currentTimeMillis());if(run.durationMillis()==null)s.setNull(9,Types.BIGINT);else s.setLong(9,run.durationMillis());inserted=s.executeUpdate();
@@ -65,9 +71,6 @@ final class CampaignStore {
             if(inserted>0)try(var s=db.prepareStatement("INSERT INTO campaign_profiles VALUES(?,?,?) ON CONFLICT(account_id) DO UPDATE SET gold=gold+excluded.gold,best=MAX(best,excluded.best)")) {
                 s.setLong(1,run.account());s.setInt(2,run.gold());s.setInt(3,run.distance());s.executeUpdate();
             }
-            db.commit();
-        }catch(SQLException e){db.rollback();throw e;}finally{db.setAutoCommit(true);}
-        return gold(db,run.account());
     }
     static long gold(Connection db,long account)throws SQLException {try(var s=db.prepareStatement("SELECT gold FROM campaign_profiles WHERE account_id=?")){s.setLong(1,account);try(var r=s.executeQuery()){return r.next()?r.getLong(1):0;}}}
     record Rank(String name,int score,int gold,Long durationMillis,int rank){}

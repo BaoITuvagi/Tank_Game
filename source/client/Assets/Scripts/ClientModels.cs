@@ -3,7 +3,7 @@ namespace Tank {
     public class RoomInfo  {
         public uint Id;
         public string Name;
-        public int Players,Capacity;
+        public int Players,Capacity,Bots;
         public int MapId=MapCatalog.DefaultId;
         public RoomPhase Phase;
         public RoomMode Mode;
@@ -13,14 +13,15 @@ namespace Tank {
         public int Slot;
         public int Nation=-1;
         public string Name;
-        public bool Ready;
+        public bool Ready,BotOrigin;
+        public int Controller;
     }
     public class Score  {
         public int Slot,Kills,Deaths,Rank;
         public int Nation=-1;
         public string Name;
         public uint LastKill;
-        public bool Disconnected;
+        public bool Disconnected,BotOrigin;
     }
     public class HistoryEntry  {
         public ulong Match,Ended;
@@ -30,7 +31,7 @@ namespace Tank {
         public ulong Match,Started,Ended;
         public int MapId,Reason,OwnSlot;
         public uint? DurationTicks;
-        public string RoomModeName,ContentVersion;
+        public string RoomModeName,ContentVersion,RankingRule;
         public long DurationSeconds {
             get {
                 // Simulation time is authoritative, including early-ended matches.

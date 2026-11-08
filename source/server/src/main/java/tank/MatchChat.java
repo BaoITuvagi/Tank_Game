@@ -33,6 +33,7 @@ final class MatchChat {
         m.lastChat=now;
         int palette=room.roomMode==RoomMode.ROLEPLAY?m.roleplay.nation:m.slot;
         Message message=new Message(++nextId,m.slot,palette,m.displayName,text);
+        room.evidence(m,"CHAT",text);
         messages.addLast(message);if(messages.size()>LIMIT)messages.removeFirst();
         s.ok(ACTION_RESULT,seq);
         byte[] payload=payload(List.of(message));

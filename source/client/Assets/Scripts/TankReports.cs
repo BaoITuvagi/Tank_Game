@@ -10,9 +10,16 @@ namespace Tank {
         double reportToastUntil;
         void UpdateReportDialog() {
             if(reportTarget<0)return;
-            if(client.Phase!=ClientPhase.RESULTS||client.Match!=reportMatch){reportTarget=-1;return;}
+            if(client.ReportContextMatch!=reportMatch){reportTarget=-1;return;}
             if(!client.HasReported(reportTarget))return;
             reportToast=client.ReportMessage;reportToastUntil=ClientCore.NowUs+6e6;reportTarget=-1;
+        }
+        void DrawTakeControlOverlay() {
+            if(!client.NeedsTakeover)return;
+            float width=Mathf.Min(440,viewWidth-40);Rect box=new Rect((viewWidth-width)/2,82,width,96);
+            CartoonUi.Panel(box,CartoonUi.PanelDark,8,0);
+            GUI.Label(new Rect(box.x+12,box.y+8,width-24,32),"Xe đang chờ bạn hoặc do AI điều khiển.",menu.Hint);
+            if(GUI.Button(new Rect(box.x+12,box.y+44,width-24,40),"Tiếp quản xe",menu.Primary))client.TakeControl();
         }
         void DrawReportToast() {
             if(string.IsNullOrEmpty(reportToast)||ClientCore.NowUs>=reportToastUntil)return;
@@ -22,11 +29,11 @@ namespace Tank {
         }
         void OpenReport(Score score) {
             if(!client.CanReport(score.Slot))return;
-            reportTarget=score.Slot;reportMatch=client.Match;reportName=score.Name;
+            reportTarget=score.Slot;reportMatch=client.ReportContextMatch;reportName=score.Name;
             reportReasons=0;reportDetails=reportError="";reportScroll=Vector2.zero;client.ReportMessage="";GUI.FocusControl(null);
         }
         void DrawReportDialog() {
-            if(client.Phase!=ClientPhase.RESULTS||client.Match!=reportMatch){reportTarget=-1;return;}
+            if(client.ReportContextMatch!=reportMatch){reportTarget=-1;return;}
             bool sent=client.HasReported(reportTarget);
             if(Event.current.type==EventType.KeyDown&&Event.current.keyCode==KeyCode.Escape){reportTarget=-1;GUI.FocusControl(null);Event.current.Use();return;}
             ArenaRenderer.Fill(new Rect(0,0,viewWidth,viewHeight),new Color(0,0,0,.7f));

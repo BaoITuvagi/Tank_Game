@@ -24,7 +24,7 @@ public class Room  {
     volatile long match;
     volatile View view=new View(RoomState.WAITING,0);
     World world;
-    int host=-1,snapshotId;
+    int host=-1,snapshotId,lobbyRevision;
     long deadline,startUs,startedUtc,seed;
     String previousSpawnLayout="";
     boolean announced;
@@ -34,10 +34,16 @@ public class Room  {
     volatile Set<Long> rejoinableAccounts=Set.of();
     record View(RoomState state,int count) {
     }
+    enum Control { HUMAN, WAITING_RETURN, AI }
     static class Member  {
         Server.Session session;
         final Database.Account account;
-        final int slot;
+        int slot;
+        final boolean botOrigin;
+        Control control;
+        long returnAt;
+        boolean returnForbidden;
+        int recordedKills,recordedDeaths;
         String displayName;
         boolean ready,prepared,disconnected,afkWarn,rejoining;
         int leaveReason;
@@ -55,13 +61,35 @@ public class Room  {
         Member(Server.Session s,int slot) {
             session=s;
             account=s.account;
+            botOrigin=s.bot;control=s.bot?Control.AI:Control.HUMAN;
             displayName=s.displayName();
             this.slot=slot;
         }
-        boolean canRejoin() {
-            // Leaving to recover a weak connection must not forfeit the running match.
-            return !session.bot&&disconnected&&leaveReason>=0&&leaveReason<=3;
+        boolean canRejoin() {return !botOrigin&&disconnected&&!returnForbidden;}
+    }
+    boolean attached(Member m){return m.session.open&&m.session.room==this&&m.session.slot==m.slot;}
+    int humanCount(){return (int)members.values().stream().filter(m->!m.botOrigin).count();}
+    boolean acceptsHuman(){return view.state()==RoomState.WAITING&&(view.count()<capacity||replaceableBots>0);}
+    volatile int replaceableBots;
+    void admit(Server.Session s,int slot) {
+        Member m=new Member(s,slot);members.put(slot,m);s.slot=slot;s.room=this;
+        if(host<0&&!m.botOrigin)host=slot;
+    }
+    void evidence(Member m,String kind,String text){
+        if(world!=null)server.db.evidence.add(match,world.tick,m.slot,m.account.id(),kind.equals("CHAT")?"HUMAN":m.control.name(),kind,text);
+    }
+    void waitForReturn(Member m,int reason) {
+        if(m.control==Control.HUMAN){
+            m.control=Control.WAITING_RETURN;m.returnAt=System.nanoTime()+10_000_000_000L;
+            m.disconnected=true;m.leaveReason=reason;m.input=new InputBuffer();
+            evidence(m,reason==3?"AFK":"LEAVE","reason="+reason);
         }
+        updateRejoinable();
+    }
+    void takeControl(Server.Session s,long matchId,int seq) {
+        Member m=member(s);
+        if(m==null||m.botOrigin||m.returnForbidden||phase!=RoomState.RUNNING||matchId!=match||m.control==Control.HUMAN||m.rejoining){s.error(ACTION_RESULT,seq,Error.INVALID_STATE);return;}
+        rejoin(s,seq);
     }
     Room(Server s,int id,String name) {
         this(s,id,name,s.cfg.integer("max.players",8),s.cfg.integer("match.ticks",5400));
@@ -128,7 +156,7 @@ public class Room  {
         catch(RuntimeException e) {
             System.err.println("room command: "+e.getMessage());
         }
-        for(Member removed:new ArrayList<>(members.values()))if(!removed.session.open)leave(removed.session,1);
+        for(Member removed:new ArrayList<>(members.values()))if(!removed.session.open&&!removed.disconnected)leave(removed.session,1);
         long now=Server.nowUs();
         if(!alive)return;
         bots.tick(now);
@@ -157,19 +185,20 @@ public class Room  {
         if(phase==RoomState.RUNNING) {
             for(Member m:new ArrayList<>(members.values())) {
                 if(phase!=RoomState.RUNNING)break;
-                if(!m.session.bot&&System.nanoTime()-m.session.lastUdp>UDP_TIMEOUT_NANOS)leave(m.session,2);
+                if(!m.botOrigin&&!m.disconnected&&!m.rejoining&&System.nanoTime()-m.session.lastUdp>UDP_TIMEOUT_NANOS)leave(m.session,2);
             }
             if(phase!=RoomState.RUNNING)return;
             Map<Integer,World.Input> inputs=new HashMap<>();
             for(Member m:new ArrayList<>(members.values())) {
                 // Removing a member can finish the match and release world mid-loop.
                 if(phase!=RoomState.RUNNING)return;
-                if(m.rejoining) {
-                    if(System.nanoTime()>=m.rejoinDeadline)leave(m.session,3);
-                    continue;
-                }
+                if(m.rejoining&&System.nanoTime()>=m.rejoinDeadline)leave(m.session,2);
                 World.Tank t=world.tanks.get(m.slot);
-                if(m.bot!=null){inputs.put(m.slot,m.bot.input());continue;}
+                if(m.control==Control.WAITING_RETURN&&System.nanoTime()>=m.returnAt) {
+                    m.control=Control.AI;m.bot=new BotBrain(this,m,seed^m.account.id()^world.tick);evidence(m,"AI_START","");broadcast();
+                }
+                if(m.control==Control.AI){inputs.put(m.slot,m.bot.input());continue;}
+                if(m.control==Control.WAITING_RETURN||m.rejoining){inputs.put(m.slot,new World.Input(world.tick+1,0,t.turret));continue;}
                 World.Input in=m.input.resolve(world.tick+1,t.turret);
                 inputs.put(m.slot,in);
                 long activityNow=System.nanoTime();
@@ -188,10 +217,14 @@ public class Room  {
                     m.afkSince=activityNow;
                     m.session.notice(100,"AFK: hãy di chuyển, ngắm hoặc bắn trong 15 giây");
                 }
-                if(m.afkWarn&&activityNow-m.afkSince>=AFK_GRACE_NANOS)leave(m.session,3);
+                if(m.afkWarn&&activityNow-m.afkSince>=AFK_GRACE_NANOS){waitForReturn(m,3);inputs.put(m.slot,new World.Input(world.tick+1,0,t.turret));broadcast();}
             }
             if(phase!=RoomState.RUNNING)return;
             world.step(inputs);
+            for(Member m:members.values()) {
+                var t=world.tanks.get(m.slot);
+                if(t.kills!=m.recordedKills||t.deaths!=m.recordedDeaths){evidence(m,"SCORE","kills="+t.kills+" deaths="+t.deaths);m.recordedKills=t.kills;m.recordedDeaths=t.deaths;}
+            }
             if(roleplay!=null)roleplay.observe();
             snapshot();
             if(world.tick>=matchTicks)finish(0);
@@ -219,7 +252,7 @@ public class Room  {
                 rejoin(s,seq);
                 return;
             }
-            if(phase!=RoomState.WAITING||members.size()>=capacity) {
+            if(phase!=RoomState.WAITING||(members.size()>=capacity&&(s.bot||members.values().stream().noneMatch(m->m.botOrigin)))) {
                 s.room=null;
                 s.error(ACTION_RESULT,seq,phase!=RoomState.WAITING?Error.ROOM_BUSY:Error.ROOM_FULL);
                 return;
@@ -229,19 +262,18 @@ public class Room  {
                 s.error(ACTION_RESULT,seq,password.isEmpty()?Error.ROOM_PASSWORD_REQUIRED:Error.ROOM_PASSWORD_INCORRECT);
                 return;
             }
-            int slot=0;
-            while(members.containsKey(slot))slot++;
-            Member m=new Member(s,slot);
-            members.put(slot,m);
-            s.slot=slot;
-            s.room=this;
-            if(host<0)host=slot;
+            if(members.size()>=capacity) {
+                Member replaced=members.values().stream().filter(m->m.botOrigin).max(Comparator.comparingInt(m->m.slot)).orElseThrow();
+                members.remove(replaced.slot);bots.removed(replaced,false);
+            }
+            int slot=0;while(members.containsKey(slot))slot++;
+            admit(s,slot);
             s.ok(ACTION_RESULT,seq);
             broadcast();
         }
     }
     boolean canRejoin(Server.Session s) {
-        return s.account!=null&&view.state()==RoomState.RUNNING&&view.count()<capacity&&rejoinableAccounts.contains(s.account.id());
+        return s.account!=null&&view.state()==RoomState.RUNNING&&rejoinableAccounts.contains(s.account.id());
     }
     void updateRejoinable() {
         Set<Long> accounts=new HashSet<>();
@@ -256,14 +288,14 @@ public class Room  {
     }
     void rejoin(Server.Session s,int seq) {
         Member returning=participants.stream().filter(m->m.account.id()==s.account.id()&&m.canRejoin()).findFirst().orElse(null);
-        if(returning==null||members.containsKey(returning.slot)||members.size()>=capacity) {
+        if(returning==null||returning.rejoining||s.moderationSuspended) {
             s.room=null;
             s.error(ACTION_RESULT,seq,returning!=null&&members.size()>=capacity?Error.ROOM_FULL:Error.ROOM_BUSY);
             return;
         }
         returning.session=s;
         returning.displayName=s.displayName();
-        returning.disconnected=false;
+        // Remain under neutral/AI control until PREPARED commits the handover.
         returning.rejoining=true;
         returning.prepared=false;
         returning.afkWarn=false;
@@ -289,17 +321,20 @@ public class Room  {
     }
     void broadcast() {
         view=new View(phase,members.size());
+        replaceableBots=(int)members.values().stream().filter(m->m.botOrigin).count();
         Writer w=new Writer().u32(id).str(name).u8(phase.ordinal()).u8(host<0?255:host).u8(members.size());
-        for(Member m:members.values())w.u8(m.slot).str(m.displayName).u8(m.ready?1:0);
+        for(Member m:members.values())w.u8(m.slot).str(m.displayName).u8(m.ready?1:0).u8(m.botOrigin?1:0).u8(m.control.ordinal());
         w.u8(capacity).u16(matchTicks/30).u8(access.locked?1:0);
         byte[] p=w.done();
         for(Member m:members.values()) {
+            if(!attached(m))continue;
             Writer state=new Writer().bytes(p).u8(m.slot).u16(startingHp).u16(arenaMap.mapId).u8(roomMode.ordinal());
             if(roleplay!=null) {
                 state.u8(roleplay.stage.ordinal()).u64(deadline).u64(match).u32(roleplay.revision);
                 for(Member player:members.values())state.u8(player.roleplay.nation<0?255:player.roleplay.nation);
             }
-            m.session.event(ROOM_STATE,state.done());
+            int mask=0;for(int slot:bots.pending)mask|=1<<slot;
+            state.u8(mask);m.session.event(ROOM_STATE,state.done());
         }
     }
     void rename(Server.Session session,String value) {
@@ -329,8 +364,12 @@ public class Room  {
         RoomAccess.validate(password);
         if(passwordMode==1)access.set("");
         else if(passwordMode==2)access.set(password);
-        if(access.locked)bots.clear();
-        else for(var m:new ArrayList<>(members.values()))if(m.session.bot&&members.size()>cap)leave(m.session,4);
+        for(var m:new ArrayList<>(members.values()))if(m.botOrigin&&members.size()>cap){members.remove(m.slot);bots.removed(m,false);}
+        Server.Session owner=members.get(host).session;
+        var ordered=new ArrayList<>(members.values());members.clear();int seat=0;
+        for(var m:ordered){m.slot=seat++;m.session.slot=m.slot;members.put(m.slot,m);}
+        host=owner.slot;
+        lobbyRevision++;
         name=value.strip();
         capacity=cap;
         matchTicks=seconds*30;
@@ -382,8 +421,9 @@ public class Room  {
         rejoinableAccounts=Set.of();
         for(Member m:members.values()) {
             world.add(m.slot);
-            m.rejoining=false;
-            m.prepared=m.session.bot;
+            m.rejoining=false;m.disconnected=false;m.returnForbidden=false;
+            m.control=m.botOrigin?Control.AI:Control.HUMAN;m.recordedKills=m.recordedDeaths=0;
+            m.prepared=m.botOrigin;
             m.afkWarn=false;
             m.afkSince=0;
             m.previousAim=world.tanks.get(m.slot).turret;
@@ -403,6 +443,7 @@ public class Room  {
         phase=RoomState.PREPARING;
         deadline=Server.nowUs()+10_000_000;
         if(roleplay!=null)roleplay.begin();
+        for(Member m:participants)evidence(m,"START",m.botOrigin?"BOT":"HUMAN");
         s.ok(ACTION_RESULT,seq);
         broadcast();
         for(Member m:members.values())sendPrepare(m,false);
@@ -414,31 +455,11 @@ public class Room  {
             return;
         }
         if(m.rejoining) {
-            world.add(m.slot);
             World.Tank tank=world.tanks.get(m.slot);
-            if(m.resultTank!=null) {
-                // Rejoining is not a fresh respawn: never refresh its protection window.
-                tank.shield=m.resultTank.shield;
-                tank.kills=m.resultTank.kills;
-                tank.deaths=m.resultTank.deaths;
-                tank.lastKill=m.resultTank.lastKill;
-                // Disconnect is not a death: retain item deadlines without extending them.
-                if(m.resultTank.hp>0) {
-                    tank.cooldown=m.resultTank.cooldown;
-                    tank.lastShotTick=m.resultTank.lastShotTick;
-                    tank.armorEndTick=m.resultTank.armorEndTick;
-                    tank.heEndTick=m.resultTank.heEndTick;
-                    tank.invincibilityEndTick=m.resultTank.invincibilityEndTick;
-                    tank.mirrorShots=m.resultTank.mirrorShots;
-                }
-                if(roleplay!=null) {
-                    tank.qReadyTick=m.resultTank.qReadyTick;
-                    tank.qBaseReadyTick=m.resultTank.qBaseReadyTick;
-                    tank.qPenalty=m.resultTank.qPenalty;
-                    tank.qPenaltySources.addAll(m.resultTank.qPenaltySources);
-                }
-            }
-            if(roleplay!=null) {tank.nation=m.roleplay.nation;}
+            m.control=Control.HUMAN;m.disconnected=false;m.bot=null;m.afkWarn=false;m.input=new InputBuffer();
+            m.forceFull=true;m.cache.clear();m.ack=0;
+            if(host<0)host=m.slot;
+            evidence(m,"HUMAN_RETURN","");updateRejoinable();
             m.rejoining=false;
             m.activity=m.activityCheck=System.nanoTime();
             m.previousAim=tank.turret;
@@ -472,6 +493,14 @@ public class Room  {
         if(m==null) {
             if(s.room==this)s.room=null;
             return;
+        }
+        if(phase==RoomState.RUNNING&&!m.botOrigin) {
+            if(s.moderationSuspended)m.returnForbidden=true;
+            waitForReturn(m,reason);m.rejoining=false;
+            if(s.room==this){s.room=null;s.slot=-1;s.endpoint=null;}
+            s.event(REMOVED,new Writer().u32(id).u8(m.slot).u8(reason).done());
+            if(host==m.slot)host=members.values().stream().filter(x->!x.botOrigin&&attached(x)&&!x.disconnected).mapToInt(x->x.slot).findFirst().orElse(-1);
+            updateRejoinable();broadcast();return;
         }
         members.remove(m.slot);
         bots.removed(m,false);
@@ -516,14 +545,14 @@ public class Room  {
     void input(Server.Session s,int ack,List<World.Input> input) {
         if(!s.open)return;
         Member m=member(s);
-        if(m==null||m.rejoining||phase!=RoomState.RUNNING)return;
+        if(m==null||m.rejoining||m.control!=Control.HUMAN||phase!=RoomState.RUNNING)return;
         ack(s,ack);
         for(World.Input in:input)m.input.put(in,world.tick);
     }
     void input(Server.Session s,int ack,List<World.Input> input,float aimX,float aimY) {
         if(!s.open)return;
         Member m=member(s);
-        if(m==null||m.rejoining||phase!=RoomState.RUNNING)return;
+        if(m==null||m.rejoining||m.control!=Control.HUMAN||phase!=RoomState.RUNNING)return;
         input(s,ack,input);
         int newest=input.stream().mapToInt(World.Input::tick).max().orElse(0);
         if(newest>m.skillAimTick&&newest>world.tick&&newest<=world.tick+30) {
@@ -548,7 +577,7 @@ public class Room  {
         lastEncode=System.nanoTime()-before;
         long send=System.nanoTime();
         for(Member m:members.values()) {
-            if(m.session.bot)continue;
+            if(m.botOrigin||!attached(m))continue;
             Writer w=new Writer().u64(match).u32(snapshotId).u32(world.tick).u64(Server.nowUs()).u32(world.tick).u16(Math.max(0,matchTicks-world.tick));
             byte[] base=m.cache.get(m.ack);
             byte[] delta=null;
@@ -587,31 +616,35 @@ public class Room  {
         List<Member> sorted=new ArrayList<>(participants);
         for(Member m:sorted) {
             World.Tank t=world.tanks.get(m.slot);
-            if(t!=null&&!m.disconnected)m.resultTank=t.copy();
+            if(t!=null)m.resultTank=t.copy();
             if(m.resultTank==null) {
                 m.resultTank=new World.Tank();
                 m.resultTank.slot=m.slot;
             }
         }
-        sorted.sort(Comparator.<Member>comparingInt(m->m.resultTank.kills).reversed().thenComparingLong(m->Integer.toUnsignedLong(m.resultTank.lastKill)).thenComparingInt(m->m.slot));
+        sorted.sort(Comparator.<Member>comparingInt(m->m.resultTank.kills).reversed().thenComparingInt(m->m.resultTank.deaths).thenComparingInt(m->m.slot));
         Writer w=new Writer().u64(match).u8(reason).u8(sorted.size());
         List<Database.ResultPlayer> result=new ArrayList<>();
-        int rank=0;
+        int rank=0,index=0,lastKills=-1,lastDeaths=-1;
         for(Member m:sorted) {
             World.Tank t=m.resultTank;
-            rank++;
-            w.u8(m.slot).str(m.displayName).u16(t.kills).u16(t.deaths).u32(t.lastKill).u8(rank).u8(m.disconnected?1:0);
-            result.add(new Database.ResultPlayer(m.account.id(),m.displayName,m.slot,t.kills,t.deaths,rank,m.disconnected,roleplay==null?null:m.roleplay.nation));
+            index++;if(t.kills!=lastKills||t.deaths!=lastDeaths)rank=index;lastKills=t.kills;lastDeaths=t.deaths;
+            w.u8(m.slot).str(m.displayName).u16(t.kills).u16(t.deaths).u32(t.lastKill).u8(rank).u8(m.disconnected?1:0).u8(m.botOrigin?1:0);
+            result.add(new Database.ResultPlayer(m.account.id(),m.displayName,m.slot,t.kills,t.deaths,rank,m.disconnected,roleplay==null?null:m.roleplay.nation,m.botOrigin));
         }
         byte[] payload=w.done();
-        Database.Result record=new Database.Result(match,arenaMap.mapId,HexFormat.of().formatHex(arenaMap.hash),server.cfg.mode().name(),startedUtc,System.currentTimeMillis(),reason,seed,List.copyOf(result),world==null?null:world.tick,roomMode.name(),roleplay==null?null:RoleplayContent.Version+"@"+RoleplayContent.Hash);
+        Database.Result record=new Database.Result(match,arenaMap.mapId,HexFormat.of().formatHex(arenaMap.hash),server.cfg.mode().name(),startedUtc,System.currentTimeMillis(),reason,seed,List.copyOf(result),world==null?null:world.tick,roomMode.name(),roleplay==null?null:RoleplayContent.Version+"@"+RoleplayContent.Hash,"KILLS_DEATHS");
         List<Server.Session> notify=members.values().stream().map(m->m.session).toList();
         server.db.save(record).thenAccept(saved-> {
             if(!saved)for(var s:notify)s.notice(Error.DATABASE_UNAVAILABLE.ordinal(),"Kết quả đang chờ lưu; kiểm tra log và spool");
         });
-        for(Member m:members.values())m.session.event(END,payload);
+        for(Member m:members.values())if(attached(m))m.session.event(END,payload);
         phase=RoomState.WAITING;
+        for(Member m:new ArrayList<>(members.values()))if(!m.botOrigin&&(!attached(m)||m.returnForbidden))members.remove(m.slot);
+        host=members.values().stream().filter(m->!m.botOrigin&&attached(m)).mapToInt(m->m.slot).findFirst().orElse(-1);
         for(Member m:members.values()) {
+            m.disconnected=false;m.control=m.botOrigin?Control.AI:Control.HUMAN;
+            if(!m.botOrigin)m.bot=null;
             m.ready=m.prepared=m.rejoining=m.afkWarn=false;
             m.session.endpoint=null;
             m.resultTank=null;
@@ -620,6 +653,7 @@ public class Room  {
         participants.clear();world=null;
         announced=false;startUs=deadline=0;
         if(roleplay!=null)roleplay.resetLobby();
+        if(!bots.hasHuman()){bots.close();alive=false;server.rooms.remove(id,this);return;}
         broadcast();
     }
     void stop() {

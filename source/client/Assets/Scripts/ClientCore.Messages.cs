@@ -48,11 +48,12 @@ namespace Tank  {
                                 Slot=r.U8(),Name=r.Str(96),Kills=r.U16(),Deaths=r.U16(),Rank=r.U8(),Disconnected=r.Bool()
                             };
                             if(r.Bool())detail.OwnSlot=score.Slot;
+                            score.BotOrigin=r.Bool();
                             detail.Players.Add(score);
                         }
                         if(r.Remaining>0) {uint duration=r.U32();detail.DurationTicks=duration==uint.MaxValue?(uint?)null:duration;}
                         if(r.Remaining>0) {
-                            if(r.U8()!=1)throw new InvalidDataException("history metadata version");
+                            int metadataVersion=r.U8();if(metadataVersion!=2)throw new InvalidDataException("history metadata version");
                             detail.RoomModeName=r.Str();detail.ContentVersion=r.Str();int count=r.U8();
                             if(count!=detail.Players.Count)throw new InvalidDataException("history loadout count");
                             var seen=new System.Collections.Generic.HashSet<int>();
@@ -62,6 +63,7 @@ namespace Tank  {
                                 player.Nation=nation==255?-1:nation;
                             }
                         }
+                        detail.RankingRule=r.Str();
                         HistoryDetail=detail;
                     }
                     else if(p.Op==Op.LoginResult) {
@@ -72,7 +74,7 @@ namespace Tank  {
                         AccountName=r.Remaining>0?r.Str(24):Nickname;
                         Phase=ClientPhase.LOBBY;
                         Message="Đăng nhập thành công";
-                        RefreshWallet();
+                        RefreshWallet();CampaignCommand(4);
                     }
                     else if(p.Op==Op.DisplayNameResult) {
                         Nickname=r.Str(96);
@@ -99,11 +101,12 @@ namespace Tank  {
                         for(int i=0;i<n;i++)Rooms.Add(new RoomInfo {
                             Id=r.U32(),Name=r.Str(48),Players=r.U8(),Capacity=r.U8(),Phase=(RoomPhase)r.U8()
                         });
-                        if(r.Remaining!=5*Rooms.Count)throw new InvalidDataException("room metadata");
+                        if(r.Remaining!=6*Rooms.Count)throw new InvalidDataException("room metadata");
                         foreach(var room in Rooms)room.Locked=r.Bool();
                         foreach(var room in Rooms)room.CanRejoin=r.Bool();
                         foreach(var room in Rooms) {room.Mode=(RoomMode)r.U8();if((int)room.Mode>1)throw new InvalidDataException("room mode");}
                         foreach(var room in Rooms) {room.MapId=r.U16();if(!MapCatalog.IsSelectable(room.MapId))throw new InvalidDataException("room map");}
+                        foreach(var room in Rooms)room.Bots=r.U8();
                     }
                     else if(p.Op==Op.HistoryResult) {
                         History.Clear();
@@ -128,7 +131,7 @@ namespace Tank  {
                     Players.Clear();
                     for(int i=0;i<n;i++) {
                         var player=new RoomPlayer {
-                            Slot=r.U8(),Name=r.Str(96),Ready=r.Bool()
+                            Slot=r.U8(),Name=r.Str(96),Ready=r.Bool(),BotOrigin=r.Bool(),Controller=r.U8()
                         };
                         Players.Add(player);
                         if(player.Name==Nickname)Slot=player.Slot;
@@ -152,6 +155,7 @@ namespace Tank  {
                         foreach(var player in Players) {int nation=r.U8();if(nation!=255&&nation>7)throw new InvalidDataException("nation");player.Nation=nation==255?-1:nation;}
                         if(Phase==ClientPhase.PREPARING&&Match!=0&&preparingMatch!=Match)throw new InvalidDataException("preparation match");
                     }
+                    PendingBotSeats=r.U8();
                     r.End();
                     if(entering) {
                         ClearChat();
@@ -265,7 +269,7 @@ namespace Tank  {
                     Scores.Clear();
                     ClearReports();
                     for(int i=0;i<n;i++)Scores.Add(new Score {
-                        Slot=r.U8(),Name=r.Str(96),Kills=r.U16(),Deaths=r.U16(),LastKill=r.U32(),Rank=r.U8(),Disconnected=r.Bool()
+                        Slot=r.U8(),Name=r.Str(96),Kills=r.U16(),Deaths=r.U16(),LastKill=r.U32(),Rank=r.U8(),Disconnected=r.Bool(),BotOrigin=r.Bool()
                     });
                     foreach(var score in Scores) {MatchLoadout loadout;if(Loadouts.TryGetValue(score.Slot,out loadout)) {score.Nation=loadout.Nation;}}
                     r.End();

@@ -64,7 +64,7 @@ namespace Tank {
             Rect account=GUILayoutUtility.GetRect(contentWidth,48,GUILayout.Width(contentWidth));
             DrawWalletBadge(new Rect(account.x,account.y,210,40));
             GUI.Label(new Rect(account.x+230,account.y,contentWidth-230,44),"Vàng tài khoản\n"+ItemScheduleText(),menu.Hint);
-            GUILayout.Label("Mỗi loại mua tối đa 1 lần/đợt. Item được cất vào túi; bấm icon ở sidebar để dùng khi cần.",menu.Hint);
+            GUILayout.Label("Mỗi loại mua tối đa 1 lần/trận. Item được cất vào túi; bấm icon ở sidebar để dùng khi cần.",menu.Hint);
             TankState own;bool alive=client.Latest!=null&&client.Latest.World.Tanks.TryGetValue(client.Slot,out own)&&own.Hp>0;
             if(!alive)GUILayout.Label("Chờ xe hồi sinh để mua vật phẩm.",menu.Hint);
             if(!string.IsNullOrEmpty(client.ShopNotice))GUILayout.Label(client.ShopNotice,menu.Hint);

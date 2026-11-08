@@ -62,7 +62,10 @@ namespace Tank {
             UiIcon skillIcon=run.Nation==0?UiIcon.Airstrike:run.Nation==1?UiIcon.Armor:UiIcon.Skill;
             if(BattleHudUi.Action(layout.Skill,skillIcon,ClientPreferences.Active.Label(ControlAction.CampaignSkill),nation.SkillName,active&&run.Skill==0,run.Skill,run.SkillCooldown,"lượt",blockedReason:waiting,description:nation.SkillDescription,showCooldownBorder:false))client.CampaignCommand(1,5);
             if(BattleHudUi.Action(layout.Supply,UiIcon.Supply,ClientPreferences.Active.Label(ControlAction.CampaignShop),"Tiếp tế",active,0,1,"lượt","Mua và dùng ngay",waiting))ToggleCampaignShop();
-            if(CampaignUI.Button(layout.End,"Kết thúc chuyến đi",active,true,false,"",true)){campaignEndConfirm=true;GateCampaignInputUntilReleased();}
+            Rect saveExit=layout.End;saveExit.width=(saveExit.width-8)/2;
+            Rect finish=saveExit;finish.x=saveExit.xMax+8;
+            if(CampaignUI.Button(saveExit,"Lưu và thoát",active,true)){client.CampaignCommand(6);campaignPage=1;GateCampaignInputUntilReleased();}
+            if(CampaignUI.Button(finish,"Kết thúc",active,true,false,"",true)){campaignEndConfirm=true;GateCampaignInputUntilReleased();}
         }
         void DrawCampaignBuff(Rect rect,UiIcon icon,string title,int count,string description){
             SkillDetailsUi.Inspect(rect,title,description);

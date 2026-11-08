@@ -1,8 +1,12 @@
 # Dữ liệu, kết quả và log
 
+Kiểm chứng hiện hành: [business-validation.md](business-validation.md#matrix). Các tên test/harness cũ bên dưới là reference lịch sử; bộ đó không còn trong source được theo dõi.
+
 Đối chiếu ngày **2026-10-23** với working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Nội dung được xác minh bằng đọc schema, implementation và test hiện có; không tuyên bố đã chạy test trong đợt tài liệu này. Luật tính kết quả ở [gameplay](gameplay.md#match); wire lịch sử ở [protocol](protocol.md#tcp).
 
 Mục lục: [Schema](#schema) · [Lưu và phục hồi](#persistence) · [Lịch sử](#history) · [Tài khoản](#accounts) · [Log và số liệu](#observability) · [Điểm đọc test](#tests).
+
+Bổ sung v22: `campaign_progress` lưu snapshot/revision/trạng thái ACTIVE/PAUSED/FINISHED, `campaign_commands` chống xử lý lặp. Snapshot cuối, `campaign_runs` và cộng ví cùng transaction; tạm lưu không cộng ví. `matches.ranking_rule`, `match_players.bot_origin` nullable giữ dữ liệu cũ. `match_evidence` giữ 30 ngày, giữ lâu dài khi trận có đơn; không xóa lịch sử. Xem [nghiệp vụ](business-workflow.md).
 
 <a id="schema"></a>
 ## SQLite và migration
@@ -57,7 +61,7 @@ Username hợp lệ `[A-Za-z0-9_]{3,24}`, được hạ chữ thường theo `Lo
 
 Display name riêng trong player_profiles: trim biên bằng `strip`, chuẩn hóa NFC, không rỗng, tối đa **24 code point / 96 byte UTF-8**, không ký tự điều khiển. Login dùng profile khi có, fallback về username. Đổi display name ghi upsert và cập nhật member đang trong phòng; lịch sử giữ nickname đã chụp ở kết quả trận.
 
-Vàng tài khoản dùng bảng `campaign_profiles(account_id,gold,best)` hiện có, không tạo ví song song. `CampaignStore.save` ghi `campaign_runs` và cộng **vàng còn lại của chuyến đi** trong cùng transaction; `INSERT OR IGNORE` theo ID run giữ retry không cộng hai lần. Shop Nhập vai đọc/trừ cùng số dư đó qua `WalletStore` trên database worker. `roleplay_purchases` có khóa `(match_id,account_id,wave,item)`, `cost`, `state` (0 giữ tiền, 1 đã cấp, 2 đã hoàn) và mã reservation riêng từng lần thử. Reserve chỉ trừ nếu số dư đủ; transaction rollback khi không mua được. Callback ở room kiểm tra lại điều kiện rồi cấp item hoặc hoàn vàng; settlement idempotent, callback hoàn cũ không ảnh hưởng reservation mới. Lỗi settlement giữ trong RAM để retry mỗi 5 giây; reservation chưa xác nhận được hoàn một lần khi server khởi động lại. Nếu crash sau khi đã cấp item nhưng trước khi xác nhận DB, người chơi có thể được hoàn vàng; không khôi phục trận cũ để cấp lại item. Giới hạn mua của participant giữ qua chết và rejoin.
+Vàng tài khoản dùng bảng `campaign_profiles(account_id,gold,best)` hiện có, không tạo ví song song. `CampaignStore.save` ghi `campaign_runs` và cộng **vàng còn lại của chuyến đi** trong cùng transaction; `INSERT OR IGNORE` theo ID run giữ retry không cộng hai lần. Shop Nhập vai đọc/trừ cùng số dư đó qua `WalletStore` trên database worker. `roleplay_purchases` có khóa `(match_id,account_id,wave,item)`, `cost`, `state` (0 giữ tiền, 1 đã cấp, 2 đã hoàn) và mã reservation riêng từng lần thử. Từ v22, giao dịch mới dùng `wave=0` làm phạm vi toàn trận; không sửa các dòng lịch sử cũ. Reserve chỉ trừ nếu số dư đủ; transaction rollback khi không mua được. Callback ở room kiểm tra lại điều kiện rồi cấp item hoặc hoàn vàng; settlement idempotent, callback hoàn cũ không ảnh hưởng reservation mới. Lỗi settlement giữ trong RAM để retry mỗi 5 giây; reservation chưa xác nhận được hoàn một lần khi server khởi động lại. Nếu crash sau khi đã cấp item nhưng trước khi xác nhận DB, người chơi có thể được hoàn vàng; không khôi phục trận cũ để cấp lại item. Giới hạn mua của participant giữ qua chết và rejoin.
 
 Các bảng `campaign_runs`, `campaign_profiles`, `roleplay_purchases` được tạo bổ sung, giữ dữ liệu tài khoản/vàng đã có. Query ví không yêu cầu vào Chiến dịch; số dư ở sảnh và shop được lấy từ server.
 

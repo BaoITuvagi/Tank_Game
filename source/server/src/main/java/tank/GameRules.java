@@ -52,7 +52,7 @@ public final class GameRules {
  public static final int SabotageCooldownPenaltyTicks=300;
  public static final int BulletLifetimeTicks=150;
  public static final int SpawnShieldTicks=90;
- public static final int ProtocolVersion=21;
+ public static final int ProtocolVersion=22;
  public static final int WeatherWarningTicks=90;
  public static final int WeatherActiveTicks=360;
  public static final int WeatherDamage=2;

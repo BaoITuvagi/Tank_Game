@@ -1,5 +1,7 @@
 # Luật chơi và mô phỏng
 
+Kiểm chứng hiện hành: [business-validation.md](business-validation.md#matrix). Các tên test/harness cũ bên dưới là reference lịch sử; bộ đó không còn trong source được theo dõi.
+
 Phần di chuyển/địa hình và map cập nhật ngày **2026-11-06**; các phần còn lại giữ mốc đối chiếu **2026-10-23** với working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Tài liệu mô tả mã và test hiện có; không khẳng định đã chạy test hoặc đã chứng minh độ cân bằng bằng playtest. [JSON luật](../source/shared/game-rules.json) và [nội dung nhập vai](../source/shared/roleplay-content.json) là nguồn thông số; quy trình sinh, hash và wire nằm trong [giao thức](protocol.md#shared-contracts).
 
 Mục lục: [Trận đấu](#match) · [Người chơi máy](#bots) · [Điều khiển](#controls) · [Di chuyển](#movement) · [Chiến đấu](#combat) · [Kỹ năng](#skills) · [Vật phẩm](#items) · [Biến cố chiến trường](#battlefield) · [Bản đồ](#maps).
@@ -11,39 +13,16 @@ Mục lục: [Trận đấu](#match) · [Người chơi máy](#bots) · [Điều
 
 Server quản lý trận và mô phỏng ở **30 tick/giây**. Thành viên phải sẵn sàng trước khi chủ phòng bắt đầu; nhập vai còn yêu cầu mỗi người chọn một nation riêng, không đổi lựa chọn khi đang ready. Trình tự tải/đồng bộ và vào lại được mô tả ở [TCP](protocol.md#tcp) và [rejoin](protocol.md#rejoin).
 
-Trận kết thúc khi đủ số tick, khi còn dưới hai thành viên đang chơi, hoặc khi server dừng trận. Xếp hạng theo số kill giảm dần, sau đó thời điểm kill cuối tăng dần (giá trị không có kill được xem như `u32.MaxValue`), cuối cùng slot tăng dần. Death không được dùng làm tiêu chí phụ. Kết quả vẫn gồm participant đã rời trận; [dữ liệu](data.md#persistence) giải thích cách lưu.
+Trận kết thúc khi đủ số tick hoặc server dừng. Người rời được AI thay nên không kết thúc sớm vì thiếu người. Xếp hạng kill giảm dần, death tăng dần, bằng nhau đồng hạng 1,1,3; slot chỉ sắp thứ tự hiển thị. Kết quả vẫn gồm participant đã rời trận; [dữ liệu](data.md#persistence) giải thích cách lưu.
 
 Nguồn: [Room.prepare/tick/finish](../source/server/src/main/java/tank/Room.java), [Server.Session.request](../source/server/src/main/java/tank/Server.java), [TankApp.durations](../source/client/Assets/Scripts/TankMenus.cs). Test liên quan: RoomFeaturesTest, RoleplayRoomTest, MatchDurationTest.
 
 <a id="bots"></a>
 ## Người chơi máy trong phòng công khai
 
-Cập nhật **2026-11-08**. Khi phòng đang chờ, không có mật khẩu và còn người thật, server đợi **15 giây** rồi thêm bot vào chỗ trống. Các bot tiếp theo vào cách nhau ngẫu nhiên **1–3 giây**, dừng khi đủ chỗ hoặc chủ phòng bắt đầu trận. Tên được sinh từ nickname và các thành phần tên Việt, chỉ dùng chữ, không gắn số ở cuối hay nhãn bot trên client. Tên được kiểm tra trùng với username và tên hiển thị đã có; bot cũ có hậu tố số được đổi tên khi nạp pool, giữ nguyên ID và lịch sử trận. Bot tự sẵn sàng sau một khoảng trễ ngắn; trong Nhập vai, bot đợi người thật chọn quốc gia rồi chọn một quốc gia còn trống. Chủ phòng vẫn quyết định bắt đầu trận.
+Cập nhật **2026-11-08**, protocol **22**. Chủ phòng thêm AI thủ công bằng chuột trái vào ô trống, cả phòng công khai và có mật khẩu. Không tự lấp sau 15 giây. Người thật vào phòng chờ đầy thay bot slot lớn nhất; bot có nhãn AI. Trong Nhập vai, bot đợi người thật chọn phe; kick bot để giải phóng phe khi cần.
 
-Chủ phòng có thể kick bot bằng thao tác kick thành viên hiện có. Sau khi kick, server chờ lại 15 giây trước khi lấp chỗ; tài khoản vừa bị kick không trở lại phòng đó. Phòng có mật khẩu không thêm bot. Nếu chủ phòng đặt mật khẩu cho phòng đang chờ, các bot hiện có được đưa ra. Khi người thật cuối cùng rời phòng, trận được kết thúc và phòng đóng, giải phóng bot.
-
-AI dùng các ưu tiên đơn giản: tìm vật phẩm gần và hồi máu khi cần, giao chiến khi thấy đối thủ, tìm vị trí di chuyển hoặc đi tuần khi mất mục tiêu. Đường đi dùng A* trên lưới 1 đơn vị, tối đa 3.200 ô mỗi lần tìm, cập nhật khi gạch bị phá và làm thẳng các đoạn đủ trống. Khoảng trống tính cả thân xe xoay; hướng di chuyển được thử bằng cùng mô phỏng va chạm/địa hình của `World`. Khi không tiến được, bot lùi hoặc đổi sang hướng thoáng rồi tìm lại đường.
-
-Trong giao chiến bot giữ khoảng cách, đổi hướng, bắn theo nhịp và dùng Q trong Nhập vai. Shift được dùng theo từng đợt để di chuyển, đổi vị trí và né, có khoảng nghỉ hồi năng lượng; khi di chuyển thường giữ dự trữ để né khẩn cấp. Bot xét quỹ đạo đạn đang nhìn thấy và chỉ né khi có nguy cơ giao nhau, chọn phía còn khoảng trống và giữ hướng né trong một khoảng ngắn. Việc phát hiện đạn vẫn theo nhịp nhận biết, không phản ứng hoàn hảo từng tick. Bot nhận vật phẩm bằng di chuyển qua chúng theo cùng cơ chế với người thật; chưa tự mua đồ trong shop.
-
-Mức trung bình là cấu hình khởi đầu: nhận biết mỗi 0,2–0,4 giây, phản ứng với mục tiêu mới sau khoảng 0,3–0,67 giây và ngắm có sai số. Bot không tìm đối thủ qua tường, không đọc input người thật; máu, tốc độ, sát thương và hồi chiêu dùng nguyên luật `World`. Độ khó vẫn cần playtest với người thật để điều chỉnh; kiểm thử chức năng không chứng minh bot tương đương một mức xếp hạng cụ thể.
-
-Bot có tài khoản nội bộ `accounts.is_bot=1`, không thể đăng nhập bằng mật khẩu và được tái sử dụng giữa các phòng. Kết quả trận và đơn tố cáo vẫn lưu đủ thành viên. Bot không tạo socket TCP/UDP giả và không làm tăng số kết nối thật.
-
-Giới hạn hiện tại: admin có thể xem đơn tố cáo AI và lưu quyết định xử lý, nhưng cảnh cáo không thay đổi hành vi AI; pool AI chưa kiểm tra lệnh khóa có thời hạn. Vì vậy khóa chưa tự đưa AI ra khỏi trận hay ngăn tài khoản AI đó vào phòng khác. Chủ phòng vẫn có thể kick AI trong phòng chờ.
-
-Cấu hình tại [server.properties](../config/server.properties):
-
-```properties
-bots.enabled=true
-bots.fill.delay.seconds=15
-bots.join.min.seconds=1
-bots.join.max.seconds=3
-```
-
-Giữ 15 giây cho demo; khi phát hành có thể tăng `bots.fill.delay.seconds`, ví dụ 90. Có thể tắt hoàn toàn bằng `bots.enabled=false`. Cấu hình được đọc khi server khởi động. Chế độ benchmark mặc định tắt bot, trừ khi đặt `bots.enabled=true` rõ ràng.
-
-Tham khảo cách tổ chức quyết định theo ưu tiên trong [tài liệu AI của Epic](https://dev.epicgames.com/documentation/unreal-engine/behavior-tree-in-unreal-engine---overview?lang=en-US). Dự án triển khai trực tiếp bằng Java và A*, không cần mô hình học máy hay dịch vụ ngoài. Mã chính: [BotLobby](../source/server/src/main/java/tank/BotLobby.java), [BotBrain](../source/server/src/main/java/tank/BotBrain.java), [BotNavigation](../source/server/src/main/java/tank/BotNavigation.java).
+AI giữ bộ ưu tiên, A*, nhận biết có độ trễ và thông số chiến đấu hiện có; chưa tự mua/dùng túi shop. Bot gốc có tài khoản nội bộ không đăng nhập bằng mật khẩu. Xe người thật rời vẫn ở world, chờ input trung lập 10 giây rồi AI tiếp quản; trở lại dùng nguyên trạng xe. Chi tiết [nghiệp vụ v22](business-workflow.md).
 
 <a id="controls"></a>
 ## Điều khiển
@@ -96,7 +75,7 @@ Thép chặn xe và phản xạ đạn. Gạch đỏ có **3 HP**, mỗi contact
 
 Sát thương kẹp ở 0 HP. Kill chỉ ghi cho xe của người khác còn có mặt trong world; tự sát và môi trường không cộng kill. Chết tăng death, xóa buff item và trạng thái Q/debuff tạm thời; **không xóa deadline hồi Q gốc/hiệu lực**. Hồi sinh sau **90 tick (3 giây)**, đầy HP khởi đầu và năng lượng, có `Life` mới; `SpawnShieldTicks=90` cấp **3 giây bảo vệ HP** lúc xuất hiện đầu trận và sau hồi sinh. Khiên chặn mọi loại sát thương, kể cả tức tử/tự hi sinh, nhưng không chặn hiệu ứng trạng thái, giảm tầm nhìn hoặc chậm địa hình/bão. Xe vẫn được bắn/Q; đạn trúng xe vẫn bị tiêu thụ. Rejoin giữ deadline khiên cũ, không cấp thêm 3 giây. Xe vừa hồi sinh chưa bắn trong chính tick đó.
 
-Spawn đầu trận chọn nhóm điểm trải quanh chu vi và xáo trộn chủ sở hữu, tránh lặp phân công trận trước khi có thể. Respawn chọn điểm hợp lệ xa xe sống gần nhất nhất. Rejoin dùng spawn mới/HP đầy theo cùng cơ chế, giữ điểm số; chi tiết phần trạng thái được giữ nằm ở [rejoin](protocol.md#rejoin).
+Spawn đầu trận chọn nhóm điểm trải quanh chu vi và xáo trộn chủ sở hữu, tránh lặp phân công trận trước khi có thể. Respawn chọn điểm hợp lệ xa xe sống gần nhất nhất. Rejoin không spawn, tiếp quản đúng xe hiện tại kể cả đang chết, giữ mọi trạng thái và điểm số; chi tiết phần trạng thái được giữ nằm ở [rejoin](protocol.md#rejoin).
 
 Thứ tự đáng chú ý trong `World.step`: tăng tick/prune → xử lý hết hạn item/debuff → áp dụng hàng đợi Q → di chuyển/hồi sinh → nhặt item → sát thương battlefield → bắn thường → xử lý kỹ năng đến hạn → tiến đạn → ghi sự kiện gạch vừa bị phá. Vì vậy item nhặt trong tick có thể bảo vệ hoặc tăng sức mạnh ngay trong lần bắn/sát thương sau đó.
 
@@ -152,7 +131,7 @@ ROLEPLAY bắt đầu một đợt item mỗi **40 giây (1200 tick)**, mỗi đ
 
 NORMAL giữ `expires=0`, chọn vị trí trong `itemSpawns`, tránh vị trí trước của cùng loại; không có vị trí thì thử lại mỗi tick. Nhặt kiểm cả hitbox và đường di chuyển hai trục; xe gần tâm item hơn thắng, bằng nhau ưu tiên slot nhỏ. Chết xóa buff nhưng không đổi item trên map hoặc thuộc tính đạn đang bay.
 
-**Shop Nhập vai và vàng tài khoản.** Mỗi chuyến Chiến dịch bắt đầu với **0 vàng**; phần vàng còn lại sau mua đồ được cộng vào tài khoản khi kết quả được lưu, không cộng lại khi retry. Sảnh sau đăng nhập hiển thị số dư do server tải. Thường/Nhập vai không tự sinh vàng thưởng. Trong đúng cửa sổ mỗi đợt item, xe còn sống có thể bấm **E** mua bất kỳ trong 6 loại với giá **50 vàng/loại**. Item mua được **cất vào túi**, không kích hoạt ngay. Bấm icon trong sidebar khi xe còn sống để dùng một item; có thể dùng cả ngoài thời gian mở shop. Túi giữ qua chết/hồi sinh/rejoin, chỉ dùng cho trận hiện tại; các lần mua ở đợt khác có thể cộng số lượng. Nhặt item trên bản đồ vẫn áp dụng ngay. Mỗi người được mua tối đa **1 item mỗi loại mỗi đợt**; nhặt hoặc dùng item không đặt lại quyền mua, chết/vào lại trận không đặt lại giới hạn. Sang đợt tiếp theo đặt lại giới hạn mua. Shop đóng tự động khi hết đợt; input chiến đấu trung lập trong lúc mở, trận vẫn tiếp tục. Server kiểm tra lại thời gian/trạng thái sau thao tác ví bất đồng bộ; nếu không còn hợp lệ, không thêm item và hoàn vàng. Chi tiết transaction/recovery ở [data](data.md#accounts).
+**Shop Nhập vai và vàng tài khoản.** Mỗi chuyến Chiến dịch bắt đầu với **0 vàng**; phần vàng còn lại sau mua đồ được cộng vào tài khoản khi kết quả được lưu, không cộng lại khi retry. Sảnh sau đăng nhập hiển thị số dư do server tải. Thường/Nhập vai không tự sinh vàng thưởng. Trong đúng cửa sổ mỗi đợt item, xe còn sống có thể bấm **E** mua bất kỳ trong 6 loại với giá **50 vàng/loại**. Item mua được **cất vào túi**, không kích hoạt ngay. Bấm icon trong sidebar khi xe còn sống để dùng một item; có thể dùng cả ngoài thời gian mở shop. Túi giữ qua chết/hồi sinh/rejoin, chỉ dùng cho trận hiện tại; các loại chưa mua có thể mua ở đợt tiếp theo, mỗi loại tối đa một món/trận. Nhặt item trên bản đồ vẫn áp dụng ngay. Mỗi người được mua tối đa **1 item mỗi loại mỗi trận**; nhặt hoặc dùng item không đặt lại quyền mua, chết/vào lại trận không đặt lại giới hạn. Sang đợt tiếp theo không đặt lại giới hạn mua. Shop đóng tự động khi hết đợt; input chiến đấu trung lập trong lúc mở, trận vẫn tiếp tục. Server kiểm tra lại thời gian/trạng thái sau thao tác ví bất đồng bộ; nếu không còn hợp lệ, không thêm item và hoàn vàng. Chi tiết transaction/recovery ở [data](data.md#accounts).
 
 Nguồn: [WorldItems.beginTick/spawn/pickup/apply/explode/split/reservedBullets](../source/server/src/main/java/tank/WorldItems.java), [World.step/advance/damage](../source/server/src/main/java/tank/World.java), [ItemState](../source/client/Assets/Scripts/ItemState.cs), [ItemPresentation](../source/client/Assets/Scripts/ItemPresentation.cs). Test: ItemGameplayTest, ItemCodecTest, ItemTests.
 

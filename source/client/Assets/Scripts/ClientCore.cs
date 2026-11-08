@@ -157,6 +157,11 @@ namespace Tank  {
         public void Ready(bool ready) {
             Request(Op.Ready,new WireWriter().U8(ready?1:0).Done());
         }
+        public int PendingBotSeats;
+        public bool NeedsTakeover {get {var own=Players.Find(p=>p.Slot==Slot);return Phase==ClientPhase.PLAYING&&own!=null&&own.Controller!=0&&!own.BotOrigin;}}
+        public void AddBot(int seat){Request(Op.AddBot,new WireWriter().U32(RoomId).U8(seat).U32(++botRequestId).Done());}
+        uint botRequestId;
+        public void TakeControl(){Request(Op.TakeControl,new WireWriter().U64(Match).Done());}
         public void StartMatch() {
             Request(Op.StartMatch,new byte[0]);
         }
@@ -409,6 +414,7 @@ namespace Tank  {
             float oldX=Predicted==null?actual.X:Predicted.X,oldY=Predicted==null?actual.Y:Predicted.Y;
             int oldHp=Predicted==null?actual.Hp:Predicted.Hp;
             Predicted=actual.Copy();
+            if(NeedsTakeover){history.Clear();predictedHistory.Clear();recent.Clear();targetTick=s.Tick;RenderOffsetX=RenderOffsetY=0;return;}
             var remove=new List<uint>();
             foreach(var h in history) {
                 if(h.Key<=s.Resolved)remove.Add(h.Key);
@@ -435,6 +441,7 @@ namespace Tank  {
                 recent.Clear();
                 targetTick=s.Tick;
                 Predicted=actual.Copy();
+            if(NeedsTakeover){history.Clear();predictedHistory.Clear();recent.Clear();targetTick=s.Tick;RenderOffsetX=RenderOffsetY=0;return;}
                 PredictionResets++;
             }
         }
@@ -450,7 +457,7 @@ namespace Tank  {
             LeadTicks=2+(int)Math.Min(10,Math.Ceiling((inputRttUs/2+Math.Min(1e5,Math.Max(0,LastJitterUs)))*30/1e6));
         }
         public bool GenerateInput(int buttons,int angle) {
-            if(Phase!=ClientPhase.PLAYING||Latest==null)return false;
+            if(Phase!=ClientPhase.PLAYING||Latest==null||NeedsTakeover)return false;
             uint desired=DesiredInputTick(Latest,NowUs,LastArrivalUs,LeadTicks,LastStateAgeUs);
             if(targetTick>=desired)return false;
             if(targetTick==0)targetTick=desired-1;

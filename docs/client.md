@@ -1,5 +1,7 @@
 # Client Unity, giao diện và tài nguyên
 
+Kiểm chứng hiện hành: [business-validation.md](business-validation.md#matrix). Các tên test/harness cũ bên dưới là reference lịch sử; bộ đó không còn trong source được theo dõi.
+
 Phần UI/asset, chọn map và bố cục sa mạc/băng tuyết multiplayer đối chiếu working tree ngày **2026-11-07**, dựa trên HEAD `08d6f756c6009b2c730e1babeb3cb138142e74fe` và thay đổi chưa commit. Menu, HUD và đồ họa chiến dịch được đồng bộ theo `game-ui-frontend`, tiếp nối các đợt UI trước; phạm vi và bằng chứng kiểm tra ở UI validation và kiểm chứng map. Các phần gameplay khác giữ mốc đối chiếu 2026-10-23.
 
 Mục lục:
@@ -44,6 +46,8 @@ Bật/tắt âm thanh áp dụng cho cả PCM WinMM và Unity AudioSource. Màn 
 Nhặt vàng Chiến dịch có tiếng xác nhận ngắn sau chuyển động xe: `CampaignAudioTimeline` kiểm một lượt mới, vàng tăng và xu đã biết tại ô người chơi biến mất. Phản hồi cùng lượt, mua hàng, cập nhật ví, thưởng giải cứu, đổi run hoặc khôi phục sau mất khoảng lượt không phát lại tiếng nhặt. Cue `gold` tái sử dụng `CampaignAudio/purchase.ogg` của Kenney ở pitch 1,35; file nguồn/giấy phép giữ nguyên, bật/tắt theo cài đặt âm thanh chung. Preview chuyển động có bước nhặt xu để kiểm đường phát thật.
 
 Mã chính: `ClientPreferences.cs` (mapping, kiểm tra và lưu file), `TankSettings.cs` (giao diện). `ClientPreferencesTests` kiểm tra gán phím, xung đột giữa chế độ, lọc chuột ngoài bản đồ, ghi/đọc và thay thế file, cấu hình hỏng và master audio. Preview offline: `--menu-preview settings`.
+
+Giao diện nghiệp vụ v22: chủ phòng bấm ô trống thêm AI, có nhãn AI và số người thật/bot; phòng chờ đầy AI vẫn cho người thật vào. Khi AFK, nút Tiếp quản xe mở lại đồng bộ trước khi điều khiển. Chiến dịch có Lưu và thoát, tiếp tục theo tài khoản. Shop ghi một lần/loại/trận; kết quả đồng hạng và lịch sử có nút tố cáo người gốc HUMAN. Chi tiết tại [nghiệp vụ v22](business-workflow.md).
 
 <a id="ui"></a>
 ## Giao diện và render arena

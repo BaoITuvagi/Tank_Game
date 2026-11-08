@@ -173,7 +173,7 @@ namespace Tank  {
         public static List<TankState> Sort(WorldState world) {
             var sorted=new List<TankState>(world.Tanks.Values);
             sorted.Sort((a,b)=> {
-                int order=b.Kills.CompareTo(a.Kills);if(order==0)order=a.LastKill.CompareTo(b.LastKill);return order==0?a.Slot.CompareTo(b.Slot):order;
+                int order=b.Kills.CompareTo(a.Kills);if(order==0)order=a.Deaths.CompareTo(b.Deaths);return order==0?a.Slot.CompareTo(b.Slot):order;
             });
             return sorted;
         }

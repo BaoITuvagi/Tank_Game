@@ -25,23 +25,25 @@ namespace Tank {
         GUIStyle modeTitle,modeHeading,modeDescription,modeStatus;
         internal int CampaignPage {get{return campaignPage;}}
         internal string SelectedMode {get{return CampaignOpen?"campaign":modeNavigation.MultiplayerSelected?"multiplayer":"selection";}}
-        bool CanEnterMultiplayer {get{return ModeNavigation.CanEnterMultiplayer(client.Campaign.Pending,client.Campaign.Run);}}
+        bool CanEnterMultiplayer {get{return !client.Campaign.Pending&&(client.Campaign.Paused||ModeNavigation.CanEnterMultiplayer(false,client.Campaign.Run));}}
         string MultiplayerCampaignNotice {
             get {
                 if(client.Campaign.Pending)return "Đợi yêu cầu chiến dịch hoàn tất trước khi tạo hoặc tham gia phòng.";
                 var run=client.Campaign.Run;
-                if(run==null||run.Finished&&run.SaveStatus=="Đã lưu kết quả.")return "";
-                return run.Finished?"Kết quả chiến dịch chưa lưu. Chọn chế độ → Xem kết quả để lưu lại.":"Có thể xem phòng; kết thúc chuyến đi trước khi tham gia. Chọn chế độ → Tiếp tục chuyến đi để trở lại chiến dịch.";
+                if(client.Campaign.Paused||run==null||run.Finished&&run.SaveStatus=="Đã lưu kết quả.")return "";
+                return run.Finished?"Kết quả chiến dịch chưa lưu. Chọn chế độ → Xem kết quả để lưu lại.":"Lưu và thoát chiến dịch để tham gia Multiplayer. Chọn chế độ → Tiếp tục chuyến đi để trở lại chiến dịch.";
             }
         }
         void ShowModeSelection() {
             if(client.Phase!=ClientPhase.LOBBY||!ModeNavigation.CanLeaveCampaign(client.Campaign.Pending,client.Campaign.Run))return;
+            if(client.Campaign.Run!=null&&!client.Campaign.Run.Finished&&!client.Campaign.Paused)client.CampaignCommand(6);
             campaignPage=0;history=roomForm=false;
             modeNavigation.ShowSelection();
             scroll=menuViewport=Vector2.zero;GUI.FocusControl(null);
         }
         void ShowMultiplayerLobby() {
             if(client.Phase!=ClientPhase.LOBBY||!ModeNavigation.CanLeaveCampaign(client.Campaign.Pending,client.Campaign.Run))return;
+            if(client.Campaign.Run!=null&&!client.Campaign.Run.Finished&&!client.Campaign.Paused)client.CampaignCommand(6);
             campaignPage=0;history=false;
             modeNavigation.ShowMultiplayer();
             scroll=Vector2.zero;GUI.FocusControl(null);
@@ -77,7 +79,7 @@ namespace Tank {
             string heading=campaign?"CHIẾN DỊCH":"NHIỀU NGƯỜI CHƠI";
             string description=campaign?"Một người chơi · Tiến quân theo lượt.\nChọn chiến xa, hoàn thành chuyến giải cứu và mang vàng về tài khoản.":"2–8 người · Giao tranh thời gian thực.\nTạo hoặc tham gia phòng, chọn Đấu thường hay Nhập vai.";
             string label=campaign?(pending?"Đang xử lý…":run==null?"Chọn chiến xa":run.Finished?"Xem kết quả":"Tiếp tục chuyến đi"):"Vào sảnh phòng";
-            string state=campaign?(pending?"Đợi phản hồi từ server.":run==null?"Quốc gia · Kỹ năng · Tiếp tế":run.Finished?"Thành tích và trạng thái lưu chuyến đi.":"Chuyến đi đang chờ bạn trong phiên đăng nhập này."):(needsSave?"Lưu kết quả chiến dịch trước khi chuyển chế độ.":pending?"Đợi yêu cầu chiến dịch hoàn tất.":run!=null&&!run.Finished?"Có thể xem phòng; kết thúc chuyến đi trước khi tham gia.":"Thường / Nhập vai được chọn khi tạo phòng.");
+            string state=campaign?(pending?"Đợi phản hồi từ server.":run==null?"Quốc gia · Kỹ năng · Tiếp tế":run.Finished?"Thành tích và trạng thái lưu chuyến đi.":"Tiến trình chuyến đi được lưu theo tài khoản."):(needsSave?"Lưu kết quả chiến dịch trước khi chuyển chế độ.":pending?"Đợi yêu cầu chiến dịch hoàn tất.":run!=null&&!run.Finished?"Lưu và thoát chiến dịch để tham gia Multiplayer.":"Thường / Nhập vai được chọn khi tạo phòng.");
             float headingHeight=MenuTextHeight(heading,modeHeading,textWidth),descriptionHeight=MenuTextHeight(description,modeDescription,textWidth),stateHeight=MenuTextHeight(state,modeStatus,textWidth);
             float buttonHeight=Mathf.Max(48,ButtonHeight(label,menu.Primary,textWidth));
             // Text keeps its readable size; illustration gives up space in shorter windows.

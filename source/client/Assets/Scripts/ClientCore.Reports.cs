@@ -4,7 +4,7 @@ using System.Text;
 namespace Tank {
     public partial class ClientCore {
         public static readonly string[] ReportReasons={"AFK / Rời trận","Phá trận / Cố ý bị hạ","Ngôn từ xúc phạm","Gian lận / Dùng phần mềm","Tên không phù hợp","Lý do khác"};
-        readonly HashSet<int> reportedSlots=new HashSet<int>();
+        readonly HashSet<string> reportedSlots=new HashSet<string>();
         uint quickRequest,reportRequest;
         double quickSentAt,reportSentAt;
         int reportingSlot=-1;
@@ -16,8 +16,13 @@ namespace Tank {
         public ulong LastReportId {get;private set;}
         public bool QuickJoinPending {get{return quickRequest!=0;}}
         public bool ReportPending {get{return reportRequest!=0;}}
-        public bool HasReported(int slot){return reportedSlots.Contains(slot);}
-        public bool CanReport(int slot){return Phase==ClientPhase.RESULTS&&slot!=Slot&&Scores.Exists(s=>s.Slot==slot)&&!ReportPending&&!HasReported(slot);}
+        public ulong ReportContextMatch {get{return Phase==ClientPhase.RESULTS?Match:HistoryDetail==null?0:HistoryDetail.Match;}}
+        public bool HasReported(int slot){return reportedSlots.Contains(ReportContextMatch+":"+slot); }
+        public bool CanReport(int slot){
+            var scores=Phase==ClientPhase.RESULTS?Scores:HistoryDetail==null?null:HistoryDetail.Players;
+            int own=Phase==ClientPhase.RESULTS?Slot:HistoryDetail==null?-1:HistoryDetail.OwnSlot;
+            return ReportContextMatch!=0&&scores!=null&&slot!=own&&scores.Exists(s=>s.Slot==slot&&!s.BotOrigin)&&!ReportPending&&!HasReported(slot);
+        }
         public static byte[] QuickJoinPayload(int mode=255,int mapId=0,uint roomId=0) {
             if(roomId>int.MaxValue)throw new ArgumentOutOfRangeException(nameof(roomId));
             if(roomId!=0)return new WireWriter().U8(255).U16(0).U32(roomId).Done();
@@ -43,8 +48,8 @@ namespace Tank {
         public void ReportPlayer(int slot,int reasons,string details) {
             if(!CanReport(slot))return;
             ReportMessage=ReportValidationError(reasons,details);if(ReportMessage!="")return;
-            reportRequest=Request(Op.ReportPlayer,new WireWriter().U64(Match).U8(slot).U8(reasons).Str((details??"").Trim()).Done());
-            reportingSlot=slot;reportingMatch=Match;reportSentAt=NowUs;
+            reportRequest=Request(Op.ReportPlayer,new WireWriter().U64(ReportContextMatch).U8(slot).U8(reasons).Str((details??"").Trim()).Done());
+            reportingSlot=slot;reportingMatch=ReportContextMatch;reportSentAt=NowUs;
             if(reportRequest==0)ReportMessage="Chưa kết nối tới server. Hãy thử lại.";
         }
         void ReadReportResult(WireReader r,uint sequence) {
@@ -53,8 +58,8 @@ namespace Tank {
             ulong id=0;bool duplicate=false;string message="";
             if(code==0){id=r.U64();duplicate=r.Bool();}else message=r.Str();r.End();
             reportRequest=0;
-            if(reportingMatch!=Match)return;
-            if(code==0){reportedSlots.Add(reportingSlot);LastReportId=id;ReportMessage=(duplicate?"Đơn này đã được tiếp nhận.":"Đã gửi tố cáo tới quản trị viên.")+" Mã đơn #"+id+". Cảm ơn bạn đã phản hồi.";}
+            if(reportingMatch!=ReportContextMatch)return;
+            if(code==0){reportedSlots.Add(reportingMatch+":"+reportingSlot);LastReportId=id;ReportMessage=(duplicate?"Đơn này đã được tiếp nhận.":"Đã gửi tố cáo tới quản trị viên.")+" Mã đơn #"+id+". Cảm ơn bạn đã phản hồi.";}
             else ReportMessage=code==(int)ErrorCode.RATE_LIMITED?"Bạn gửi quá nhiều yêu cầu. Vui lòng chờ rồi thử lại.":code==(int)ErrorCode.INVALID_REQUEST?"Không thể tố cáo người chơi này trong trận đã chọn. Kiểm tra lý do và mô tả.":code==(int)ErrorCode.DATABASE_UNAVAILABLE?"Server chưa lưu được đơn. Hãy thử gửi lại.":"Không gửi được tố cáo: "+message;
         }
         void ReadQuickJoin(WireReader r,uint sequence) {

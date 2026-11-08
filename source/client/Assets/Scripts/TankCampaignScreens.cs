@@ -15,6 +15,7 @@ namespace Tank {
         void DrawCampaign(){
             CampaignUI.Ensure();
             Vector2 visible=CampaignUI.VisibleSize();viewWidth=visible.x;viewHeight=visible.y;
+            if(campaignPage==3&&client.Campaign.Paused&&!client.Campaign.Pending&&client.Campaign.Run!=null&&!client.Campaign.Run.Finished)campaignPage=1;
             if(campaignPage==3&&client.Phase==ClientPhase.LOBBY&&client.Campaign.Run!=null){DrawCampaignRun(client.Campaign.Run);return;}
             CampaignUI.Background(new Rect(0,0,viewWidth,viewHeight));
             string heading=campaignPage==2?"BẢNG CHỈ HUY":"CHIẾN DỊCH GIẢI CỨU";
@@ -65,7 +66,7 @@ namespace Tank {
             else if(!string.IsNullOrEmpty(status))GUI.Label(new Rect(frameX,statusY,frameWidth,statusHeight),status,!string.IsNullOrEmpty(client.Campaign.Error)?CampaignUI.ErrorLabel:CampaignUI.SmallLight);
             if(CampaignUI.Button(new Rect(buttonX,buttonY,buttonWidth,buttonHeight),startLabel,campaignChoice>=0&&!client.Campaign.Pending&&!canResume&&!needsSave)){client.CampaignCommand(0,campaignNations[campaignChoice]);campaignPage=3;}
             if(CampaignUI.Button(new Rect(buttonX+buttonWidth+12,buttonY,buttonWidth,buttonHeight),"Bảng xếp hạng",!client.Campaign.Pending,true)){campaignPage=2;campaignScroll=Vector2.zero;client.CampaignCommand(3);}
-            if((canResume||needsSave)&&CampaignUI.Button(new Rect(buttonX+(buttonWidth+12)*2,buttonY,buttonWidth,buttonHeight),resumeLabel,!client.Campaign.Pending,false,true))campaignPage=3;
+            if((canResume||needsSave)&&CampaignUI.Button(new Rect(buttonX+(buttonWidth+12)*2,buttonY,buttonWidth,buttonHeight),resumeLabel,!client.Campaign.Pending,false,true)){if(client.Campaign.Paused&&canResume)client.CampaignCommand(7);campaignPage=3;}
             DrawCampaignBack(headerHeight);
         }
         void DrawCampaignBack(float headerHeight){

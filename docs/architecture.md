@@ -17,7 +17,7 @@ Mục lục:
 <a id="components"></a>
 ## Thành phần và trách nhiệm
 
-Hệ thống dùng mô hình **client–server, server quyết định trạng thái trận đấu**. Unity nhận thao tác, dự đoán chuyển động xe của mình và dựng hình từ snapshot; Java nhận lệnh, mô phỏng thế giới và phát trạng thái được chấp nhận. SQLite lưu tài khoản, hồ sơ và kết quả, không lưu toàn bộ trạng thái trận đang chạy.
+Hệ thống dùng mô hình **client–server, server quyết định trạng thái trận đấu**. Unity nhận thao tác, dự đoán chuyển động xe của mình và dựng hình từ snapshot; Java nhận lệnh, mô phỏng thế giới và phát trạng thái được chấp nhận. SQLite lưu tài khoản, hồ sơ và kết quả, không lưu toàn bộ trạng thái trận Multiplayer đang chạy; Chiến dịch v22 có snapshot bền vững riêng.
 
 ```mermaid
 flowchart LR
@@ -77,6 +77,8 @@ flowchart LR
 
 **Dừng:** shutdown hook gọi `Server.close()`: ngừng accept/bảo trì, đóng session, yêu cầu room dừng, đóng transport/socket, rồi đóng database và metrics. `Room.stop()` đặt cờ độc lập với queue lệnh; `tick()` kết thúc trận đang chạy với lý do dừng server. `Database.close()` cố spool các kết quả còn pending và đợi worker có giới hạn. `TankApp.OnDestroy()` giải phóng renderer, client và âm thanh; `ClientCore.Dispose()` vô hiệu hóa epoch, đóng socket/writer và xóa trạng thái phiên.
 
+Chi tiết vòng đời v22 (giữ participant độc lập phiên, AI/handover, lưu Chiến dịch và bằng chứng) ở [business-workflow.md](business-workflow.md). Các reference test cũ ở phần dưới là lịch sử, không phải suite đang có.
+
 <a id="lifecycle"></a>
 ## Vòng đời tài khoản, phòng và trận
 
@@ -103,10 +105,10 @@ stateDiagram-v2
 Sơ đồ ghép luồng tài khoản và phòng để giải thích tổng thể; `Connected`, `Authenticated`, `RejoinLoading` không phải giá trị `RoomState`. Bộ enum thực tế ở [Protocol.java](../source/server/src/main/java/tank/Protocol.java) và [Protocol.cs](../source/client/Assets/Scripts/Protocol.cs). Luồng rejoin giả định trận gốc vẫn `RUNNING`; room có thể kết thúc trước khi người chơi quay lại.
 
 1. **Xác thực:** `Session.authenticate()` gửi việc đăng ký/đăng nhập sang database worker. Đăng ký thành công chưa đăng nhập. Đăng nhập thành công đặt `account`, tạo token phiên và đưa session vào bảng `accounts`/`tokens`; mỗi tài khoản chỉ có một session đăng nhập. Client nhận `LOGIN_RESULT` rồi chuyển `LOBBY`. Chi tiết bảo vệ dữ liệu ở [data](data.md).
-2. **Lobby/phòng:** request tạo/vào/rời, ready, đổi thiết lập và kick được kiểm tra trong `Session.request()` rồi chuyển đến room. `CREATE_ROOM` chọn map đã đăng ký trong catalog, bỏ chọn dùng mặc định ID 2; map cố định qua sửa thiết lập, prepare, rematch và rejoin. `Room.join()` gán slot và chủ phòng, `broadcast()` phát `ROOM_STATE` kèm map ID. Khi chủ phòng rời, thành viên còn lại đầu tiên trong thứ tự room trở thành host. Room rỗng bị gỡ khỏi `server.rooms` và dừng vòng lặp.
+2. **Lobby/phòng:** request tạo/vào/rời, ready, đổi thiết lập và kick được kiểm tra trong `Session.request()` rồi chuyển đến room. `CREATE_ROOM` chọn map đã đăng ký trong catalog, bỏ chọn dùng mặc định ID 2; map cố định qua sửa thiết lập, prepare, rematch và rejoin. `Room.join()` gán slot và chủ phòng, `broadcast()` phát `ROOM_STATE` kèm map ID. Khi chủ phòng rời, thành viên còn lại đầu tiên trong thứ tự room trở thành host. Phòng chờ không còn người thật thì đóng. Trong trận giữ participant vắng mặt để AI tiếp quản và chỉ đóng khi hết trận nếu không còn người thật kết nối.
 3. **Chuẩn bị:** `Room.prepare()` yêu cầu host, ít nhất hai người và tất cả ready; tạo ID/seed/world, chụp danh sách `participants`, reset input/cache và phát `PREPARE`. Client kiểm tra map/hash/rate và tài nguyên, làm UDP handshake và lấy mẫu ping trước khi gửi `PREPARED`. Chế độ normal đợi tất cả đã prepared và có endpoint rồi phát `START` với thời điểm đếm ngược. `ROLEPLAY` thêm bước đồng bộ loadout có hash và xác nhận qua `RoleplayMatch`; xem [TCP](protocol.md#tcp) và [skills](gameplay.md#skills).
-4. **Đang chơi:** room giải input theo tick, gọi `World.step()`, phát snapshot và kiểm tra thời lượng. AFK được xác định từ hoạt động gameplay; chỉ gửi heartbeat/ping/ACK không thay thế thao tác. UDP timeout và mất TCP dẫn đến rời phòng theo cơ chế riêng; xem [rejoin](protocol.md#rejoin).
-5. **Kết thúc:** `Room.finish()` lấy kết quả từ cả thành viên còn trong trận và bản sao xe của người đã rời, xếp hạng, gửi `END`, tạo `Database.Result` bất biến và gọi `db.save()`. Sau đó room reset ngay về `WAITING`, xóa world/participants và phát trạng thái lobby. **`RESULTS` phía server chỉ là bước ngắn trong hàm này; client giữ màn `RESULTS` cho đến `BackToRoom()` hoặc hành động tiếp theo.** Việc hiển thị kết quả không đợi transaction hoàn tất; lịch sử chỉ đọc dữ liệu đã ghi vào SQLite.
+4. **Đang chơi:** room giải input theo tick, gọi `World.step()`, phát snapshot và kiểm tra thời lượng. AFK được xác định từ hoạt động gameplay; chỉ gửi heartbeat/ping/ACK không thay thế thao tác. UDP timeout, mất TCP và AFK chuyển sang chờ 10 giây rồi AI giữ xe; xem [rejoin](protocol.md#rejoin).
+5. **Kết thúc:** `Room.finish()` lấy kết quả từ cả thành viên còn trong trận và bản sao xe của người đã rời, xếp hạng, gửi `END`, tạo `Database.Result` bất biến và gọi `db.save()`. Sau đó room reset về `WAITING`, loại người vắng, xóa world/participants và phát trạng thái lobby; không còn người thật kết nối thì đóng phòng. **`RESULTS` phía server chỉ là bước ngắn trong hàm này; client giữ màn `RESULTS` cho đến `BackToRoom()` hoặc hành động tiếp theo.** Việc hiển thị kết quả không đợi transaction hoàn tất; lịch sử chỉ đọc dữ liệu đã ghi vào SQLite.
 
 ### Rejoin và ranh giới phiên
 

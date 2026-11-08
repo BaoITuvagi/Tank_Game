@@ -18,6 +18,8 @@ Chạy lệnh PowerShell từ **thư mục gốc repository**. Cách cài phần
 Sau khi merge hoặc áp dụng stash có thay đổi code/map/contract, build lại **cả server và client**, rồi khởi động lại server và mở client mới. Các thao tác Git không cập nhật JAR hay `build/client` đã có. Server đọc map từ source, còn bản client dùng map đã đóng gói trong `TankBattle_Data/StreamingAssets`; hai bản khác byte khiến client rời phòng khi bắt đầu trận. Khi phân phối, thay toàn bộ thư mục client cùng đợt build. Các nút **Chiến dịch** và **BXH chiến dịch** xuất hiện trong cột thao tác của sảnh ở bản client đã build từ code tương ứng.
 
 <a id="build-server"></a>
+Protocol hiện tại **22**: build server/client cùng source, không dùng client v21. Migration tự bổ sung dữ liệu, giữ DB cũ; dừng server và sao lưu DB trước khi thay bản chạy. Build local không tự triển khai server chính hay cập nhật release.
+
 ## Build server
 
 Cần **JDK 21**, **Maven 3.9.x** và **Python 3**; dự án không yêu cầu thêm thư viện Python. Kiểm tra công cụ trong cửa sổ đang dùng:

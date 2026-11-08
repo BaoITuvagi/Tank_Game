@@ -50,6 +50,7 @@ final class PlayerReports {
         if(record==null)record=owner.historyDetail(reporter,match);
         var actor=record.players().stream().filter(p->p.account()==reporter).findFirst().orElseThrow(()->new Database.Failure(Protocol.Error.INVALID_REQUEST));
         var target=record.players().stream().filter(p->p.slot()==slot).findFirst().orElseThrow(()->new Database.Failure(Protocol.Error.INVALID_REQUEST));
+        if(Boolean.TRUE.equals(target.botOrigin())||isBot(target.account()))throw new Database.Failure(Protocol.Error.INVALID_REQUEST);
         if(target.account()==reporter)throw new Database.Failure(Protocol.Error.INVALID_REQUEST);
         var existing=rows("SELECT id FROM player_reports WHERE match_id=? AND reporter_id=? AND target_id=?",match,reporter,target.account());
         if(!existing.isEmpty())return new Receipt(((Number)existing.getFirst().get("id")).longValue(),true);
@@ -69,6 +70,7 @@ final class PlayerReports {
         owner.db.commit();return new Receipt(id,false);
         }catch(Exception e){owner.db.rollback();throw e;}finally{owner.db.setAutoCommit(true);}
     }
+    boolean isBot(long id)throws SQLException {var found=rows("SELECT is_bot FROM accounts WHERE id=?",id);return !found.isEmpty()&&((Number)found.getFirst().get("is_bot")).intValue()!=0;}
     String account(long id)throws SQLException {var result=rows("SELECT username FROM accounts WHERE id=?",id);return result.isEmpty()?"#"+id:(String)result.getFirst().get("username");}
     List<Map<String,Object>> rows(String sql,Object... values)throws SQLException {
         try(var s=owner.db.prepareStatement(sql)) {
@@ -92,7 +94,7 @@ final class PlayerReports {
         var reports=rows("SELECT * FROM player_reports WHERE id=?",id);
         if(reports.isEmpty())throw new IllegalArgumentException("Không tìm thấy đơn tố cáo.");
         long target=((Number)reports.getFirst().get("target_id")).longValue();
-        return Map.of("report",reports.getFirst(),"reviews",rows("SELECT admin,status,note,time,action,duration_minutes,public_reason FROM report_reviews WHERE report_id=? ORDER BY id DESC",id),"sanctions",rows("SELECT *,CASE WHEN action='SUSPEND' AND revoked=0 AND expires>? THEN 1 ELSE 0 END AS active FROM account_sanctions WHERE account_id=? ORDER BY id DESC LIMIT 20",System.currentTimeMillis(),target),"related",rows("SELECT id,match_id,reasons,status,created FROM player_reports WHERE target_id=? AND id<>? ORDER BY created DESC,id DESC LIMIT 10",target,id),"relatedTotal",rows("SELECT count(*) AS n FROM player_reports WHERE target_id=? AND id<>?",target,id).getFirst().get("n"));
+        return Map.of("report",reports.getFirst(),"reviews",rows("SELECT admin,status,note,time,action,duration_minutes,public_reason FROM report_reviews WHERE report_id=? ORDER BY id DESC",id),"sanctions",rows("SELECT *,CASE WHEN action='SUSPEND' AND revoked=0 AND expires>? THEN 1 ELSE 0 END AS active FROM account_sanctions WHERE account_id=? ORDER BY id DESC LIMIT 20",System.currentTimeMillis(),target),"related",rows("SELECT id,match_id,reasons,status,created FROM player_reports WHERE target_id=? AND id<>? ORDER BY created DESC,id DESC LIMIT 10",target,id),"relatedTotal",rows("SELECT count(*) AS n FROM player_reports WHERE target_id=? AND id<>?",target,id).getFirst().get("n"),"evidence",rows("SELECT e.tick,e.slot,e.account_id,e.driver,e.kind,e.text,e.created,COALESCE(p.nickname,a.username) AS nickname FROM match_evidence e LEFT JOIN match_players p ON p.match_id=e.match_id AND p.account_id=e.account_id LEFT JOIN accounts a ON a.id=e.account_id WHERE e.match_id=? ORDER BY e.tick,e.created,e.id",reports.getFirst().get("match_id")),"botOrigin",isBot(target));
     }
     Map<String,Object> related(long id,int page)throws SQLException {
         var report=rows("SELECT target_id FROM player_reports WHERE id=?",id);
@@ -132,6 +134,7 @@ final class PlayerReports {
         var previous=rows("SELECT * FROM player_reports WHERE id=?",d.reportId);
         if(previous.isEmpty())throw new Problem(404,"Không tìm thấy đơn tố cáo.");
         var report=previous.getFirst();long target=((Number)report.get("target_id")).longValue(),reporter=((Number)report.get("reporter_id")).longValue();
+        if(isBot(target)&&d.status.equals("REVIEWED"))throw new Problem(400,"Bot gốc không áp dụng biện pháp xử phạt tài khoản.");
         var retry=rows("SELECT * FROM report_reviews WHERE request_id=?",d.requestId);
         if(!retry.isEmpty()) {
             var r=retry.getFirst();

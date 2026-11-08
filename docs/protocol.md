@@ -1,6 +1,8 @@
 # Giao thức và hợp đồng dùng chung
 
-Đối chiếu working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Phiên bản hiện tại là **21**, được khai báo thống nhất trong JSON và Java/C# sinh ra. Các bố cục bên dưới được đối chiếu bằng cách đọc mã và test, không phải tuyên bố test đã chạy. Luật chơi chi tiết nằm ở [gameplay](gameplay.md); lưu kết quả nằm ở [data](data.md).
+Kiểm chứng hiện hành: [business-validation.md](business-validation.md#matrix). Các tên test/harness cũ bên dưới là reference lịch sử; bộ đó không còn trong source được theo dõi.
+
+Đối chiếu working tree dựa trên HEAD `e788610bdb0e2cd9fbd3f0cce54d9d29e815947e`, có thay đổi chưa commit. Phiên bản hiện tại là **22**, được khai báo thống nhất trong JSON và Java/C# sinh ra. Các bố cục bên dưới được đối chiếu bằng cách đọc mã và test, không phải tuyên bố test đã chạy. Luật chơi chi tiết nằm ở [gameplay](gameplay.md); lưu kết quả nằm ở [data](data.md).
 
 Mục lục: [JSON, sinh mã và hash](#shared-contracts) · [Transport](#transport) · [Snapshot](#snapshot) · [Delta](#delta) · [Sự kiện combat](#combat-events) · [Wave battlefield](#battlefield-wire) · [TCP](#tcp) · [Vào lại](#rejoin) · [Prediction](#prediction) · [Điểm đọc test](#tests).
 
@@ -102,7 +104,7 @@ combatEvents, battlefield
 | qStage, aimX, aimY, life | `u8, f32, f32, u32` |
 | rocketSlowEndTick, rocketSlowStacks | `u16, u8` |
 
-Tối đa tám xe, slot 0–7 duy nhất; HP không vượt MaxHP 1–500, energy không vượt 150, energyRecovery không vượt 15, status chỉ 0/1. `lastKill=-1` nội bộ được truyền thành `0xffffffff`. Deadline Q/debuff là tick tuyệt đối, hiệu lực khi `tick < end`; `qStage=1` là đang ngắm Gấu Tuyết hoặc chuẩn bị Tháp Nghiêng/Anh Đào. `Life` đổi mỗi spawn, kể cả rejoin. `rocketSlowStacks` là số lần trúng rocket còn hiệu lực (0–9); mỗi lần nhân tốc độ 0,9 khi tick còn trước `rocketSlowEndTick`, cùng deadline kết thúc AREA của lượt gọi. V16 thêm hai field này để FULL/DELTA, prediction và rejoin dùng cùng trạng thái; v15 bị từ chối tại header. `ProtectionFlags` chỉ cho bit0, vẫn giữ trong record nhưng bộ Q hiện tại không dùng. `qReadyTick` là hồi hiệu lực sau phá hoại; hồi gốc nằm trong extension item.
+Tối đa tám xe, slot 0–7 duy nhất; HP không vượt MaxHP 1–500, energy không vượt 150, energyRecovery không vượt 15, status chỉ 0/1. `lastKill=-1` nội bộ được truyền thành `0xffffffff`. Deadline Q/debuff là tick tuyệt đối, hiệu lực khi `tick < end`; `qStage=1` là đang ngắm Gấu Tuyết hoặc chuẩn bị Tháp Nghiêng/Anh Đào. `Life` đổi khi spawn/hồi sinh; handover/rejoin giữ nguyên Life hiện tại. `rocketSlowStacks` là số lần trúng rocket còn hiệu lực (0–9); mỗi lần nhân tốc độ 0,9 khi tick còn trước `rocketSlowEndTick`, cùng deadline kết thúc AREA của lượt gọi. V16 thêm hai field này để FULL/DELTA, prediction và rejoin dùng cùng trạng thái; v15 bị từ chối tại header. `ProtectionFlags` chỉ cho bit0, vẫn giữ trong record nhưng bộ Q hiện tại không dùng. `qReadyTick` là hồi hiệu lực sau phá hoại; hồi gốc nằm trong extension item.
 
 ### Record đạn: 21 byte
 
@@ -228,9 +230,9 @@ Ví vàng/shop dùng cặp TCP bổ sung **86 SHOP / 87 SHOP_RESULT**, payload s
 | 77 ROOM_SETTINGS | `name:string, capacity:u8, seconds:u16, passwordMode:u8, [password:string nếu mode=2], [startingHp:u16]` |
 | 80 SELECT_NATION | `nation:u8`; chỉ lobby RP, chưa ready, nation chưa ai chọn |
 
-ROOM_LIST_RESULT (8) bắt đầu `status:u16, count:u16`, sau đó từng `roomId:u32, name:string, players:u8, capacity:u8, state:u8`; nối bốn mảng theo cùng thứ tự phòng: `locked:bool[]`, `canRejoin:bool[]`, `roomMode:u8[]`, `mapId:u16[]`.
+ROOM_LIST_RESULT (8) bắt đầu `status:u16, count:u16`, sau đó từng `roomId:u32, name:string, players:u8, capacity:u8, state:u8`; nối bốn mảng theo cùng thứ tự phòng: `locked:bool[]`, `canRejoin:bool[]`, `roomMode:u8[]`, `mapId:u16[]`, `botCount:u8[]` (v22).
 
-ROOM_STATE (64): `roomId:u32, name:string, state:u8, host:u8, count:u8`, rồi từng `slot:u8, nickname:string, ready:bool`; tiếp phần chung bắt buộc `capacity:u8, seconds:u16, locked:bool, selfSlot:u8, startingHp:u16, mapId:u16, roomMode:u8`. RP nối `stage:u8, deadlineUs:u64, match:u64, revision:u32`, rồi `nation:u8` cho từng member theo cùng thứ tự; nation=255 nghĩa chưa chọn. Host=255 khi chưa có host. `RoomState`: WAITING=0, PREPARING=1, RUNNING=2, RESULTS=3.
+ROOM_STATE (64): `roomId:u32, name:string, state:u8, host:u8, count:u8`, rồi từng `slot:u8, nickname:string, ready:bool, botOrigin:bool, controller:u8`; tiếp phần chung bắt buộc `capacity:u8, seconds:u16, locked:bool, selfSlot:u8, startingHp:u16, mapId:u16, roomMode:u8`. RP nối `stage:u8, deadlineUs:u64, match:u64, revision:u32`, rồi `nation:u8` cho từng member theo cùng thứ tự; Sau phần NORMAL/RP luôn nối `pendingBotSeats:u8` bitmask. Controller: HUMAN=0, WAITING_RETURN=1, AI=2; nguồn gốc bot không đổi khi AI thay người. nation=255 nghĩa chưa chọn. Host=255 khi chưa có host. `RoomState`: WAITING=0, PREPARING=1, RUNNING=2, RESULTS=3.
 
 PREPARE (65) nền:
 
@@ -282,7 +284,7 @@ Nguồn: [RoleplayMatch.dispatch/use/result](../source/server/src/main/java/tank
 
 ### Kết quả và lịch sử
 
-END (68): `match:u64, reason:u8, count:u8`, rồi `slot:u8, nickname:string, kills:u16, deaths:u16, lastKill:u32, rank:u8, disconnected:bool`. Reason hiện tại: 0 đủ thời gian, 1 không còn đủ người chơi, 2 server dừng. REMOVED (69): `roomId:u32, slot:u8, reason:u8` (0 tự rời, 1 TCP đóng, 2 UDP timeout, 3 AFK/quá hạn rejoin, 4 bị kick).
+END (68): `match:u64, reason:u8, count:u8`, rồi `slot:u8, nickname:string, kills:u16, deaths:u16, lastKill:u32, rank:u8, disconnected:bool, botOrigin:bool`. Rank v22 theo kill/death, bằng nhau đồng hạng 1,1,3. Reason: 0 đủ thời gian, 2 server dừng; 1 chỉ còn trong lịch sử cũ. REMOVED (69): `roomId:u32, slot:u8, reason:u8` (0 tự rời, 1 TCP đóng, 2 UDP timeout, 3 AFK/quá hạn rejoin, 4 bị kick).
 
 HISTORY (71): `offset:u16, limit:u8`, offset≤1000, limit1–20. HISTORY_RESULT (72) thành công: `status:u16=0, count:u8`, rồi từng `match:u64, endedUtcMs:u64, reason:u8, kills:u16, deaths:u16, rank:u8`.
 
@@ -292,22 +294,28 @@ HISTORY_DETAIL (78): `match:u64`. HISTORY_DETAIL_RESULT (79) thành công:
 status:u16=0, match:u64, mapId:u16, startedUtcMs:u64, endedUtcMs:u64,
 reason:u8, count:u8,
 players[count] = slot:u8, nickname:string, kills:u16, deaths:u16,
-                 rank:u8, disconnected:bool, isSelf:bool
+                 rank:u8, disconnected:bool, isSelf:bool, botOrigin:bool
 [durationTicks:u32]
-[metadataVersion:u8=1, roomMode:string, contentVersion:string,
- nationCount:u8, (slot:u8, nation:u8)[nationCount]]
+[metadataVersion:u8=2, roomMode:string, contentVersion:string,
+ nationCount:u8, (slot:u8, nation:u8)[nationCount], rankingRule:string]
 ```
 
-Legacy có thể kết thúc ngay sau players, hoặc chỉ có duration. Khi có metadata mà thiếu duration, trường duration vẫn có mặt với sentinel **`0xffffffff`**, rồi metadata version1; nation=255 biểu diễn null, string metadata null truyền thành rỗng. Wire không gửi account ID, map hash, seed hoặc network mode của detail dù database lưu chúng. Cách chọn duration và dữ liệu cũ nằm ở [data/history](data.md#history).
+Dữ liệu DB cũ vẫn được đọc nhưng wire v22 luôn gửi metadata version2; duration thiếu dùng sentinel **0xffffffff**, nation thiếu dùng 255 và rankingRule=`LEGACY`. Không tính lại rank lịch sử. Wire không gửi account ID/map hash/seed/network mode.
+
+**ADD_BOT (94):** `roomId:u32, slot:u8, requestId:u32`; chỉ host ở WAITING. Cùng account/requestId không cấp lại; đổi slot với cùng mã bị từ chối. ROOM_STATE đánh dấu ô đang chờ DB.
+
+**TAKE_CONTROL (95):** `match:u64`; phiên AFK đang gắn phòng yêu cầu PREPARE để tiếp quản. Người đã về sảnh dùng JOIN_ROOM đến đúng phòng cũ. Cả hai chỉ có quyền với participant gốc HUMAN của tài khoản đó.
+
+**Chiến dịch (90/91), request version9:** `version:u8=9, command:u8, operationId:string(UUID), runId:string, expectedRevision:u32, value:u8`. Command 0 tạo (value=nation), 1 hành động, 2 kết thúc, 3 ranking, 4 tải bản lưu, 5 mua item, 6 tạm lưu, 7 tiếp tục. Response giữ các extension chiến dịch hiện có; state kind0 nối `progressMetadata:u8=1, revision:u32, paused:bool`. Lưu trước ACK; cùng mã/payload không thực hiện lại. Query4 không tự tiếp tục run.
 
 <a id="rejoin"></a>
 ## Mất kết nối và vào lại
 
-Participant đã rời với reason0–3 có thể JOIN lại **cùng trận đang RUNNING**, nếu còn chỗ và slot chưa được dùng; người ngoài trận hoặc bị kick không vào giữa trận. Trận vẫn phải còn đủ hai người đang chơi để tiếp tục. UDP không hợp lệ/không đến quá **10 giây** gây leave; rejoin cũng có deadline chuẩn bị **10 giây**. AFK cảnh báo sau **15 giây** sống không hoạt động, cho thêm 15 giây; hoạt động là di chuyển/bắn hoặc đổi aim quá ngưỡng, Shift đứng yên không đủ.
+Participant gốc HUMAN có quyền trở lại đúng slot được giữ trong trận RUNNING; không phụ thuộc phòng đầy vì xe chưa bị xóa. Người ngoài/bị khóa không tiếp quản. Rời/TCP đóng bắt đầu 10 giây input trung lập; UDP giữ ngưỡng phát hiện 10 giây rồi mới chờ thêm 10 giây. AFK cảnh báo sau 15 giây, thêm 15 giây trước khi chuyển WAITING_RETURN. Sau chờ, AI điều khiển xe đến lúc người chủ hoàn tất đồng bộ hoặc hết trận. Tất cả người thật rời không kết thúc sớm.
 
-Rejoin đặt endpoint mới, input/cache/ACK mới và force FULL; RP phải qua cả ACK content và loadout trước spawn/START. Server giữ participant, nation, kết quả request/high-water và điểm số. Spawn tạo `Life` mới, vị trí/HP/năng lượng theo cơ chế spawn, không khôi phục vị trí/HP cũ.
+Rejoin thay endpoint/input/cache/ACK và force FULL. RP xác nhận content/loadout trước START; START giữ mốc cũ. Không gọi World.add/spawn: giữ nguyên vị trí, Life, HP/năng lượng, buff/debuff, cooldown, điểm và túi đang tồn tại. Trong lúc tải, xe vẫn chịu diễn biến trận và AI tiếp tục nếu đã hết chờ. Chuẩn bị trở lại quá hạn không gia hạn cửa sổ chờ.
 
-Nếu ngắt khi còn sống, deadline Armor/HE/Invincibility và số lượt Mirror được khôi phục **nguyên giá trị**, không kéo dài theo thời gian ngắt; nếu đã chết thì buff đã bị xóa. Hồi Q gốc/hiệu lực, phần trì hoãn và nguồn phá hoại giữ qua cả respawn lẫn rejoin. Life mới không nhận lại fog/debuff của đời trước. Item trên map, trạng thái xe khác, wave/cảnh báo/lửa, bom đang theo lịch và HP gạch được lấy từ snapshot hiện tại. Bom gắn Life cũ không chuyển sang Life mới.
+FULL/DELTA giữ record xe và bitmask cũ; danh tính/quyền điều khiển đồng bộ qua ROOM_STATE nên không thêm field movement. Header v22 từ chối v21; fixture interop phải đối chiếu cả TCP và snapshot.
 
 Client xóa lịch input/snapshot/fragment cũ khi PREPARE; snapshot đầu dựng lại continuous state và đặt watermark bỏ one-shot trước/đúng tick đầu. Round Bombstorm đã qua bị bỏ, round tương lai vẫn hiện; không dùng replay toàn bộ hiệu ứng để bù khoảng ngắt.
 

@@ -51,7 +51,7 @@ namespace Tank {
   public const int SabotageCooldownPenaltyTicks=300;
   public const int BulletLifetimeTicks=150;
   public const int SpawnShieldTicks=90;
-  public const int ProtocolVersion=21;
+  public const int ProtocolVersion=22;
   public const int WeatherWarningTicks=90;
   public const int WeatherActiveTicks=360;
   public const int WeatherDamage=2;

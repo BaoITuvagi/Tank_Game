@@ -1,6 +1,5 @@
 package tank;
 
-import java.security.SecureRandom;
 import static tank.Protocol.*;
 
 /** Additive TCP adapter: 90 request, 91 response; versioned campaign-only payload. */
@@ -20,35 +19,19 @@ final class CampaignSession {
     String saveStatus="";
     long totalGold;
     CampaignSession(Server.Session session,Database db){this.session=session;this.db=db;}
+    int progressRevision;
+    boolean paused=true,playing;
     synchronized void request(Packet p) {
         try {
             if(session.account==null)throw new IllegalArgumentException("Hãy đăng nhập để chơi chiến dịch.");
+            if(session.moderationSuspended)throw new IllegalArgumentException("Tài khoản đã bị khóa.");
             if(session.room!=null)throw new IllegalArgumentException("Hãy rời phòng trước khi vào chiến dịch.");
-            Reader r=new Reader(p.payload());
-            int version=r.u8();
-            if(version<1||version>8)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
-            visualEvents=version>=2;tactics=version>=3;shop=version>=4;progression=version>=5;environment=version>=6;nationStats=version>=7;
-            int command=r.u8();
-            if(command==0) {
-                int nation=r.u8();r.end();
-                if(saving||run!=null&&!run.finished)throw new IllegalArgumentException("Chiến dịch đang diễn ra.");
-                if(run!=null&&!saveStatus.equals("Đã lưu kết quả."))throw new IllegalArgumentException("Hãy lưu lại kết quả trước khi chơi tiếp.");
-                run=new CampaignRun(nation,new SecureRandom().nextLong());saveStatus="";state(p.sequence());
-            }else if(command==1) {
-                int turn=r.u32(),action=r.u8();r.end();
-                if(run==null)throw new IllegalArgumentException("Chưa bắt đầu chiến dịch.");
-                if(turn==run.turn)run.act(action);
-                if(run.finished)save();state(p.sequence());
-            }else if(command==5) {
-                if(!shop)throw new IllegalArgumentException("Shop requires campaign version 4.");
-                String id=r.str(36);int turn=r.u32(),revision=r.u32(),item=r.u8();r.end();
-                if(run==null)throw new IllegalArgumentException("No active campaign.");
-                if(run.id.equals(id)&&run.turn==turn&&run.shopRevision==revision)run.buy(item);
-                state(p.sequence());
-            }else if(command==2) {
-                r.end();if(run!=null&&!run.finished){run.finish(false);run.message="Đã kết thúc chuyến đi.";}if(run!=null)save();state(p.sequence());
-            }else if(command==3) {
-                r.end();long account=session.account.id();
+            Reader r=new Reader(p.payload());int version=r.u8();
+            if(version!=9)throw new IllegalArgumentException("Phiên bản chiến dịch không tương thích.");
+            visualEvents=tactics=shop=progression=environment=nationStats=true;
+            int command=r.u8();String operation=r.str(36),id=r.str(36);int expected=r.u32(),value=r.u8();r.end();
+            long account=session.account.id();
+            if(command==3){
                 db.submit(()->new Object[]{CampaignStore.ranking(db.db),CampaignStore.gold(db.db,account)}).whenComplete((result,error)->{
                     if(detached||session.account==null||session.account.id()!=account)return;
                     if(error!=null){failure(p.sequence(),"Không tải được bảng xếp hạng. Hãy thử lại.");return;}
@@ -57,21 +40,26 @@ final class CampaignSession {
                     if(version>=8){w.u8(1).u8(rows.size());for(var row:rows)w.u8(row.rank()).u32(row.gold()).u64(row.durationMillis()==null?-1:row.durationMillis());}
                     session.send(RESPONSE,p.sequence(),w.done());
                 });
-            }else if(command==4){r.end();if(run!=null&&run.finished)save();state(p.sequence());}
-            else throw new IllegalArgumentException("Thao tác chiến dịch không hợp lệ.");
-        }catch(RuntimeException e){failure(p.sequence(),e instanceof IllegalArgumentException?e.getMessage():"Không xử lý được chiến dịch.");}
+                return;
+            }
+            if(!operation.matches("[a-fA-F0-9-]{36}"))throw new IllegalArgumentException("Mã thao tác không hợp lệ.");
+            String name=session.displayName(),payload=java.util.Base64.getEncoder().encodeToString(p.payload());
+            saving=true;
+            var saved=db.submit(()->CampaignProgress.apply(db,account,name,command,id,expected,operation,payload,value,playing)).get(10,java.util.concurrent.TimeUnit.SECONDS);
+            run=saved.run();progressRevision=saved.revision();paused=saved.paused();playing=run!=null&&!run.finished&&!paused;
+            totalGold=saved.gold();saveStatus=run!=null&&run.finished?"Đã lưu kết quả.":"Đã lưu tiến trình.";
+            state(p.sequence());
+        }catch(Exception e){
+            Throwable cause=e;while((cause instanceof java.util.concurrent.ExecutionException||cause instanceof java.util.concurrent.CompletionException)&&cause.getCause()!=null)cause=cause.getCause();
+            failure(p.sequence(),cause instanceof IllegalArgumentException?cause.getMessage():"Chưa xác nhận được lưu. Hãy tải lại bản lưu hoặc thử lại thao tác.");
+        }finally{saving=false;}
     }
     void failure(int sequence,String message){session.send(RESPONSE,sequence,new Writer().u16(1).str(message).done());}
-    synchronized boolean active(){return saving||run!=null&&(!run.finished||!saveStatus.equals("Đã lưu kết quả."));}
-    synchronized void save() {
-        if(run==null||saving||saveStatus.equals("Đã lưu kết quả.")||session.account==null)return;
-        saving=true;saveStatus="Đang lưu kết quả…";
-        CampaignRun ended=run;long account=session.account.id();String name=session.displayName();
-        db.campaigns.save(account,name,ended).whenComplete((gold,error)->{
-            synchronized(this){saving=false;saveStatus=error==null?"Đã lưu kết quả.":"Chưa lưu được. Bấm Lưu lại để thử lại.";if(error==null)totalGold=gold;state(0);}
-        });
+    synchronized boolean active(){return saving||playing;}
+    synchronized void close(){
+        detached=true;playing=false;
+        if(session.account!=null){long account=session.account.id();String name=session.displayName();db.submit(()->CampaignProgress.apply(db,account,name,4,"",0,"","",0,false));}
     }
-    synchronized void close(){detached=true;if(run!=null){run.finish(false);save();}}
     synchronized void state(int sequence) {
         if(detached)return;
         Writer w=new Writer().u16(0).u8(1).u8(0).u8(run==null?0:1);
@@ -110,6 +98,7 @@ final class CampaignSession {
         if(run!=null&&nationStats){
             var stats=run.stats;w.u8(1).u16(stats.maxHp()).u16(stats.shotDamage()).u16(stats.meleeDamage()).u8(stats.armor()).u8(CampaignNation.SHOT_COOLDOWN).u8(stats.skillCooldown()).u8(stats.skillRange());
         }
+        w.u8(1).u32(progressRevision).u8(paused?1:0);
         session.send(RESPONSE,sequence,w.done());
     }
 }

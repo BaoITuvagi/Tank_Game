@@ -66,7 +66,7 @@ final class BotBrain {
         }
         if(room.roleplay!=null&&seesTarget&&now>=reactionAt&&now>=skillAt&&(now>=tank.qReadyTick||tank.qStage==1)) {
             float x=seenX,y=seenY;World expected=world;int slot=member.slot;
-            world.skillIntents.add(()->{if(room.world==expected&&room.member(member.session)==member){expected.skillAim(slot,x,y);if(expected.useSkill(slot,0)==Protocol.Error.OK){skillUses++;member.roleplay.qUses++;}}});
+            world.skillIntents.add(()->{if(room.world==expected&&room.members.get(member.slot)==member&&member.control==Room.Control.AI){expected.skillAim(slot,x,y);if(expected.useSkill(slot,0)==Protocol.Error.OK){skillUses++;member.roleplay.qUses++;}}});
             skillAt=now+(tank.nation==1&&tank.qStage==0?12+random.nextInt(10):75+random.nextInt(91));
         }
     }

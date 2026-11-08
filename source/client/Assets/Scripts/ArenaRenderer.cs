@@ -406,9 +406,9 @@ namespace Tank  {
                 rankTop+=24;rankHeight=Mathf.Max(8,rankHeight-24);
                 rankingScroll=GUI.BeginScrollView(new Rect(panelX+10,top+rankTop,width-20,rankHeight),rankingScroll,new Rect(0,0,rowWidth,totalHeight),false,false);
                 float py=0;
-                int rank=0;
+                int rank=0,index=0,lastKills=-1,lastDeaths=-1;
                 foreach(var tank in ranked)  {
-                    rank++;
+                    index++;if(tank.Kills!=lastKills||tank.Deaths!=lastDeaths)rank=index;lastKills=tank.Kills;lastDeaths=tank.Deaths;
                     string label=CartoonUi.WrapText(RankingLabel(client,tank),body,nameWidth);
                     float nameHeight=Mathf.Ceil(body.CalcHeight(new GUIContent(label),nameWidth)),rowHeight=Mathf.Max(32,nameHeight+12);
                     if(tank.Slot==client.Slot) {
@@ -441,7 +441,7 @@ namespace Tank  {
         }
         static string RankingLabel(ClientCore client,TankState tank) {
             string name="P"+(tank.Slot+1);
-            foreach(var player in client.Players)if(player.Slot==tank.Slot)name=player.Name;
+            foreach(var player in client.Players)if(player.Slot==tank.Slot)name=player.Name+(player.Controller==2?" · AI":player.Controller==1?" · Chờ trở lại":"");
             return (tank.Slot==client.Slot?"Bạn · ":"")+name;
         }
         public void NetworkStatus(ClientCore client,float left,float top,float width) {

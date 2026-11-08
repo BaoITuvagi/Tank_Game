@@ -300,6 +300,7 @@ public class Server implements AutoCloseable  {
                         for(Room listedRoom:listed)w.u8(listedRoom.canRejoin(this)?1:0);
                         for(Room listedRoom:listed)w.u8(listedRoom.roomMode.ordinal());
                         for(Room listedRoom:listed)w.u16(listedRoom.arenaMap.mapId);
+                        for(Room listedRoom:listed)w.u8(listedRoom.replaceableBots);
                         send(ROOM_LIST_RESULT,p.sequence(),w.done());
                     }
                     case CREATE_ROOM-> {
@@ -389,6 +390,15 @@ public class Server implements AutoCloseable  {
                         Room target=requireRoom();
                         target.enqueue(()->target.configure(this,p.sequence(),value,cap,seconds,mode,password,hp<0?target.startingHp:hp));
                     }
+                    case ADD_BOT-> {
+                        int id=r.u32(),slot=r.u8(),requestId=r.u32();r.end();Room target=requireRoom();
+                        if(target.id!=id)throw new Database.Failure(Error.INVALID_STATE);
+                        target.enqueue(()->target.bots.add(this,slot,requestId,p.sequence()));
+                    }
+                    case TAKE_CONTROL-> {
+                        long match=r.u64();r.end();Room target=requireRoom();
+                        target.enqueue(()->target.takeControl(this,match,p.sequence()));
+                    }
                     case LEAVE_ROOM-> {
                         r.end();
                         Room target=requireRoom();
@@ -443,12 +453,13 @@ public class Server implements AutoCloseable  {
                                 error(HISTORY_DETAIL_RESULT,p.sequence(),e instanceof Database.Failure f?f.code:Error.DATABASE_UNAVAILABLE);return;
                             }
                             Writer w=new Writer().u16(0).u64(detail.id()).u16(detail.mapId()).u64(detail.started()).u64(detail.ended()).u8(detail.reason()).u8(detail.players().size());
-                            for(var player:detail.players())w.u8(player.slot()).str(player.nickname()).u16(player.kills()).u16(player.deaths()).u8(player.rank()).u8(player.disconnected()?1:0).u8(player.account()==id?1:0);
-                            boolean metadata=detail.roomMode()!=null||detail.contentVersion()!=null||detail.players().stream().anyMatch(player->player.nationId()!=null);
+                            for(var player:detail.players())w.u8(player.slot()).str(player.nickname()).u16(player.kills()).u16(player.deaths()).u8(player.rank()).u8(player.disconnected()?1:0).u8(player.account()==id?1:0).u8(Boolean.TRUE.equals(player.botOrigin())?1:0);
+                            boolean metadata=true;
                             if(detail.durationTicks()!=null||metadata)w.u32(detail.durationTicks()==null?-1:detail.durationTicks());
                             if(metadata) {
-                                w.u8(1).str(detail.roomMode()==null?"":detail.roomMode()).str(detail.contentVersion()==null?"":detail.contentVersion()).u8(detail.players().size());
+                                w.u8(2).str(detail.roomMode()==null?"":detail.roomMode()).str(detail.contentVersion()==null?"":detail.contentVersion()).u8(detail.players().size());
                                 for(var player:detail.players())w.u8(player.slot()).u8(player.nationId()==null?255:player.nationId());
+                                w.str(detail.rankingRule()==null?"LEGACY":detail.rankingRule());
                             }
                             send(HISTORY_DETAIL_RESULT,p.sequence(),w.done());
                         });
@@ -526,13 +537,13 @@ public class Server implements AutoCloseable  {
                 if(index>=candidates.size()){quickJoining=false;error(ACTION_RESULT,seq,Error.ROOM_MISSING);return;}
             }
             Room target=candidates.get(index);
-            if(!target.alive||mode!=null&&target.roomMode!=mode||map!=0&&target.arenaMap.mapId!=map||target.access.locked||target.view.state()!=RoomState.WAITING||target.view.count()>=target.capacity){quickJoin(candidates,index+1,seq,actor,mode,map);return;}
+            if(!target.alive||mode!=null&&target.roomMode!=mode||map!=0&&target.arenaMap.mapId!=map||target.access.locked||target.view.state()!=RoomState.WAITING||!target.acceptsHuman()){quickJoin(candidates,index+1,seq,actor,mode,map);return;}
             try {
                 target.enqueue(()-> {
                     synchronized(this) {
                         if(quickSequence!=seq)return;
                         if(!open||account==null||account.id()!=actor||!quickJoining){quickJoining=false;return;}
-                        if(room==null&&!campaign.active()&&target.alive&&target.phase==RoomState.WAITING&&(mode==null||target.roomMode==mode)&&(map==0||target.arenaMap.mapId==map)&&!target.access.locked&&target.members.size()<target.capacity) {
+                        if(room==null&&!campaign.active()&&target.alive&&target.phase==RoomState.WAITING&&(mode==null||target.roomMode==mode)&&(map==0||target.arenaMap.mapId==map)&&!target.access.locked&&target.acceptsHuman()) {
                             quickJoining=false;room=target;target.join(this,seq);return;
                         }
                     }

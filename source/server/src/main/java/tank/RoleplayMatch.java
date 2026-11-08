@@ -125,7 +125,7 @@ final class RoleplayMatch {
     void use(Server.Session session,long match,int requestId,int slot,byte[] request,int seq,float aimX,float aimY) {
         dispatch(session,match,requestId,USE_SKILL,slot,request,seq,true,()-> {
             Room.Member m=room.member(session);
-            if(room.phase!=RoomState.RUNNING||m.rejoining)return Error.INVALID_STATE;
+            if(room.phase!=RoomState.RUNNING||m.rejoining||m.control!=Room.Control.HUMAN)return Error.INVALID_STATE;
             World.Tank before=room.world.tanks.get(m.slot);int energy=before.energy,recovery=before.energyRecovery,bullets=room.world.bullets.size();float x=before.x,y=before.y;
             int aimError=Math.abs(Math.floorMod(before.desiredAim-before.turret+18000,36000)-18000);
             room.world.skillAim(m.slot,aimX,aimY);

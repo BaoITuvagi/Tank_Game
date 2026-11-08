@@ -49,7 +49,7 @@
   "SabotageCooldownPenaltyTicks": 300,
   "BulletLifetimeTicks": 150,
   "SpawnShieldTicks": 90,
-  "ProtocolVersion": 21,
+  "ProtocolVersion": 22,
   "WeatherWarningTicks": 90,
   "WeatherActiveTicks": 360,
   "WeatherDamage": 2,

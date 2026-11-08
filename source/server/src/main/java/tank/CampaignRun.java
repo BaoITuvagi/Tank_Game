@@ -5,17 +5,17 @@ import java.util.*;
 /** Isolated, turn-based campaign simulation. No Room, World or roleplay dependencies. */
 public final class CampaignRun {
     public static final int WIDTH=13, VIEW=19, GOAL=10000, BOSS_INTERVAL=200, BOSS_COUNT=GOAL/BOSS_INTERVAL, SHOT_RANGE=4, MAX_BUFF=9;
-    public final String id=UUID.randomUUID().toString();
-    final long startedNanos=System.nanoTime();
-    long completedMillis=-1;
+    public String id=UUID.randomUUID().toString();
+    long startedNanos=System.nanoTime();
+    long completedMillis=-1,accumulatedMillis;
     public long elapsedMillis(){
-        long elapsed=Math.max(0,(System.nanoTime()-startedNanos)/1_000_000);
+        long elapsed=Math.max(0,accumulatedMillis+(System.nanoTime()-startedNanos)/1_000_000);
         if(finished&&completedMillis<0)completedMillis=elapsed;
         return completedMillis>=0?completedMillis:elapsed;
     }
     public void finish(boolean won){if(!finished){finished=true;victory=won;elapsedMillis();}}
 
-    final Random random;
+    final CampaignCheckpoint.RandomState random;
     final long seed;
     final CampaignMap campaignMap;
     public final int nation;
@@ -44,7 +44,7 @@ public final class CampaignRun {
     public record Loot(int x,int y,int kind,int amount) {} // heal, damage, shield, chest
     public CampaignRun(int nation,long seed) {
         if(nation!=0&&nation!=1&&nation!=5)throw new IllegalArgumentException("campaign nation");
-        this.nation=nation;this.stats=CampaignNation.of(nation);hp=stats.maxHp();this.seed=seed;campaignMap=new CampaignMap(seed);random=new Random(seed);generate();
+        this.nation=nation;this.stats=CampaignNation.of(nation);hp=stats.maxHp();this.seed=seed;campaignMap=new CampaignMap(seed);random=new CampaignCheckpoint.RandomState(seed);generate();
     }
     public int terrain(int px,int py) {return campaignMap.tile(px,py);}
     public boolean blocksShot(int px,int py){return campaignMap.blocksShot(px,py);}

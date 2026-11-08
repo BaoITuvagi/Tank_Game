@@ -10,12 +10,14 @@ import com.google.gson.Gson;
 public class Database implements AutoCloseable  {
     public record Account(long id,String name) {
     }
-    public record ResultPlayer(long account,String nickname,int slot,int kills,int deaths,int rank,boolean disconnected,Integer nationId) {
+    public record ResultPlayer(long account,String nickname,int slot,int kills,int deaths,int rank,boolean disconnected,Integer nationId,Boolean botOrigin) {
+        public ResultPlayer(long account,String nickname,int slot,int kills,int deaths,int rank,boolean disconnected,Integer nationId){this(account,nickname,slot,kills,deaths,rank,disconnected,nationId,null);}
         public ResultPlayer(long account,String nickname,int slot,int kills,int deaths,int rank,boolean disconnected) {
             this(account,nickname,slot,kills,deaths,rank,disconnected,null);
         }
     }
-    public record Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players,Integer durationTicks,String roomMode,String contentVersion) {
+    public record Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players,Integer durationTicks,String roomMode,String contentVersion,String rankingRule) {
+        public Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players,Integer durationTicks,String roomMode,String contentVersion){this(id,mapId,mapHash,mode,started,ended,reason,seed,players,durationTicks,roomMode,contentVersion,null);}
         public Result(long id,int mapId,String mapHash,String mode,long started,long ended,int reason,long seed,List<ResultPlayer> players,Integer durationTicks) {
             this(id,mapId,mapHash,mode,started,ended,reason,seed,players,durationTicks,null,null);
         }
@@ -40,6 +42,7 @@ public class Database implements AutoCloseable  {
     final CampaignStore campaigns;
     final WalletStore wallet;
     final PlayerReports reports;
+    final MatchEvidence evidence;
     final Gson gson=new Gson();
     final Map<Long,Result> pending=new ConcurrentHashMap<>();
     public volatile long failures;
@@ -57,15 +60,19 @@ public class Database implements AutoCloseable  {
             }
         }
         CampaignStore.schema(db);
+        CampaignProgress.schema(db);
         WalletStore.schema(db);
         PlayerReports.schema(db);
         migrateColumn("accounts","is_bot","INTEGER NOT NULL DEFAULT 0");
         reports=new PlayerReports(this);
+        evidence=new MatchEvidence(this);
         wallet=new WalletStore(this);
         migrateDurationColumn();
         migrateColumn("matches","room_mode","TEXT");
         migrateColumn("matches","content_version","TEXT");
         migrateColumn("match_players","nation_id","INTEGER");
+        migrateColumn("match_players","bot_origin","INTEGER");
+        migrateColumn("matches","ranking_rule","TEXT");
         try(var files=Files.list(spool)) {
             files.filter(p->p.toString().endsWith(".json")).forEach(p-> {
                 try {
@@ -77,7 +84,7 @@ public class Database implements AutoCloseable  {
             });
         }
         campaigns=new CampaignStore(this);
-        retry.scheduleWithFixedDelay(()->{retryPending();campaigns.retry();wallet.retry();},0,5,TimeUnit.SECONDS);
+        retry.scheduleWithFixedDelay(()->{retryPending();campaigns.retry();wallet.retry();evidence.tick();},0,5,TimeUnit.SECONDS);
     }
     void migrateDurationColumn() throws SQLException {
         try (Statement statement=db.createStatement();ResultSet columns=statement.executeQuery("PRAGMA table_info(matches)")) {
@@ -218,17 +225,17 @@ public class Database implements AutoCloseable  {
                 String hash=r.getString("map_hash"),mode=r.getString("mode");
                 long started=r.getLong("started"),ended=r.getLong("ended"),seed=r.getLong("seed");
                 List<ResultPlayer> players=new ArrayList<>();
-                try(var ps=db.prepareStatement("SELECT * FROM match_players WHERE match_id=? ORDER BY rank,slot")) {
+                try(var ps=db.prepareStatement("SELECT p.*,a.is_bot AS account_is_bot FROM match_players p JOIN accounts a ON a.id=p.account_id WHERE match_id=? ORDER BY rank,slot")) {
                     ps.setLong(1,match);
                     try(var rows=ps.executeQuery()) {
                         while(rows.next()) {
                             Number nation=(Number)rows.getObject("nation_id");
-                            players.add(new ResultPlayer(rows.getLong("account_id"),rows.getString("nickname"),rows.getInt("slot"),rows.getInt("kills"),rows.getInt("deaths"),rows.getInt("rank"),rows.getInt("disconnected")!=0,nation==null?null:nation.intValue()));
+                            players.add(new ResultPlayer(rows.getLong("account_id"),rows.getString("nickname"),rows.getInt("slot"),rows.getInt("kills"),rows.getInt("deaths"),rows.getInt("rank"),rows.getInt("disconnected")!=0,nation==null?null:nation.intValue(),rows.getObject("bot_origin")==null?rows.getInt("account_is_bot")!=0:rows.getInt("bot_origin")!=0));
                         }
                     }
                 }
                 Number ticks=(Number)r.getObject("duration_ticks");
-                return new Result(match,mapId,hash,mode,started,ended,reason,seed,List.copyOf(players),ticks==null?null:ticks.intValue(),r.getString("room_mode"),r.getString("content_version"));
+                return new Result(match,mapId,hash,mode,started,ended,reason,seed,List.copyOf(players),ticks==null?null:ticks.intValue(),r.getString("room_mode"),r.getString("content_version"),r.getString("ranking_rule"));
             }
         }
     }
@@ -274,7 +281,7 @@ public class Database implements AutoCloseable  {
     void persist(Result r)throws Exception {
         db.setAutoCommit(false);
         try {
-            try(var s=db.prepareStatement("INSERT OR IGNORE INTO matches(id,map_id,map_hash,mode,started,ended,reason,seed,duration_ticks,room_mode,content_version) VALUES(?,?,?,?,?,?,?,?,?,?,?)")) {
+            try(var s=db.prepareStatement("INSERT OR IGNORE INTO matches(id,map_id,map_hash,mode,started,ended,reason,seed,duration_ticks,room_mode,content_version,ranking_rule) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")) {
                 s.setLong(1,r.id);
                 s.setInt(2,r.mapId);
                 s.setString(3,r.mapHash);
@@ -284,10 +291,10 @@ public class Database implements AutoCloseable  {
                 s.setInt(7,r.reason);
                 s.setLong(8,r.seed);
                 if(r.durationTicks==null)s.setNull(9,Types.INTEGER);else s.setInt(9,r.durationTicks);
-                s.setString(10,r.roomMode);s.setString(11,r.contentVersion);
+                s.setString(10,r.roomMode);s.setString(11,r.contentVersion);s.setString(12,r.rankingRule);
                 s.executeUpdate();
             }
-            try(var s=db.prepareStatement("INSERT OR IGNORE INTO match_players(match_id,account_id,nickname,slot,kills,deaths,rank,disconnected,nation_id) VALUES(?,?,?,?,?,?,?,?,?)")) {
+            try(var s=db.prepareStatement("INSERT OR IGNORE INTO match_players(match_id,account_id,nickname,slot,kills,deaths,rank,disconnected,nation_id,bot_origin) VALUES(?,?,?,?,?,?,?,?,?,?)")) {
                 for(var p:r.players) {
                     s.setLong(1,r.id);
                     s.setLong(2,p.account);
@@ -298,6 +305,7 @@ public class Database implements AutoCloseable  {
                     s.setInt(7,p.rank);
                     s.setInt(8,p.disconnected?1:0);
                     if(p.nationId==null)s.setNull(9,Types.INTEGER);else s.setInt(9,p.nationId);
+                    if(p.botOrigin==null)s.setNull(10,Types.INTEGER);else s.setInt(10,p.botOrigin?1:0);
                     s.addBatch();
                 }
                 s.executeBatch();
@@ -336,7 +344,7 @@ public class Database implements AutoCloseable  {
         retry.shutdownNow();
         for(Result r:pending.values())spoolOnly(r);
         retryPending();
-        wallet.retry();
+        wallet.retry();evidence.close();
         worker.shutdown();
         try {
             worker.awaitTermination(15,TimeUnit.SECONDS);

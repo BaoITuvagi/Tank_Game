@@ -29,10 +29,10 @@ final class RoleplayShop {
         state(s,m,seq);
     }
     void state(Server.Session s,Room.Member m,int seq) {
-        int wave=wave();wallet(s,room.server.db,seq,room.match,wave,m.roleplay.shopWave==wave?m.roleplay.shopMask:0,m.roleplay.inventoryRevision,m.roleplay.inventory.clone());
+        int wave=wave();wallet(s,room.server.db,seq,room.match,wave,m.roleplay.shopMask,m.roleplay.inventoryRevision,m.roleplay.inventory.clone());
     }
     boolean active(Server.Session s,Room.Member m,long match,int item) {
-        return !room.stopRequested&&room.alive&&room.phase==RoomState.RUNNING&&room.world!=null&&room.match==match&&room.member(s)==m&&!m.rejoining&&s.open&&s.account!=null&&s.account.id()==m.account.id()&&item>=0&&item<GameRules.ItemTypeCount&&room.world.tanks.containsKey(m.slot)&&room.world.tanks.get(m.slot).hp>0;
+        return !room.stopRequested&&room.alive&&room.phase==RoomState.RUNNING&&room.world!=null&&room.match==match&&room.member(s)==m&&!m.rejoining&&m.control==Room.Control.HUMAN&&s.open&&s.account!=null&&s.account.id()==m.account.id()&&item>=0&&item<GameRules.ItemTypeCount&&room.world.tanks.containsKey(m.slot)&&room.world.tanks.get(m.slot).hp>0;
     }
     boolean valid(Server.Session s,Room.Member m,long match,int wave,int item) {
         return active(s,m,match,item)&&wave>0&&wave()==wave;
@@ -52,9 +52,9 @@ final class RoleplayShop {
         if(m==null||!valid(s,m,match,wave,item)){failure(s,seq,"Chỉ mua khi xe còn sống và đợt vật phẩm đang mở.");return;}
         var player=m.roleplay;
         if(player.shopPending!=null){failure(s,seq,"Đang xử lý giao dịch trước.");return;}
-        if(player.shopWave!=wave){player.shopWave=wave;player.shopMask=0;}
-        if((player.shopMask&(1<<item))!=0){failure(s,seq,"Bạn đã mua loại này trong đợt hiện tại.");return;}
-        var purchase=new WalletStore.Purchase(match,m.account.id(),wave,item);
+
+        if((player.shopMask&(1<<item))!=0){failure(s,seq,"Bạn đã mua loại này trong trận hiện tại.");return;}
+        var purchase=new WalletStore.Purchase(match,m.account.id(),0,item);
         player.shopPending=purchase;
         room.server.db.submit(()->WalletStore.reserve(room.server.db.db,purchase)).whenComplete((gold,error)->{
             Runnable complete=()->{

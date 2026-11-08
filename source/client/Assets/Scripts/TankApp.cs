@@ -185,7 +185,7 @@ namespace Tank  {
                 GUI.enabled=true;
                 if(playing&&AnyDialog){menu.Init();GUI.skin=menu.Skin;}
                 DrawDialogs();
-                DrawReportToast();
+                DrawReportToast();DrawTakeControlOverlay();
                 if(viewport)GUI.EndScrollView();
                 DrawPreferencesDialog();
                 SkillDetailsUi.Draw(viewWidth,viewHeight);
