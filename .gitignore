@@ -4,6 +4,7 @@
 /tmp/
 /.local-archive/
 /plan/
+/ui-preview/
 
 # Local Codex instructions, prompts, activity and reference documentation
 .agents/
