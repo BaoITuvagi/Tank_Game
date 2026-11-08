@@ -54,6 +54,8 @@ Giao diện nghiệp vụ v22: chủ phòng bấm ô trống thêm AI, có nhãn
 
 Menu và arena dùng **IMGUI**. [TankApp.OnGUI, Arena](../source/client/Assets/Scripts/TankApp.cs) chọn màn hình theo phase của client; [TankApp.DrawMenus, DrawDialogs](../source/client/Assets/Scripts/TankMenus.cs) phụ trách đăng nhập/đăng ký, lobby, phòng, lịch sử, kết quả và hộp thoại. Bộ chọn quốc gia của Nhập vai ở [TankApp.NationSelector](../source/client/Assets/Scripts/TankRoleplayMenus.cs).
 
+Form tạo/sửa phòng đóng sau xác nhận server trong `UpdateRoomForm`, trước cặp IMGUI Layout/Repaint; không đổi màn giữa hai lượt vẽ. Cảnh báo AFK ghi thời gian còn lại trước khi dừng điều khiển, chỉ hiện khi người chơi vẫn điều khiển xe; khi chờ trở lại hoặc AI tiếp quản, chỉ hiện nút **Tiếp quản xe**.
+
 Form đăng ký có ô **Nhập lại mật khẩu**, được che ký tự như ô mật khẩu. Client kiểm tra hai giá trị trùng khớp trước khi kết nối/gửi yêu cầu đăng ký; ô xác nhận không được gửi lên server. Đăng nhập không yêu cầu xác nhận mật khẩu.
 
 ### Chọn bản đồ khi tạo phòng multiplayer

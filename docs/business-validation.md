@@ -45,3 +45,10 @@ ExecutionPolicy Bypass chỉ áp dụng tiến trình PowerShell trên, không �
 - Harness, database, log và file QA của lượt này được dọn sau kiểm chứng theo hướng dẫn repository; không thêm test/harness vào Git. Giữ bản build bàn giao.
 
 Chưa kiểm tra trực quan các nút/màn mới trên các kích thước màn hình, chưa chạy browser thao tác admin cho timeline mới và chưa playtest cân bằng. Không triển khai server chính hoặc publish release trong lượt này.
+
+## Kiểm tra riêng hai lỗi giao diện, 08/11/2026
+
+- Phạm vi đợt sửa này chỉ gồm cảnh báo AFK và lỗi IMGUI khi form phòng nhận xác nhận server; không chạy lại bộ nghiệp vụ rộng hoặc truy cập admin web.
+- EXE Unity mới ở 960×600: tạo phòng Thường, lưu thay đổi thời gian phòng, rồi tạo phòng Nhập vai. Các form đóng và hiện phòng đúng; log không còn `ArgumentException` hoặc `GUI Error`. Việc đóng form được xử lý trong `UpdateRoomForm` trước Layout/Repaint.
+- Quan sát cảnh báo AFK thật: hiển thị “Dừng điều khiển sau … giây”; khi chuyển `WAITING_RETURN` và `AI` chỉ còn nút Tiếp quản xe, không còn cảnh báo AFK cũ. Sau bấm tiếp quản, cảnh báo và nút tiếp quản đều ẩn.
+- Build bằng Unity **6000.3.24f1**, phương thức có sẵn `BuildClient.BuildUiRevision` (giữ scene). Đã cập nhật `build/client` từ bản build này và đối chiếu SHA-256 `Tank.Runtime.dll` trùng khớp. Server dùng bản hiện có, database QA riêng. File tạm/log/database QA được dọn sau kiểm tra.

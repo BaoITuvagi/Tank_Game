@@ -93,6 +93,7 @@ namespace Tank  {
             if(skillAudio==null)skillAudio=new SkillSounds();
             arenaRenderer.UpdateEffects(client,Time.unscaledDeltaTime,skillAudio);
             ResetMenusForAccount();
+            UpdateRoomForm();
             UpdateRoleplayShop();
             UpdateCampaign();
             client.Smooth(Time.unscaledDeltaTime);
@@ -314,12 +315,12 @@ namespace Tank  {
                 CartoonUi.Panel(respawn,CartoonUi.PanelDark,12,3);
                 GUI.Label(new Rect(respawn.x+14,respawn.y+12,respawn.width-28,30),"Xe bị phá hủy · Hồi sinh sau "+seconds+" giây",arenaTheme.White);
             }
-            if(client.AfkWarning) {
+            if(client.AfkWarning&&!client.NeedsTakeover) {
                 int remaining=Mathf.Max(0,ClientCore.AfkGraceSeconds-(int)((ClientCore.NowUs-client.AfkWarnedAt)/1e6));
                 float noticeWidth=Mathf.Min(500,map.width*scale-32);
                 Rect warn=new Rect(arenaX+(map.width*scale-noticeWidth)/2,arenaY+16,noticeWidth,64);
                 CartoonUi.Panel(warn,CartoonUi.Gold,12,3);
-                GUI.Label(new Rect(warn.x+14,warn.y+8,warn.width-28,52),"Bạn đang AFK · Về sảnh sau "+remaining+" giây\nDi chuyển, ngắm hoặc bắn để tiếp tục.",afkText??(afkText=CartoonUi.Label(16,CartoonUi.Ink)));
+                GUI.Label(new Rect(warn.x+14,warn.y+8,warn.width-28,52),"Bạn đang AFK · Dừng điều khiển sau "+remaining+" giây\nDi chuyển, ngắm hoặc bắn để tiếp tục.",afkText??(afkText=CartoonUi.Label(16,CartoonUi.Ink)));
             }
         }
         void DrawLeaveMatchDialog() {

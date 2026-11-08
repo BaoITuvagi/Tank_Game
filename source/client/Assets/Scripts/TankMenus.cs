@@ -434,17 +434,14 @@ namespace Tank  {
                 GUILayout.Space(8);
             }
         }
+        void UpdateRoomForm() {
+            // Complete server-confirmed transitions before IMGUI Layout/Repaint share a layout tree.
+            if(roomForm&&(editingRoom?client.SettingsRevision!=savedSettingsRevision:client.Phase==ClientPhase.ROOM)) {
+                roomForm=false;
+                formError="";
+            }
+        }
         void DrawRoomForm(Rect area) {
-            if(editingRoom&&client.SettingsRevision!=savedSettingsRevision) {
-                roomForm=false;
-                formError="";
-                return;
-            }
-            if(!editingRoom&&client.Phase==ClientPhase.ROOM) {
-                roomForm=false;
-                formError="";
-                return;
-            }
             float w=Mathf.Min(920,area.width),h=Mathf.Min(560,area.height);
             Rect card=new Rect(area.center.x-w/2,area.center.y-h/2,w,h);
             menu.Card(card,editingRoom?"Cài đặt phòng":"Tạo phòng");
