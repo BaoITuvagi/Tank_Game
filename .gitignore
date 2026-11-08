@@ -139,6 +139,9 @@ Desktop.ini
 *~
 *.dmp
 *.stackdump
+*.pid
+*.hprof
+*.jfr
 
 # Distribution archives belong in GitHub Releases, not source control
 *.zip

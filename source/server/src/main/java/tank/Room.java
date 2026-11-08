@@ -12,6 +12,7 @@ public class Room  {
     final RoomMode roomMode;
     final RoleplayMatch roleplay;
     final MatchChat chat=new MatchChat(this);
+    final BotLobby bots=new BotLobby(this);
     volatile String name;
     volatile int capacity,matchTicks,startingHp=World.DEFAULT_HP;
     final RoomAccess access=new RoomAccess();
@@ -50,6 +51,7 @@ public class Room  {
         boolean forceFull=true;
         final LinkedHashMap<Integer,byte[]> cache=new LinkedHashMap<>();
         final RoleplayMatch.Player roleplay=new RoleplayMatch.Player();
+        BotBrain bot;
         Member(Server.Session s,int slot) {
             session=s;
             account=s.account;
@@ -58,7 +60,7 @@ public class Room  {
         }
         boolean canRejoin() {
             // Leaving to recover a weak connection must not forfeit the running match.
-            return disconnected&&leaveReason>=0&&leaveReason<=3;
+            return !session.bot&&disconnected&&leaveReason>=0&&leaveReason<=3;
         }
     }
     Room(Server s,int id,String name) {
@@ -111,6 +113,7 @@ public class Room  {
         if(roleplay!=null)roleplay.shop.tick();
         if(stopRequested) {
             if(phase==RoomState.RUNNING)finish(2);
+            bots.close();
             alive=false;
             return;
         }
@@ -127,9 +130,11 @@ public class Room  {
         }
         for(Member removed:new ArrayList<>(members.values()))if(!removed.session.open)leave(removed.session,1);
         long now=Server.nowUs();
+        if(!alive)return;
+        bots.tick(now);
         if(phase==RoomState.PREPARING) {
             if(roleplay!=null)roleplay.tick(now);
-            if(roleplay==null&&!announced&&members.values().stream().allMatch(m->m.prepared&&m.session.endpoint!=null)) {
+            if(roleplay==null&&!announced&&members.values().stream().allMatch(m->m.prepared&&(m.session.bot||m.session.endpoint!=null))) {
                 announced=true;
                 startUs=now+3_000_000;
                 for(Member m:members.values())m.session.event(START,new Writer().u64(match).u64(startUs).done());
@@ -152,7 +157,7 @@ public class Room  {
         if(phase==RoomState.RUNNING) {
             for(Member m:new ArrayList<>(members.values())) {
                 if(phase!=RoomState.RUNNING)break;
-                if(System.nanoTime()-m.session.lastUdp>UDP_TIMEOUT_NANOS)leave(m.session,2);
+                if(!m.session.bot&&System.nanoTime()-m.session.lastUdp>UDP_TIMEOUT_NANOS)leave(m.session,2);
             }
             if(phase!=RoomState.RUNNING)return;
             Map<Integer,World.Input> inputs=new HashMap<>();
@@ -164,6 +169,7 @@ public class Room  {
                     continue;
                 }
                 World.Tank t=world.tanks.get(m.slot);
+                if(m.bot!=null){inputs.put(m.slot,m.bot.input());continue;}
                 World.Input in=m.input.resolve(world.tick+1,t.turret);
                 inputs.put(m.slot,in);
                 long activityNow=System.nanoTime();
@@ -315,13 +321,16 @@ public class Room  {
             s.error(ACTION_RESULT,seq,Error.INVALID_STATE);
             return;
         }
-        if(hp<1||hp>World.MAX_START_HP||cap<Math.max(2,members.size())||cap>server.cfg.integer("max.players",8)||seconds<60||seconds>600||seconds%60!=0||value.isBlank()||value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length>48||passwordMode<0||passwordMode>2||(passwordMode==2&&password.isEmpty())) {
+        int humans=(int)members.values().stream().filter(m->!m.session.bot).count();
+        if(hp<1||hp>World.MAX_START_HP||cap<Math.max(2,humans)||cap>server.cfg.integer("max.players",8)||seconds<60||seconds>600||seconds%60!=0||value.isBlank()||value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length>48||passwordMode<0||passwordMode>2||(passwordMode==2&&password.isEmpty())) {
             s.error(ACTION_RESULT,seq,Error.INVALID_REQUEST);
             return;
         }
         RoomAccess.validate(password);
         if(passwordMode==1)access.set("");
         else if(passwordMode==2)access.set(password);
+        if(access.locked)bots.clear();
+        else for(var m:new ArrayList<>(members.values()))if(m.session.bot&&members.size()>cap)leave(m.session,4);
         name=value.strip();
         capacity=cap;
         matchTicks=seconds*30;
@@ -374,7 +383,7 @@ public class Room  {
         for(Member m:members.values()) {
             world.add(m.slot);
             m.rejoining=false;
-            m.prepared=false;
+            m.prepared=m.session.bot;
             m.afkWarn=false;
             m.afkSince=0;
             m.previousAim=world.tanks.get(m.slot).turret;
@@ -384,6 +393,7 @@ public class Room  {
             m.forceFull=true;
             m.cache.clear();
             m.input=new InputBuffer();
+            if(m.bot!=null)m.bot.reset();
             participants.add(m);
         }
         previousSpawnLayout=world.arrangeInitialSpawns(previousSpawnLayout);
@@ -453,7 +463,8 @@ public class Room  {
             s.error(ACTION_RESULT,seq,Error.INVALID_STATE);
             return;
         }
-        leave(members.get(slot).session,4);
+        var kicked=members.get(slot);bots.removed(kicked,true);
+        leave(kicked.session,4);
         s.ok(ACTION_RESULT,seq);
     }
     void leave(Server.Session s,int reason) {
@@ -463,6 +474,7 @@ public class Room  {
             return;
         }
         members.remove(m.slot);
+        bots.removed(m,false);
         m.disconnected=true;
         if(roleplay!=null) {
             if(m.roleplay.usMetricsOpen)System.out.println("ROLEPLAY_UTILITY match="+match+" account="+m.account.id()+" censored=true reason=leave");
@@ -482,7 +494,11 @@ public class Room  {
             s.endpoint=null;
         }
         s.event(REMOVED,new Writer().u32(id).u8(m.slot).u8(reason).done());
-        if(host==m.slot)host=members.isEmpty()?-1:members.keySet().iterator().next();
+        if(host==m.slot)host=members.values().stream().filter(x->!x.session.bot).mapToInt(x->x.slot).findFirst().orElse(-1);
+        if(!s.bot&&!bots.hasHuman()) {
+            if(phase==RoomState.RUNNING)finish(1);
+            bots.clear();bots.close();alive=false;server.rooms.remove(id,this);return;
+        }
         if(phase==RoomState.RUNNING&&activeCount()<2)finish(1);
         else if(phase==RoomState.PREPARING) {
             if(roleplay!=null)roleplay.cancel("Hủy chuẩn bị: thành viên rời phòng");
@@ -532,6 +548,7 @@ public class Room  {
         lastEncode=System.nanoTime()-before;
         long send=System.nanoTime();
         for(Member m:members.values()) {
+            if(m.session.bot)continue;
             Writer w=new Writer().u64(match).u32(snapshotId).u32(world.tick).u64(Server.nowUs()).u32(world.tick).u16(Math.max(0,matchTicks-world.tick));
             byte[] base=m.cache.get(m.ack);
             byte[] delta=null;

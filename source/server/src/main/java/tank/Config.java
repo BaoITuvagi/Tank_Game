@@ -23,7 +23,11 @@ public class Config  {
             "impairment.delay.ms","impairment.jitter.ms","impairment.burst.period.ms","impairment.burst.duration.ms"
         })if(number(key,0)<0)throw new IllegalArgumentException(key);
         mode();
+        if(integer("bots.fill.delay.seconds",15)<1||integer("bots.fill.delay.seconds",15)>3600)throw new IllegalArgumentException("bots.fill.delay.seconds");
+        int botMin=integer("bots.join.min.seconds",1),botMax=integer("bots.join.max.seconds",3);
+        if(botMin<1||botMax<botMin||botMax>60)throw new IllegalArgumentException("bot join interval");
     }
+    public boolean botsEnabled(){return Boolean.parseBoolean(value("bots.enabled",flag("benchmark")?"false":"true"));}
     public String value(String k,String d) {
         return p.getProperty(k,d);
     }

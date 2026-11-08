@@ -59,6 +59,7 @@ public class Database implements AutoCloseable  {
         CampaignStore.schema(db);
         WalletStore.schema(db);
         PlayerReports.schema(db);
+        migrateColumn("accounts","is_bot","INTEGER NOT NULL DEFAULT 0");
         reports=new PlayerReports(this);
         wallet=new WalletStore(this);
         migrateDurationColumn();
@@ -165,7 +166,7 @@ public class Database implements AutoCloseable  {
     public Account login(String username,String password)throws Exception {
         credentials(username,password);
         String u=username.toLowerCase(Locale.ROOT);
-        try(var s=db.prepareStatement("SELECT id,username,salt,hash,iterations FROM accounts WHERE username=?")) {
+        try(var s=db.prepareStatement("SELECT id,username,salt,hash,iterations FROM accounts WHERE username=? AND is_bot=0")) {
             s.setString(1,u);
             try(var r=s.executeQuery()) {
                 if(!r.next()||!MessageDigest.isEqual(r.getBytes(4),hash(password,r.getBytes(3),r.getInt(5))))throw new Failure(Protocol.Error.INVALID_CREDENTIALS);

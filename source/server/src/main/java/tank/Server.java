@@ -15,6 +15,7 @@ public class Server implements AutoCloseable  {
     final GameMap map,largeMap;
     final MapCatalog maps;
     final Database db;
+    final BotPool bots;
     final ConcurrentHashMap<Integer,Room> rooms=new ConcurrentHashMap<>();
     final Set<Session> connections=ConcurrentHashMap.newKeySet();
     final ConcurrentHashMap<Long,Session> accounts=new ConcurrentHashMap<>();
@@ -66,6 +67,7 @@ public class Server implements AutoCloseable  {
         tcp=listener;
         udp=datagram;
         db=database;
+        bots=new BotPool(db);
         metrics=recorder;
         transport=wrapper;
         matchId=nextMatch;
@@ -110,6 +112,7 @@ public class Server implements AutoCloseable  {
         volatile String historyKey;
         CampaignSession campaign=new CampaignSession(this,db);
         final Socket socket;
+        final boolean bot;
         final ArrayBlockingQueue<byte[]> outbound=new ArrayBlockingQueue<>(128);
         final RateLimit actions=new RateLimit(10,10),udpRate=new RateLimit(120,240);
         volatile Database.Account account;
@@ -126,13 +129,16 @@ public class Server implements AutoCloseable  {
         int quickSequence;
         final AtomicInteger sequence=new AtomicInteger();
         Session(Socket s) {
-            socket=s;
+            socket=s;bot=false;
+        }
+        Session(Database.Account synthetic) {
+            socket=null;bot=true;account=synthetic;nickname=synthetic.name();
         }
         String displayName() {
             return nickname!=null?nickname:account==null?"":account.name();
         }
         String ip() {
-            return socket.getInetAddress().getHostAddress();
+            return bot?"server-bot":socket.getInetAddress().getHostAddress();
         }
         void start() {
             Thread.ofVirtual().name("tcp-writer").start(()-> {
@@ -159,6 +165,7 @@ public class Server implements AutoCloseable  {
             });
         }
         void send(int op,int seq,byte[] payload) {
+            if(bot)return;
             if(open&&!outbound.offer(frame(op,seq,payload)))close();
         }
         void event(int op,byte[] payload) {
@@ -557,6 +564,7 @@ public class Server implements AutoCloseable  {
         }
         synchronized boolean closeWithReason(String reason) {
             if(!open)return false;
+            if(bot){open=false;leave(1);return true;}
             if(admin!=null)admin.store.identity(this,reason);
             open=false;
             leave(1);

@@ -68,7 +68,7 @@ final class RoleplayMatch {
     }
     void tick(long now) {
         if(stage==PrepStage.LOADING) {
-            if(room.members.values().stream().allMatch(m->m.prepared&&m.session.endpoint!=null)) {
+            if(room.members.values().stream().allMatch(m->m.prepared&&(m.session.bot||m.session.endpoint!=null))) {
                 publishLoadout(now);
             }
             else if(now>=room.deadline)cancel("Hủy chuẩn bị: tải trận quá hạn");
@@ -88,7 +88,7 @@ final class RoleplayMatch {
         room.participants.stream().sorted(Comparator.comparingInt(m->m.slot)).forEach(m-> {
             Player p=m.roleplay;w.u8(m.slot).u8(p.nation);
             World.Tank tank=room.world.tanks.get(m.slot);tank.nation=p.nation;
-            p.loadoutConfirmed=false;
+            p.loadoutConfirmed=m.session.bot;
         });
         byte[] canonical=w.done();
         try {loadoutHash=MessageDigest.getInstance("SHA-256").digest(canonical);}
