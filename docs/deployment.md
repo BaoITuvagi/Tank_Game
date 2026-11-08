@@ -112,7 +112,7 @@ Khi phát hành, tải ZIP lên cùng `TankBattle.exe`, `manifest.json` và `lau
 <a id="connect"></a>
 ## Kết nối tới server cố định
 
-Client khi chơi qua giao diện luôn kết nối tới **`13.75.2.41`**, TCP **8888**, UDP **8889**, theo các hằng trong [TankApp.cs](../source/client/Assets/Scripts/TankApp.cs). Đã bỏ màn hình chọn kết nối; cấu hình `connection.json` cũ trên máy không được đọc. Để tạo bản client dùng server khác, sửa `ServerHost`, `ServerTcpPort`, `ServerUdpPort` rồi build lại. Tham số `--host`, `--tcp`, `--udp` của smoke harness không đổi endpoint của giao diện chơi bình thường.
+Client thường kết nối tới **`13.75.2.41`**, TCP **8888**, UDP **8889**, theo các hằng trong [TankApp.cs](../source/client/Assets/Scripts/TankApp.cs); bản `BuildLocal()` đặt host `127.0.0.1`, giữ cổng 8888/8889. Đã bỏ màn hình chọn kết nối; cấu hình `connection.json` cũ trên máy không được đọc. Cờ `--ui-test` khởi động riêng luồng tự đăng nhập loopback với cổng demo, xem [demo nhiều client](#local-demo). Các cờ `--tcp`, `--udp` đứng riêng không đổi endpoint của giao diện chơi bình thường. Để tạo bản client thường dùng server khác, sửa `ServerHost`, `ServerTcpPort`, `ServerUdpPort` rồi build lại.
 
 Trên cloud, server phải bind vào địa chỉ nhận kết nối bên ngoài, chẳng hạn `bind=0.0.0.0` như `config/server.properties`, và cho phép **TCP 8888**, **UDP 8889** qua cả firewall hệ điều hành lẫn quy tắc mạng của cloud. `0.0.0.0` là địa chỉ bind phía server; địa chỉ đích của client vẫn là IP server. Có thể kiểm tra TCP từ máy chơi bằng `Test-NetConnection -ComputerName 13.75.2.41 -Port 8888`; kết quả thành công chưa xác nhận UDP hoặc khả năng vào trận.
 
@@ -178,11 +178,23 @@ Demo dùng server và dữ liệu riêng. Sau khi build server/client cùng đ�
 
 [demo.properties](../config/demo.properties) đặt `bind=127.0.0.1`, TCP **23888**, UDP **23889**, tối đa 16 phiên/4 phòng và `benchmark=true`. Database, spool, CSV và log nằm riêng trong `runtime/demo/`. Đây là demo chỉ trên cùng máy; cấu hình bind loopback không cho máy LAN kết nối.
 
-**Smoke tự động:** bản client build với IP cloud vẫn có thể chạy `--smoke --host 127.0.0.1 --tcp 23888 --udp 23889`. Chạy đủ hai lệnh chủ phòng/người tham gia tại smoke hai client, với hai tài khoản và hai file output riêng; harness tự đăng ký/đăng nhập, tạo/tham gia phòng, ready, chơi trận và kiểm tra lịch sử. Thêm `--roleplay` vào cả hai lệnh để kiểm tra Nhập vai. Đây là luồng kiểm thử tự động qua `ClientCore`, không phải thao tác giao diện thủ công.
+**Test nhanh qua giao diện:** build lại client có [TankLocalUiTest](../source/client/Assets/Scripts/TankLocalUiTest.cs), rồi chạy ba lệnh dưới đây trong PowerShell tại repo root (giữ terminal server mở):
 
-**Kiểm tra thủ công:** cần bản client dành cho demo. Trước khi build, đổi các hằng trong `TankApp.cs` thành `ServerHost="127.0.0.1"`, `ServerTcpPort=23888`, `ServerUdpPort=23889`. Giữ bản build demo trong thư mục riêng, mở ít nhất hai cửa sổ với tài khoản khác nhau và kiểm tra theo checklist thủ công. Với Nhập vai, chọn quốc gia khác nhau trước khi ready. Bản client cloud mở bình thường vẫn kết nối cloud dù server demo đang chạy; không có ô nhập host/cổng hoặc cấu hình kết nối đã lưu để chuyển server.
+```powershell
+.\scripts\start-server.cmd -Config config/demo.properties
+.\build\client\TankBattle.exe --ui-test --account local_ui_1 --tcp 23888 --udp 23889
+.\build\client\TankBattle.exe --ui-test --account local_ui_2 --tcp 23888 --udp 23889
+```
 
-Sau khi thử thủ công, khôi phục các hằng endpoint cloud và build lại client trước khi đóng gói/phân phối. Đóng client và Ctrl+C server demo khi xong; giữ database/log/output demo riêng trong `runtime/`, không đưa vào Git.
+`--ui-test` cố định host `127.0.0.1`, mặc định TCP/UDP `23888/23889`; không cần sửa endpoint trong source hay đổi cổng demo. Client tự đăng ký tài khoản thử nếu chưa có, rồi đăng nhập bằng mật khẩu thử của harness cũ. Tài khoản đã tồn tại được đăng nhập lại, không đổi mật khẩu/dữ liệu. Mỗi cửa sổ cần tên tài khoản khác nhau, dài 3–24 ký tự gồm chữ không dấu, số hoặc `_`. Nếu tài khoản có mật khẩu khác, đang đăng nhập hoặc bị khóa, client hiện lỗi và dừng tự đăng nhập. Giá trị cổng phải từ 1 đến 65535; thiếu tham số hoặc quá hạn cũng hiện lỗi. Có thể xem dấu `LOCAL_UI_LOGIN` trong Unity player log.
+
+Sau đăng nhập, chọn chế độ và tạo/vào phòng, ready, bắt đầu trận bằng giao diện bình thường. Với Nhập vai, chọn quốc gia khác nhau trước khi ready. Luồng này dùng đăng ký/đăng nhập TCP hiện tại, không bỏ qua xác thực. Bỏ `--ui-test` thì client dùng endpoint mặc định của bản build; các cờ `--account`, `--tcp`, `--udp` riêng lẻ không đổi kết nối thông thường.
+
+Harness `--smoke` và các công cụ preview/QA cũ đã bị loại khỏi source được theo dõi; các hướng dẫn smoke/preview cũ không áp dụng cho bản build thường hiện tại. `--ui-test` ở đây chỉ tự đăng nhập, không tự tạo phòng, ready hoặc chơi trận và không cung cấp `--ui-output`.
+
+Đóng client và Ctrl+C server demo khi xong; giữ database/log/output demo riêng trong `runtime/`, không đưa vào Git. Nếu đã đổi cổng trong `demo.properties`, truyền đúng cổng tương ứng cho cả hai client.
+
+Kiểm chứng 08/11/2026: Unity **6000.3.24f1**, `BuildClient.BuildCurrentScene` build thành công. Hai EXE mới chạy đồng thời với server Java và database QA riêng, tự đăng ký/đăng nhập hai tài khoản `local_ui_1`/`local_ui_2`; cả hai log ghi `phase=LOBBY`, không có exception. Harness .NET tạm dùng source `ClientCore` và bộ điều khiển đăng nhập thật đạt 10/10 trường hợp: tạo hai tài khoản đồng thời, dùng lại hai tài khoản, sai mật khẩu, cổng sai, thiếu tên tài khoản, tên không hợp lệ, không có cờ test và server chưa chạy. Toàn bộ source runtime cũng biên dịch được bằng Roslyn cùng reference Unity. Các file test/database QA tạm đã được dọn; database demo của người dùng được giữ nguyên. Chưa kiểm tra hình ảnh bằng công cụ chụp cửa sổ (native pipe không khả dụng), chưa chạy trận trong lượt kiểm chứng này.
 
 <a id="troubleshooting"></a>
 ## Log và xử lý lỗi

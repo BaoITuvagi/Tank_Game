@@ -11,6 +11,8 @@ Bổ sung nghiệp vụ **08/11/2026, protocol 22**: AI thêm thủ công theo s
 
 Bổ sung 07/11/2026: sảnh có **Vào trận nhanh** để vào ngẫu nhiên phòng Thường/Nhập vai đang chờ, còn chỗ và không khóa. Bảng kết quả có form tố cáo người chơi khác; server lưu đơn trong SQLite và web quản trị có hộp thư, xử lý trạng thái, biểu đồ số đơn 14 ngày. Xem [quick-join-and-reports.md](quick-join-and-reports.md) để biết wire, giới hạn và bằng chứng kiểm chứng.
 
+Test local qua giao diện: client thường hỗ trợ `--ui-test --account <tên> --tcp 23888 --udp 23889`, cố định host loopback và tự đăng ký/đăng nhập bằng tài khoản thử qua TCP hiện tại. Chạy hai client bằng hai tài khoản khác nhau cùng server `config/demo.properties`; xem [demo nhiều client](deployment.md#local-demo). Đây là luồng đăng nhập tối giản mới; harness smoke/preview và bộ test cũ đã bị loại khỏi source được theo dõi, dù một số mục tài liệu bên dưới vẫn còn mô tả chúng.
+
 Tank Battle là bài tập lớn môn Lập trình mạng: game xe tăng nhiều người chơi, server Java và client Unity trên Windows. Một server dùng chung quản lý tài khoản, phòng, trận và lịch sử trong SQLite; client kết nối qua LAN/VPN hoặc chạy cùng máy để thử nghiệm.
 
 Implementation có đăng ký/đăng nhập, tạo và tham gia phòng, ready, trận Thường/Nhập vai, kỹ năng Q theo đội, item, Red Zone/Bombstorm, kết quả, lịch sử và vào lại trận khi còn đủ điều kiện. Xem luật và giới hạn tại [gameplay](gameplay.md), không dùng các ý tưởng trong `plan/` làm danh sách tính năng đã có.

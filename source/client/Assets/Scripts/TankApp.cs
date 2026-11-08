@@ -45,6 +45,8 @@ namespace Tank  {
             SetupShopUiPreview();
             if(ArenaPreview.Enabled&&Array.IndexOf(Environment.GetCommandLineArgs(),"--preview-leave-confirm")>=0)leaveMatchForm=true;
             if(UxTestDriver.Enabled)new GameObject("UX Test Driver").AddComponent<UxTestDriver>().App=this;
+#else
+            SetupLocalUiTest();
 #endif
         }
         readonly AutoFireControl autoFire=new AutoFireControl();
@@ -86,6 +88,7 @@ namespace Tank  {
             }
 #endif
             client.Poll();
+            UpdateLocalUiTest();
             SkillAudio();
             if(skillAudio==null)skillAudio=new SkillSounds();
             arenaRenderer.UpdateEffects(client,Time.unscaledDeltaTime,skillAudio);
