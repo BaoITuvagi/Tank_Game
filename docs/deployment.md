@@ -36,7 +36,7 @@ Java phải là 21 và Maven phải đang dùng JDK 21. Nếu chưa tìm đúng,
 ./scripts/build-server.ps1
 ```
 
-[build-server.ps1](../scripts/build-server.ps1) chạy `python scripts/check-admin-integration.py --server` và `python scripts/sync-contracts.py --check`, sau đó Maven `clean package` gồm JUnit test và đóng gói JAR có dependency. Script mặc định làm sạch `source/server/target`, rồi xuất bản `build/server/tank-server-1.0.0.jar` qua file tạm. Kết quả test ở `source/server/target/surefire-reports/`; fixture Java/C# ở `source/server/target/interop/`. Không dùng `--check` để cập nhật generated code: quy trình sửa contract nằm ở [shared contracts](protocol.md#shared-contracts).
+[build-server.ps1](../scripts/build-server.ps1) chạy `python scripts/check-admin-integration.py --server` và `python scripts/sync-contracts.py --check`, sau đó Maven `clean package -Dmaven.test.skip=true` và đóng gói JAR có dependency. Bộ test QA đã được loại khỏi Git; build mặc định không biên dịch/chạy các test cục bộ có thể đã cũ. Muốn chạy chúng, dùng `./scripts/build-server.ps1 -RunLocalTests`; kết quả nằm ở `source/server/target/surefire-reports/`, fixture Java/C# ở `source/server/target/interop/`. Script mặc định làm sạch `source/server/target`, rồi xuất bản `build/server/tank-server-1.0.0.jar` qua file tạm. Không dùng `--check` để cập nhật generated code: quy trình sửa contract nằm ở [shared contracts](protocol.md#shared-contracts).
 
 Script có `-JavaHome <thu-muc-JDK>` và `-BuildDirectory <duong-dan>` khi cần chọn riêng; output khác `target` chỉ được chấp nhận trong cây `runtime/` hoặc `build/`, với tên thư mục cuối bắt đầu bằng `server-`. Dùng đường dẫn mặc định cho quy trình thông thường và xem thứ tự tạo fixture/test trước khi tùy chỉnh output.
 
@@ -97,7 +97,7 @@ Người chơi launcher cũ tải lại bản có cơ chế tự cập nhật m�
 
 ### ZIP launcher để tải trực tiếp
 
-Release [v1.0.8](https://github.com/BaoITuvagi/Tank_Game/releases/tag/v1.0.8) cung cấp `TankBattle-launcher-win64.zip`. Người chơi giải nén rồi chạy `TankBattle.exe`; launcher tự tải game. ZIP chứa launcher 1.2.2, còn manifest game tiếp tục trỏ tới gói game 1.0.7. Số phiên bản release không thay thế hai phiên bản này.
+Release [v1.0.10](https://github.com/BaoITuvagi/Tank_Game/releases/tag/v1.0.10) cung cấp `TankBattle-launcher-win64.zip`. Người chơi giải nén rồi chạy `TankBattle.exe`; launcher tự tải game. ZIP chứa launcher 1.2.2; manifest game trỏ tới gói game 1.0.10 tại release `game-v1.0.10`. Giữ cấu trúc bốn asset của v1.0.9: ZIP launcher, EXE launcher và hai manifest; ZIP game được lưu tại release game riêng.
 
 Để đóng gói lại một launcher đã phát hành mà không biên dịch hoặc đổi nội dung executable:
 
