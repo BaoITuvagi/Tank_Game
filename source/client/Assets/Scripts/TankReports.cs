@@ -51,12 +51,12 @@ namespace Tank {
             float optionWidth=(contentWidth-8)/2;
             for(int row=0;row<3;row++) {
                 float optionHeight=48;
-                for(int col=0;col<2;col++){int index=row*2+col;optionHeight=Mathf.Max(optionHeight,reportOption.CalcHeight(new GUIContent("[x] "+ClientCore.ReportReasons[index]),optionWidth));}
+                for(int col=0;col<2;col++){int index=row*2+col;optionHeight=Mathf.Max(optionHeight,reportOption.CalcHeight(new GUIContent(ClientCore.ReportReasons[index]),optionWidth));}
                 GUILayout.BeginHorizontal();
                 for(int col=0;col<2;col++) {
                     int index=row*2+col,bit=1<<index;bool selected=(reportReasons&bit)!=0;
                     if(col>0)GUILayout.Space(8);
-                    bool value=GUILayout.Toggle(selected,(selected?"[x] ":"[ ] ")+ClientCore.ReportReasons[index],reportOption,GUILayout.Width(optionWidth),GUILayout.Height(optionHeight));
+                    bool value=GUILayout.Toggle(selected,ClientCore.ReportReasons[index],reportOption,GUILayout.Width(optionWidth),GUILayout.Height(optionHeight));
                     if(value)reportReasons|=bit;else reportReasons&=~bit;
                 }
                 GUILayout.EndHorizontal();GUILayout.Space(5);
